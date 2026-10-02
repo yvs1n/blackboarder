@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "Blackboarder: Academic Calendar & Deadline Companion",
+  "version": "1.0.0",
+  "description": "Extracts assignments, quizzes, and course deadlines from Blackboard Learn with calendar sync, syllabus weighting, and quick links.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "Blackboarder",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "src/popup/index.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://blackboard.sharjah.ac.ae/*",
+        "https://*.blackboard.com/*",
+        "https://*.sharjah.ac.ae/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "alarms",
+    "notifications",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://blackboard.sharjah.ac.ae/*",
+    "https://*.blackboard.com/*",
+    "https://*.sharjah.ac.ae/*",
+    "https://openrouter.ai/*",
+    "https://api.typesafe.ai/*",
+    "https://*.pages.dev/*",
+    "http://*.pages.dev/*",
+    "https://*.workers.dev/*",
+    "https://*.firebasedatabase.app/*",
+    "https://*.firebaseio.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+B",
+        "mac": "Alt+Shift+B"
+      },
+      "description": "Open Blackboarder"
+    }
+  }
+}
+

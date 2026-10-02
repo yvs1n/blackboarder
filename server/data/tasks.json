@@ -1,0 +1,82 @@
+{
+  "tasks": [
+    {
+      "id": "int-task-1",
+      "courseCode": "1440131",
+      "courseName": "Calculus I for Engineering",
+      "title": "Calculus Midterm Exam",
+      "description": "Covers Chapters 1 to 4",
+      "dueDate": "2026-10-20T12:30:00.000Z",
+      "hasSpecificTime": true,
+      "type": "exam",
+      "priority": "high",
+      "status": "completed",
+      "weight": 30,
+      "weightDisplay": "30% Midterm (Paper)",
+      "sourceSnippet": "Midterm exam is on October 20 at 12:30 PM.",
+      "confidence": 1,
+      "extractedBy": "ai",
+      "createdAt": "2026-10-02T15:47:34.147Z",
+      "updatedAt": "2026-10-02T15:47:34.219Z"
+    },
+    {
+      "id": "int-task-2",
+      "courseCode": "0401102",
+      "courseName": "Introduction to Computer Engineering",
+      "title": "Computer Eng Quiz 3",
+      "description": "Logic Gates and Boolean Algebra",
+      "dueDate": "2026-10-22T11:00:00.000Z",
+      "hasSpecificTime": true,
+      "type": "quiz",
+      "priority": "medium",
+      "status": "pending",
+      "weight": 6.67,
+      "weightDisplay": "6.7% per Quiz",
+      "sourceSnippet": "Quiz 3 will be held on Oct 22 during class.",
+      "confidence": 0.95,
+      "extractedBy": "local",
+      "createdAt": "2026-10-02T15:47:34.147Z",
+      "updatedAt": "2026-10-02T15:47:34.147Z"
+    }
+  ],
+  "lastSync": "2026-10-02T15:47:34.162Z",
+  "device": "Vitest Runner",
+  "count": 2,
+  "quickLinks": [
+    {
+      "id": "ql_attendance",
+      "title": "Attendance (Banner SSB)",
+      "url": "https://banner.sharjah.ac.ae",
+      "category": "attendance",
+      "createdAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "ql_study_plan",
+      "title": "Study Plan & Degree Audit",
+      "url": "https://banner.sharjah.ac.ae/StudentRegistrationSsb/",
+      "category": "study_plan",
+      "createdAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "ql_marks",
+      "title": "Final Marks & Academic Transcript",
+      "url": "https://banner.sharjah.ac.ae",
+      "category": "marks",
+      "createdAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "ql_blackboard",
+      "title": "Blackboard Ultra Portal",
+      "url": "https://elearning.sharjah.ac.ae/ultra/course",
+      "category": "portal",
+      "createdAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "ql_1790935457410_f3t2rq",
+      "title": "University Library Catalog",
+      "url": "https://library.sharjah.ac.ae",
+      "category": "other",
+      "createdAt": "2026-10-02T10:04:17.410Z"
+    }
+  ]
+}

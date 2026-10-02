@@ -1,0 +1,36 @@
+{
+  "name": "blackboarder",
+  "version": "1.0.0",
+  "description": "Blackboarder: Smart Academic Companion and Deadline Intelligence for Blackboard Learn",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "node scripts/build.js",
+    "package": "node scripts/package.js",
+    "release": "npm test && node scripts/package.js",
+    "test": "vitest run",
+    "server": "node server/server.js",
+    "bundle:worker": "node scripts/bundle-worker.js",
+    "deploy:cf": "node scripts/bundle-worker.js && cd cloudflare-worker && npx wrangler deploy",
+    "deploy:vercel": "npx vercel"
+  },
+  "keywords": [
+    "blackboard",
+    "extension",
+    "uos",
+    "deadlines",
+    "calendar",
+    "tasks"
+  ],
+  "author": "Blackboarder Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.2.9",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  }
+}

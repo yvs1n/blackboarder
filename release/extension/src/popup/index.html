@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blackboarder</title>
+  <script type="module" crossorigin src="../../assets/popup-RsPzfzzO.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-BmkmzSp_.css">
+</head>
+<body>
+  <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;" aria-hidden="true">
+    <defs>
+      <symbol id="icon-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+      </symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </symbol>
+      <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+      </symbol>
+      <symbol id="icon-schedule" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+        <circle cx="12" cy="15" r="2"></circle>
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </symbol>
+      <symbol id="icon-urgent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </symbol>
+      <symbol id="icon-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </symbol>
+      <symbol id="icon-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+        <line x1="12" y1="3" x2="12" y2="21"></line>
+        <line x1="5" y1="8" x2="19" y2="8"></line>
+        <circle cx="12" cy="3" r="1"></circle>
+      </symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </symbol>
+      <symbol id="icon-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"></path>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+      </symbol>
+      <symbol id="icon-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </symbol>
+      <symbol id="icon-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 2v7.31L4.14 19.34A2 2 0 0 0 5.86 22h12.28a2 2 0 0 0 1.72-2.66L14 9.31V2"></path>
+        <line x1="8" y1="2" x2="16" y2="2"></line>
+        <line x1="6.5" y1="15" x2="17.5" y2="15"></line>
+      </symbol>
+      <symbol id="icon-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </symbol>
+      <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </symbol>
+      <symbol id="icon-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+        <line x1="6" y1="1" x2="6" y2="4"></line>
+        <line x1="10" y1="1" x2="10" y2="4"></line>
+        <line x1="14" y1="1" x2="14" y2="4"></line>
+      </symbol>
+      <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </symbol>
+      <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"></circle>
+        <circle cx="6" cy="12" r="3"></circle>
+        <circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+      </symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </symbol>
+      <symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </symbol>
+      <symbol id="icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </symbol>
+      <symbol id="icon-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </symbol>
+      <symbol id="icon-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+      </symbol>
+      <symbol id="icon-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </symbol>
+      <symbol id="icon-smartphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+      </symbol>
+      <symbol id="icon-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+      </symbol>
+      <symbol id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="6"></circle>
+        <circle cx="12" cy="12" r="2"></circle>
+      </symbol>
+      <symbol id="icon-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+      </symbol>
+      <symbol id="icon-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </symbol>
+      <symbol id="icon-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+        <path d="M5 3v4"></path>
+        <path d="M19 17v4"></path>
+        <path d="M3 5h4"></path>
+        <path d="M17 19h4"></path>
+      </symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- App Header -->
+  <header class="header">
+    <div class="header-top">
+      <div class="brand" title="Blackboarder (Shortcut: Alt+B)">
+        <div class="brand-icon">
+          <svg class="ui-icon" style="color: #fbbf24; width: 16px; height: 16px;"><use href="#icon-bolt"></use></svg>
+        </div>
+        <div class="brand-title">Blackboarder <span class="brand-badge">UOS</span></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-scan-main" id="btn-scan-tab" title="Scan Current Blackboard Page (Shortcut: Alt+B)">
+          <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
+          <span>Scan</span>
+        </button>
+        <button class="icon-btn" id="btn-quick-sync-mobile" title="Sync Deadlines to Mobile Phone">
+          <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-add-modal" title="Add Deadline Manually">
+          <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-export-all-ics" title="Export All to .ICS Calendar">
+          <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-quick-links-toggle" title="Academic Quick Links (Attendance, Study Plan, Marks)" aria-label="Academic Quick Links">
+          <svg class="ui-icon"><use href="#icon-link"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Dark or Light Mode">
+          <svg class="ui-icon"><use href="#icon-moon"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-settings-toggle" title="Settings">
+          <svg class="ui-icon"><use href="#icon-settings"></use></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Navigation: Monthly Calendar (Default) vs Details -->
+    <nav class="main-nav-tabs">
+      <button class="nav-tab active" id="tab-nav-calendar" data-view="calendar">
+        <span class="nav-tab-icon"><svg class="ui-icon"><use href="#icon-calendar"></use></svg></span>
+        <span>Monthly Calendar</span>
+      </button>
+      <button class="nav-tab" id="tab-nav-details" data-view="details">
+        <span class="nav-tab-icon"><svg class="ui-icon"><use href="#icon-clipboard"></use></svg></span>
+        <span>Deadline Details</span>
+        <span class="nav-badge" id="nav-badge-count">0</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- VIEW 1: Monthly Calendar (Default Main Page) -->
+  <main id="view-calendar" class="view-panel active">
+    <!-- Month Navigation -->
+    <div class="calendar-controls">
+      <div class="calendar-title-group">
+        <button class="calendar-nav-btn" id="btn-cal-prev" title="Previous Month">
+          <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
+        </button>
+        <h2 class="calendar-month-title" id="cal-month-title">Month Year</h2>
+        <button class="calendar-nav-btn" id="btn-cal-next" title="Next Month">
+          <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
+        </button>
+      </div>
+      <button class="calendar-today-btn" id="btn-cal-today">Today</button>
+    </div>
+
+    <!-- Weekday headers (Monday first) -->
+    <div class="calendar-weekdays" id="calendar-weekdays">
+      <span>Mon</span>
+      <span>Tue</span>
+      <span>Wed</span>
+      <span>Thu</span>
+      <span>Fri</span>
+      <span>Sat</span>
+      <span>Sun</span>
+    </div>
+
+    <!-- 7-Column Day Grid -->
+    <div class="calendar-grid" id="calendar-grid">
+      <!-- Generated dynamically -->
+    </div>
+
+    <!-- Permanent Course Colors Legend -->
+    <div class="course-legend-bar">
+      <div class="legend-label">Courses:</div>
+      <div class="legend-chips-container" id="legend-chips-container">
+        <!-- Rendered dynamically from PERMANENT_COURSE_LEGEND -->
+      </div>
+    </div>
+
+    <!-- Selected Day Deadlines Drawer -->
+    <section class="selected-day-container" id="selected-day-container">
+      <div class="selected-day-header">
+        <div class="selected-day-title" id="selected-day-title">
+          <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
+          <span>Deadlines for Today</span>
+        </div>
+        <button class="btn-xs-add" id="btn-add-on-date" title="Add deadline on this date">
+          <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+          <span>Add</span>
+        </button>
+      </div>
+      <div class="selected-day-list" id="selected-day-list">
+        <!-- Injected dynamically -->
+      </div>
+    </section>
+
+    <!-- Academic Quick Links Bar -->
+    <div class="calendar-quick-links-bar" id="calendar-quick-links-bar">
+      <div class="quick-links-bar-header">
+        <span class="quick-links-bar-title"><svg class="ui-icon mr-1"><use href="#icon-link"></use></svg>Quick Links</span>
+        <button type="button" class="btn-xs-manage-links" id="btn-bar-manage-links" title="Manage Quick Links">+ Manage</button>
+      </div>
+      <div class="quick-links-chips-row" id="calendar-quick-links-chips">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </main>
+
+  <!-- VIEW 2: Deadline Details (Cards Dashboard) -->
+  <section id="view-details" class="view-panel">
+    <!-- Stat bar -->
+    <div class="stats-bar">
+      <div class="stat-card stat-urgent">
+        <span class="stat-number" id="stat-urgent-count">0</span>
+        <span class="stat-label">
+          <svg class="ui-icon mr-1" style="color: var(--danger);"><use href="#icon-urgent"></use></svg>
+          <span>Urgent (&lt;48h)</span>
+        </span>
+      </div>
+      <div class="stat-card stat-week">
+        <span class="stat-number" id="stat-week-count">0</span>
+        <span class="stat-label">
+          <svg class="ui-icon mr-1" style="color: var(--warning);"><use href="#icon-calendar"></use></svg>
+          <span>This Week</span>
+        </span>
+      </div>
+      <div class="stat-card stat-all">
+        <span class="stat-number" id="stat-total-count">0</span>
+        <span class="stat-label">
+          <svg class="ui-icon mr-1" style="color: var(--primary);"><use href="#icon-book"></use></svg>
+          <span>Total Tasks</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Syllabus Grade Progress & Weight Simulator -->
+    <div class="grade-tracker-widget" id="popup-grade-tracker" style="margin: 0 14px 10px; background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius-md); padding: 10px 12px; box-shadow: var(--shadow-sm);">
+      <div class="grade-tracker-header" id="grade-tracker-toggle-btn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+        <div style="display: flex; align-items: center; gap: 7px;">
+          <svg class="ui-icon" style="color: #0284c7;"><use href="#icon-scale"></use></svg>
+          <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">Syllabus Grade Progress</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="info-badge blue" id="grade-tracker-overall-badge" style="font-size: 11px;">0% Done</span>
+          <svg class="ui-icon" id="grade-tracker-arrow" style="width: 14px; height: 14px; transition: transform 0.2s;"><use href="#icon-chevron-right"></use></svg>
+        </div>
+      </div>
+      <div class="grade-tracker-breakdown" id="grade-tracker-breakdown" style="display: none; margin-top: 10px; flex-direction: column; gap: 8px;">
+        <!-- Dynamically populated per course -->
+      </div>
+    </div>
+
+    <!-- Controls & Filters -->
+    <div class="controls-bar">
+      <div class="search-input-wrapper">
+        <span class="search-icon"><svg class="ui-icon"><use href="#icon-search"></use></svg></span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search tasks, quizzes, courses...">
+      </div>
+      <div class="filter-chips">
+        <button class="filter-chip tab-btn active" data-status="pending">Pending</button>
+        <button class="filter-chip tab-btn" data-status="all">All</button>
+        <button class="filter-chip tab-btn" data-status="completed">Completed</button>
+      </div>
+
+      <div class="filter-dropdowns">
+        <select id="filter-course" class="filter-select mobile-select">
+          <option value="all">All Courses</option>
+        </select>
+
+        <select id="filter-type" class="filter-select mobile-select">
+          <option value="all">All Types</option>
+          <option value="quiz">Quizzes</option>
+          <option value="assignment">Assignments</option>
+          <option value="exam">Exams</option>
+          <option value="project">Projects</option>
+          <option value="lab">Labs</option>
+        </select>
+      </div>
+
+      <!-- Action Buttons Bar -->
+      <div class="deadlines-action-bar">
+        <button id="btn-ai-extract-modal" class="btn-primary-action" type="button">
+          <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
+          <span class="btn-responsive-label">Extract Announcement</span>
+        </button>
+        <button id="btn-add-deadline-header" class="btn-add-action" type="button">
+          <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+          <span class="btn-responsive-label">Add Custom</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Task List Container -->
+    <div id="task-list" class="task-list">
+      <!-- Injected dynamically -->
+    </div>
+  </section>
+
+  <!-- VIEW 3: Add Task Manually -->
+  <section id="view-add" class="view-panel">
+    <h3 style="font-size: 15px; margin-bottom: 12px; font-weight: 700;">Add Custom Deadline</h3>
+    <form id="form-add-task">
+      <div class="form-group">
+        <label class="form-label">Task / Title</label>
+        <input type="text" id="add-title" class="form-input" placeholder="e.g. Quiz 2: Binary Trees" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Course Code & Name</label>
+        <input type="text" id="add-course" class="form-input" placeholder="e.g. Calculus 1 for Engineering" required>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" id="add-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Time</label>
+          <input type="time" id="add-time" class="form-input" value="23:59">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Room / Location <span style="font-weight: normal; color: var(--text-muted);">(Optional - defaults to course schedule)</span></label>
+        <input type="text" id="add-room" class="form-input" placeholder="e.g. A8-103, A12-110, A3-184">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="add-type" class="form-select">
+            <option value="quiz">Quiz</option>
+            <option value="assignment" selected>Assignment / HW</option>
+            <option value="exam">Exam / Midterm</option>
+            <option value="project">Project</option>
+            <option value="lab">Lab Report</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select id="add-priority" class="form-select">
+            <option value="high">High (Urgent)</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Grade Weight (%) <span style="font-weight: normal; color: var(--text-muted);">(from Syllabus)</span></label>
+        <div style="display: flex; gap: 6px;">
+          <input type="number" id="add-weight" class="form-input" placeholder="e.g. 5" step="0.1" min="0" max="100">
+          <button type="button" class="btn-secondary" id="btn-calc-add-weight" title="Auto-detect weight from course syllabus" style="font-size: 11px; white-space: nowrap; padding: 0 8px;">
+            <svg class="ui-icon mr-1"><use href="#icon-scale"></use></svg>
+            <span>Auto-Weight</span>
+          </button>
+        </div>
+        <span id="add-weight-hint" style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Instructions</label>
+        <textarea id="add-notes" class="form-textarea" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-cancel-add">Cancel</button>
+        <button type="submit" class="btn-primary">Save Deadline</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- VIEW 4: Settings -->
+  <section id="view-settings" class="view-panel">
+    <h3 style="font-size: 15px; margin-bottom: 12px; font-weight: 700;">Blackboarder Settings</h3>
+    <form id="form-settings">
+      <div class="form-group">
+        <label class="form-label">OpenRouter API Key (AI Fallback)</label>
+        <input type="password" id="setting-apikey" class="form-input" placeholder="sk-or-v1-...">
+        <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Used when local parser encounters ambiguous or conversational announcements.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">AI Model</label>
+        <select id="setting-model" class="form-select">
+          <option value="google/gemini-3.8-flash">Google Gemini 3.8 Flash (Fast & Recommended)</option>
+          <option value="google/gemini-3.7-flash">Google Gemini 3.7 Flash</option>
+          <option value="google/gemini-flash-latest">Google Gemini Flash Latest</option>
+          <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top: 12px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
+          <input type="checkbox" id="setting-use-ai">
+          <span>Enable AI Deep Extraction (Hybrid Engine)</span>
+        </label>
+      </div>
+
+      <!-- Jev System One Classifier -->
+      <div class="form-group" style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--surface-border); border-radius: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b; display: inline-flex; align-items: center; gap: 5px;">
+            <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-bolt"></use></svg>
+            <span>Jev Fast Classifier (TypeSafe AI)</span>
+          </label>
+          <span style="font-size: 10px; font-weight: 600; color: #1e40af; background: #dbeafe; padding: 2px 7px; border-radius: 9999px;">~100ms Gatekeeper</span>
+        </div>
+        <input type="password" id="setting-jev-key" class="form-input" placeholder="apikey_...">
+        <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Instantly weeds out non-deadlines and locks category (Quiz, Exam, Homework) before invoking Generative AI.</span>
+        <div style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" id="setting-use-jev" checked>
+            <span>Enable Jev Fast Classification Gatekeeper</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
+          <input type="checkbox" id="setting-autoscan">
+          <span>Auto-scan announcements on Blackboard pages</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
+          <input type="checkbox" id="setting-badge-notif">
+          <span>Show deadline count badge on extension icon</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notification Alert Window</label>
+        <select id="setting-reminder-hours" class="form-select">
+          <option value="12">12 hours before deadline</option>
+          <option value="24">24 hours before deadline (Default)</option>
+          <option value="48">48 hours before deadline</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="setting-theme">Appearance &amp; Theme</label>
+        <select id="setting-theme" class="form-select">
+          <option value="light">Light Mode (Classic Academic)</option>
+          <option value="dark">Dark Mode (Focused Night)</option>
+          <option value="system">Match System Theme</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Keyboard Shortcut</label>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm);">
+          <span style="font-size: 11.5px; color: var(--text-main); font-weight: 500;">Open Blackboarder</span>
+          <span style="display: inline-flex; gap: 3px; align-items: center;">
+            <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">B</kbd>
+          </span>
+        </div>
+        <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 3px;">
+          Press anywhere in Chrome to open popup. (Mac: <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">Shift</kbd>+<kbd class="kbd-badge">B</kbd>)
+        </span>
+      </div>
+
+      <!-- Mobile Phone Sync & Live Calendar Feed -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surface-border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <h4 style="font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+            <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-smartphone"></use></svg>
+            <span>Mobile Phone & Live Calendar Feed</span>
+          </h4>
+          <span style="font-size: 10px; font-weight: 600; color: #065f46; background: #d1fae5; padding: 1px 6px; border-radius: 9999px;">Live Sync</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+          Access your deadlines on your phone via Mobile Web App (PWA) and subscribe natively in Apple Calendar (iOS) or Google Calendar.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Sync Server Endpoint</label>
+          <input type="text" id="setting-sync-url" class="form-input" placeholder="http://localhost:3456" value="http://localhost:3456">
+          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Local server (run <code>npm run server</code>) or custom deployed URL.</span>
+        </div>
+
+        <div class="form-group" style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" id="setting-sync-midnight" checked>
+            <span>Auto-sync every day at 12:00 AM midnight</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top: 6px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" id="setting-sync-onscan" checked>
+            <span>Auto-push to mobile after scanning Blackboard</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="padding: 10px; background: #f8fafc; border: 1px solid var(--surface-border); border-radius: 6px; margin-top: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="font-weight: 700; margin-bottom: 0;">Personal Sync Pairing Key</label>
+            <button type="button" id="btn-copy-sync-key" style="font-size: 11px; color: #2563eb; background: none; border: none; cursor: pointer; font-weight: 600;">Copy Key</button>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="setting-sync-key" class="form-input" placeholder="e.g. BBS-9A2K" style="font-family: monospace; font-weight: 700; text-transform: uppercase;">
+            <button type="button" id="btn-regen-sync-key" class="btn-secondary" style="padding: 4px 8px; font-size: 11px; white-space: nowrap;" title="Generate new random key">New Key</button>
+          </div>
+          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 4px;">Keeps your deadlines private and isolated in the cloud so multiple students never overwrite each other.</span>
+        </div>
+
+        <div class="form-group" style="margin-top: 8px;">
+          <label class="form-label">Hosted Web Dashboard URL</label>
+          <input type="text" id="setting-hosted-url" class="form-input" placeholder="https://yassinr-uossidekick.pages.dev" value="https://yassinr-uossidekick.pages.dev">
+          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Your deployed website (Cloudflare Pages, Vercel, or custom domain).</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" class="btn-primary" id="btn-sync-to-server" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+              <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
+              <span>Sync Now to Mobile</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btn-open-mobile-web" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+              <svg class="ui-icon mr-1"><use href="#icon-smartphone"></use></svg>
+              <span>Open Mobile App</span>
+            </button>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-copy-pairing-link" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+            <svg class="ui-icon mr-1"><use href="#icon-share"></use></svg>
+            <span>Copy Phone Pairing Link (?key=...)</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-copy-webcal-link" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+            <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
+            <span>Copy WebCal Feed Link (Apple/Google Cal)</span>
+          </button>
+          <div id="firebase-status-badge" style="display: flex; align-items: center; justify-content: space-between; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 6px 10px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #166534; font-weight: 600;">
+              <svg class="ui-icon" style="color: #ea580c;"><use href="#icon-flame"></use></svg>
+              <span>Firebase Cloud DB: Connected</span>
+            </div>
+            <span style="font-size: 10px; color: #15803d; font-weight: 500;">24/7 Always Online</span>
+          </div>
+          <div id="sync-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 2px;"></div>
+        </div>
+      </div>
+
+      <!-- Syllabi & Grade Distributions Reference -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surface-border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <h4 style="font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+            <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-book"></use></svg>
+            <span>Syllabi & Grade Distributions</span>
+          </h4>
+          <span style="font-size: 10px; font-weight: 600; color: #1e40af; background: #dbeafe; padding: 1px 6px; border-radius: 9999px;">Syllabus Database</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+          Percentages extracted from course syllabi in <code>syllabus/</code>. Used to automatically calculate the weight of every assignment.
+        </p>
+        <div id="syllabus-reference-container" class="syllabus-reference-list">
+          <!-- Rendered dynamically from DEFAULT_SYLLABUS_DATABASE -->
+        </div>
+      </div>
+
+      <!-- Weekly Class Schedule Reference -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surface-border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <h4 style="font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+            <svg class="ui-icon" style="color: #059669;"><use href="#icon-schedule"></use></svg>
+            <span>Weekly Class Schedule & Meeting Times</span>
+          </h4>
+          <span style="font-size: 10px; font-weight: 600; color: #065f46; background: #d1fae5; padding: 1px 6px; border-radius: 9999px;">schedule.pdf</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+          Your official UOS lecture meeting times. Deadlines are automatically scheduled at these exact class times unless the instructor specifies a home task.
+        </p>
+        <div id="schedule-reference-container" class="syllabus-reference-list">
+          <!-- Rendered dynamically from STUDENT_CLASS_SCHEDULE -->
+        </div>
+      </div>
+
+      <!-- Scanner Maintenance & Full Re-Scan -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surface-border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <h4 style="font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+            <svg class="ui-icon" style="color: #d97706;"><use href="#icon-bolt"></use></svg>
+            <span>Scanner Maintenance & Full Re-scan</span>
+          </h4>
+          <span style="font-size: 10px; font-weight: 600; color: #7c2d12; background: #ffedd5; padding: 1px 6px; border-radius: 9999px;">Non-Destructive</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+          Need to fetch full announcement text or updated doctor room numbers? Full Re-scan updates all your tasks in place without resetting your completed deadlines or notes.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <button type="button" class="btn-primary" id="btn-trigger-full-rescan" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+            <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
+            <span>Full Re-scan Blackboard</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-reset-checkpoint" style="font-size: 11.5px; padding: 6px 8px; justify-content: center;">
+            <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
+            <span>Reset Checkpoint</span>
+          </button>
+        </div>
+        <div id="rescan-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 4px;"></div>
+      </div>
+
+      <!-- Backup & Restore Section -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surface-border);">
+        <h4 style="font-size: 12.5px; font-weight: 700; margin-bottom: 4px; display: inline-flex; align-items: center; gap: 5px;">
+          <svg class="ui-icon" style="color: #475569;"><use href="#icon-download"></use></svg>
+          <span>Permanent Data Backup</span>
+        </h4>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+          Your scanned deadlines are safely stored in browser storage. Export a JSON backup file anytime for 100% peace of mind.
+        </p>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-secondary" id="btn-backup-json" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px;">
+            <svg class="ui-icon"><use href="#icon-download"></use></svg>
+            <span>Backup to JSON</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-restore-json-trigger" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px;">
+            <svg class="ui-icon"><use href="#icon-upload"></use></svg>
+            <span>Restore from JSON</span>
+          </button>
+          <input type="file" id="input-restore-json" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 16px;">
+        <button type="button" class="btn-secondary" id="btn-cancel-settings">Back</button>
+        <button type="submit" class="btn-primary">Save Settings</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- MODAL: Edit Task -->
+  <div id="modal-edit-task" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg class="ui-icon"><use href="#icon-pencil"></use></svg>
+          <span>Edit Deadline</span>
+        </h3>
+        <button type="button" class="modal-close-btn" id="btn-close-edit-modal">✕</button>
+      </div>
+      <form id="form-edit-task">
+        <input type="hidden" id="edit-task-id">
+        <div class="form-group">
+          <label class="form-label">Task / Title</label>
+          <input type="text" id="edit-title" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Course Name or Code</label>
+          <input type="text" id="edit-course" class="form-input" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group">
+            <label class="form-label">Due Date</label>
+            <input type="date" id="edit-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Time</label>
+            <input type="time" id="edit-time" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Room / Location</label>
+          <input type="text" id="edit-room" class="form-input" placeholder="e.g. A8-103, A12-110, A3-184">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="edit-type" class="form-select">
+              <option value="quiz">Quiz</option>
+              <option value="assignment">Assignment / HW</option>
+              <option value="exam">Exam / Midterm</option>
+              <option value="project">Project</option>
+              <option value="lab">Lab Report</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select id="edit-priority" class="form-select">
+              <option value="high">High (Urgent)</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select id="edit-status" class="form-select">
+            <option value="pending">Pending (Active)</option>
+            <option value="completed">Completed (Done)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grade Weight (%) <span style="font-weight: normal; color: var(--text-muted);">(from Syllabus)</span></label>
+          <div style="display: flex; gap: 6px;">
+            <input type="number" id="edit-weight" class="form-input" placeholder="e.g. 5" step="0.1" min="0" max="100">
+            <button type="button" class="btn-secondary" id="btn-calc-edit-weight" title="Auto-detect weight from course syllabus" style="font-size: 11px; white-space: nowrap; padding: 0 8px;">
+              <svg class="ui-icon mr-1"><use href="#icon-scale"></use></svg>
+              <span>Auto-Weight</span>
+            </button>
+          </div>
+          <span id="edit-weight-hint" style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-desc">Full Announcement / Doctor's Message</label>
+          <textarea id="edit-desc" class="form-textarea" rows="3" placeholder="Full announcement text from doctor..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-notes">Student Notes</label>
+          <textarea id="edit-notes" class="form-textarea" rows="2" placeholder="Personal notes or reminders..."></textarea>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-danger" id="btn-delete-from-modal">
+            <svg class="ui-icon mr-1"><use href="#icon-trash"></use></svg>
+            <span>Delete</span>
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-secondary" id="btn-cancel-edit">Cancel</button>
+            <button type="submit" class="btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Expanded Day View Bottom Sheet Drawer -->
+  <div id="day-expanded-backdrop" class="day-expanded-backdrop hidden"></div>
+  <aside id="day-expanded-drawer" class="day-expanded-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="day-drawer-title">
+    <div class="day-drawer-handle-bar">
+      <div class="day-drawer-handle"></div>
+    </div>
+    <div class="day-drawer-header">
+      <div class="day-drawer-title-group">
+        <div class="day-drawer-title" id="day-drawer-title">
+          <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
+          <span>Tuesday, Sep 15</span>
+        </div>
+        <div class="day-drawer-subtitle" id="day-drawer-subtitle">2 Deadlines Scheduled</div>
+      </div>
+      <div class="day-drawer-actions">
+        <button type="button" class="btn-drawer-add" id="btn-drawer-add" title="Add deadline on this date">
+          <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+          <span>Add</span>
+        </button>
+        <button type="button" class="btn-drawer-close" id="btn-drawer-close" title="Close day view">✕</button>
+      </div>
+    </div>
+    <div class="day-drawer-body" id="day-drawer-body">
+      <!-- Injected dynamically with short summary cards -->
+    </div>
+  </aside>
+
+  <!-- MODAL: Mobile & Extension Full Reading Sheet -->
+  <div id="modal-reading-sheet" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="reading-sheet-title">
+    <div class="modal-dialog reading-sheet-modal-card">
+      <div class="modal-header">
+        <div class="reading-modal-badge-group" id="reading-modal-badges"></div>
+        <button type="button" class="modal-close-btn" id="btn-close-reading-sheet" aria-label="Close announcement view">✕</button>
+      </div>
+      <div class="reading-modal-body" id="reading-modal-content">
+        <!-- Rendered dynamically via openReadingSheet() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: 1-Click Room Picker -->
+  <div id="modal-room-picker" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="room-picker-title">
+    <div class="modal-dialog room-picker-modal-card">
+      <div class="modal-header">
+        <h3 id="room-picker-title" class="modal-title"><svg class="ui-icon mr-1"><use href="#icon-pin"></use></svg>Select Room / Location</h3>
+        <button type="button" class="modal-close-btn" id="btn-close-room-picker" aria-label="Close room picker">✕</button>
+      </div>
+      <div class="room-picker-body">
+        <p class="room-picker-instruction">Choose an official campus room or enter a new room number:</p>
+        <div class="room-presets-list" id="room-presets-container">
+          <!-- Populated from schedule -->
+        </div>
+        <div class="room-custom-wrapper">
+          <label class="form-label" for="input-custom-room">Custom Room / Hall</label>
+          <div class="room-custom-input-row">
+            <input type="text" id="input-custom-room" class="form-input" placeholder="e.g. A8-204, A8-101, or M1-102">
+            <button type="button" class="btn-primary" id="btn-apply-custom-room" style="white-space: nowrap; padding: 6px 12px; font-size: 11.5px;">Save Room</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AI / Jev Announcement Extractor -->
+  <div id="modal-ai-extract" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="extract-modal-title">
+    <div class="modal-dialog extract-modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg class="ui-icon" style="width: 18px; height: 18px; color: #fbbf24;"><use href="#icon-bolt"></use></svg>
+          <h3 id="extract-modal-title" class="modal-title">Extract from Announcement</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-extract-modal" aria-label="Close extract modal">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 12px 4px 4px;">
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.45;">
+          Paste any message or announcement from Blackboard. The Hybrid Engine will extract deadlines, room numbers, and syllabus weights automatically.
+        </p>
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" for="extract-course-hint">Course <span style="font-weight: normal; color: var(--text-muted);">(Optional hint)</span></label>
+          <select id="extract-course-hint" class="filter-select mobile-select" style="width: 100%;">
+            <option value="">Auto-detect from text</option>
+            <option value="Calculus I for Engineering">Calculus I for Engineering (A12-110)</option>
+            <option value="Intro to Comp Eng.">Introduction to Computer Engineering (A8-103)</option>
+            <option value="Physics 1">Physics 1 (A8-110)</option>
+            <option value="Physics 1 Lab">Physics 1 Lab (Central Lab Men - 105)</option>
+            <option value="English for Academic Purposes">English for Academic Purposes (A3-184)</option>
+            <option value="Islamic Culture">Islamic Culture (A8-TH005)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label" for="input-extract-text">Announcement / Message Text</label>
+          <textarea id="input-extract-text" class="form-textarea" rows="4" placeholder="e.g. Dear students, Quiz 2 will be conducted on Tuesday, 29 September 2026, during the lecture time in room A8-103..."></textarea>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button type="button" class="btn-secondary" id="btn-cancel-extract">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-run-extract" style="padding: 6px 14px; font-size: 12px;">
+            <span id="extract-btn-icon"><svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg></span>
+            <span id="extract-btn-text">Extract Deadlines</span>
+          </button>
+        </div>
+        <div id="extract-status-box" style="margin-top: 10px; display: none;"></div>
+        <div id="extract-preview-list" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Academic Quick Links Manager -->
+  <div id="modal-quick-links" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="quick-links-modal-title">
+    <div class="modal-dialog quick-links-modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg class="ui-icon" style="width: 18px; height: 18px; color: #2563eb;"><use href="#icon-link"></use></svg>
+          <h3 id="quick-links-modal-title" class="modal-title">Academic Quick Links</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-quick-links" aria-label="Close Quick Links">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 14px 16px;">
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
+          Quickly jump to your attendance, study plan, marks, or custom student portals in one click.
+        </p>
+
+        <!-- Top Action Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;">
+          <button type="button" class="btn-primary" id="btn-toggle-add-link-form" style="font-size: 11.5px; padding: 5px 12px;">
+            <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+            <span>Add Link</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-reset-quick-links" style="font-size: 11px; padding: 5px 9px;" title="Reset to standard university links">
+            <span>Reset Defaults</span>
+          </button>
+        </div>
+
+        <!-- Add / Edit Link Form (Collapsible) -->
+        <form id="form-quick-link" style="display: none; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
+          <input type="hidden" id="ql-edit-id" value="">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" for="ql-title" style="font-size: 11px; font-weight: 600;">Link Title</label>
+            <input type="text" id="ql-title" class="form-input" placeholder="e.g. My Attendance, Study Plan, Marks" required style="font-size: 12px; padding: 6px 8px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" for="ql-url" style="font-size: 11px; font-weight: 600;">Web Address (URL)</label>
+            <input type="url" id="ql-url" class="form-input" placeholder="https://banner.sharjah.ac.ae" required style="font-size: 12px; padding: 6px 8px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="ql-category" style="font-size: 11px; font-weight: 600;">Category</label>
+            <select id="ql-category" class="form-select" style="font-size: 12px; padding: 6px 8px;">
+              <option value="attendance">📌 Attendance</option>
+              <option value="study_plan">📋 Study Plan &amp; Degree Audit</option>
+              <option value="marks">🏆 Marks &amp; Academic Transcript</option>
+              <option value="portal">🌐 University Portal</option>
+              <option value="other">🔗 Other / Custom</option>
+            </select>
+          </div>
+
+          <!-- Quick Fill Preset Chips -->
+          <div style="margin-bottom: 10px;">
+            <span style="font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 4px;">Quick Fill Presets:</span>
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <button type="button" class="btn-preset-ql" data-preset="attendance" style="font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--surface-border); background: var(--surface); cursor: pointer; color: var(--text-main);">+ Attendance</button>
+              <button type="button" class="btn-preset-ql" data-preset="study_plan" style="font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--surface-border); background: var(--surface); cursor: pointer; color: var(--text-main);">+ Study Plan</button>
+              <button type="button" class="btn-preset-ql" data-preset="marks" style="font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--surface-border); background: var(--surface); cursor: pointer; color: var(--text-main);">+ Marks</button>
+              <button type="button" class="btn-preset-ql" data-preset="portal" style="font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--surface-border); background: var(--surface); cursor: pointer; color: var(--text-main);">+ Blackboard</button>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+            <button type="button" class="btn-secondary" id="btn-cancel-ql-form" style="font-size: 11px; padding: 5px 10px;">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-save-ql" style="font-size: 11px; padding: 5px 12px;">Save Link</button>
+          </div>
+        </form>
+
+        <!-- Quick Links List Container -->
+        <div class="quick-links-manager-list" id="quick-links-manager-list" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Action Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+</body>
+</html>
