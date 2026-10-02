@@ -569,9 +569,14 @@
 [data-theme="dark"] .doctor-quote-box,
 [data-theme="dark"] .reading-announcement-box,
 [data-theme="dark"] .reading-box-content {
+  --quote-fade-bg: #0d1322;
   background: #0d1322;
   border-color: #1f2a3e;
   color: var(--text-main);
+}
+
+[data-theme="dark"] .quote-label {
+  color: #60a5fa;
 }
 
 [data-theme="dark"] .student-notes-box,
@@ -1940,6 +1945,7 @@ body {
 
 /* Doctor's announcement quote (expandable, antislop craft) */
 .doctor-quote-box {
+  --quote-fade-bg: #f8fafc;
   background: #f8fafc;
   border: 1px solid var(--surface-border);
   border-left: 3.5px solid var(--primary);
@@ -1989,7 +1995,7 @@ body {
   left: 0;
   right: 0;
   height: 20px;
-  background: linear-gradient(to bottom, rgba(248, 250, 252, 0), rgba(248, 250, 252, 1));
+  background: linear-gradient(to bottom, transparent, var(--quote-fade-bg, #f8fafc));
   pointer-events: none;
 }
 
