@@ -102,7 +102,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(cssRes.headers.get('content-type')).toContain('text/css');
     const cssText = await cssRes.text();
     expect(cssText).toContain('--bg: #f8fafc;'); // extension light theme
-    expect(cssText).toContain('--primary: #2563eb;');
+    expect(cssText).toContain('--primary: #18181b;');
   });
 
   it('POST /api/task-status marks task as completed in Cloudflare KV', async () => {

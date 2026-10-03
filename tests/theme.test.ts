@@ -30,13 +30,13 @@ describe('Dark Mode / Light Mode Theme System', () => {
 
     // Dark theme token overrides
     expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain('--bg: #090d16;');
-    expect(css).toContain('--surface: #111827;');
-    expect(css).toContain('--surface-hover: #1e293b;');
-    expect(css).toContain('--surface-border: #1f293d;');
-    expect(css).toContain('--text-main: #f8fafc;');
-    expect(css).toContain('--text-muted: #94a3b8;');
-    expect(css).toContain('--primary: #3b82f6;');
+    expect(css).toContain('--bg: #121215;');
+    expect(css).toContain('--surface: #1a1a1f;');
+    expect(css).toContain('--surface-hover: #24242b;');
+    expect(css).toContain('--surface-border: #2c2c36;');
+    expect(css).toContain('--text-main: #f4f4f6;');
+    expect(css).toContain('--text-muted: #a1a1aa;');
+    expect(css).toContain('--primary: #f4f4f6;');
   });
 
   it('Mobile Web styles.css defines full dark theme tokens matching extension', () => {
@@ -50,11 +50,11 @@ describe('Dark Mode / Light Mode Theme System', () => {
 
     // Dark theme token overrides
     expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain('--bg: #090d16;');
-    expect(css).toContain('--surface: #111827;');
-    expect(css).toContain('--text-main: #f8fafc;');
-    expect(css).toContain('--text-muted: #94a3b8;');
-    expect(css).toContain('--primary: #3b82f6;');
+    expect(css).toContain('--bg: #121215;');
+    expect(css).toContain('--surface: #1a1a1f;');
+    expect(css).toContain('--text-main: #f4f4f6;');
+    expect(css).toContain('--text-muted: #a1a1aa;');
+    expect(css).toContain('--primary: #f4f4f6;');
 
     // Fixed scuffed dark mode overrides for calendar day cells and badges
     expect(css).toContain('[data-theme="dark"] .cal-day-cell');
