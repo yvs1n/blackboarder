@@ -2,25 +2,25 @@ import fitz
 import os
 
 svg_calendar_check = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Rounded App Squircle: UOS Deep Royal Blue -->
-  <rect x="0" y="0" width="512" height="512" rx="115" fill="#1e40af"/>
-  <rect x="8" y="8" width="496" height="496" rx="107" fill="none" stroke="#60a5fa" stroke-width="3" stroke-opacity="0.35"/>
+  <!-- Rounded App Squircle: Dark Ashy Monochrome -->
+  <rect x="0" y="0" width="512" height="512" rx="115" fill="#141417"/>
+  <rect x="8" y="8" width="496" height="496" rx="107" fill="none" stroke="#ffffff" stroke-width="3" stroke-opacity="0.16"/>
 
   <!-- Calendar Card Surface (Crisp White Card) -->
   <rect x="88" y="96" width="336" height="336" rx="32" fill="#ffffff"/>
 
-  <!-- Top Red/Coral Header Bar (Deadline Urgency) -->
-  <path d="M88 128 C88 110.3 102.3 96 120 96 L392 96 C409.7 96 424 110.3 424 128 L424 176 L88 176 Z" fill="#ef4444"/>
+  <!-- Top Header Bar (Dark Ash / Charcoal) -->
+  <path d="M88 128 C88 110.3 102.3 96 120 96 L392 96 C409.7 96 424 110.3 424 128 L424 176 L88 176 Z" fill="#1e1e24"/>
 
-  <!-- Binder Rings (White / Slate) -->
-  <rect x="160" y="74" width="28" height="46" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/>
-  <rect x="324" y="74" width="28" height="46" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/>
+  <!-- Binder Rings (Ash Silver) -->
+  <rect x="160" y="74" width="28" height="46" rx="14" fill="#f4f4f6" stroke="#71717a" stroke-width="4"/>
+  <rect x="324" y="74" width="28" height="46" rx="14" fill="#f4f4f6" stroke="#71717a" stroke-width="4"/>
 
-  <!-- Checklist Grid Rows (Indigo Tint) -->
-  <rect x="136" y="216" width="180" height="18" rx="9" fill="#818cf8" opacity="0.85"/>
-  <rect x="136" y="260" width="140" height="18" rx="9" fill="#818cf8" opacity="0.85"/>
-  <rect x="136" y="304" width="156" height="18" rx="9" fill="#818cf8" opacity="0.85"/>
-  <rect x="136" y="348" width="110" height="18" rx="9" fill="#818cf8" opacity="0.85"/>
+  <!-- Checklist Grid Rows (Neutral Ash) -->
+  <rect x="136" y="216" width="180" height="18" rx="9" fill="#71717a" opacity="0.85"/>
+  <rect x="136" y="260" width="140" height="18" rx="9" fill="#71717a" opacity="0.85"/>
+  <rect x="136" y="304" width="156" height="18" rx="9" fill="#71717a" opacity="0.85"/>
+  <rect x="136" y="348" width="110" height="18" rx="9" fill="#71717a" opacity="0.85"/>
 
   <!-- Completed Checkmark Badge (Emerald Green #10b981) -->
   <circle cx="348" cy="336" r="46" fill="#10b981"/>
