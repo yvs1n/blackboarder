@@ -1071,11 +1071,11 @@ function getSvgIcon(name, extraClass = '') {
 
 function getTaskTypeIcon(type = '', extraClass = '') {
   switch ((type || '').toLowerCase()) {
-    case 'quiz': return getSvgIcon('pencil', extraClass);
-    case 'assignment': return getSvgIcon('clipboard', extraClass);
-    case 'exam': return getSvgIcon('target', extraClass);
-    case 'project': return getSvgIcon('terminal', extraClass);
-    case 'lab': return getSvgIcon('flask', extraClass);
+    case 'quiz': return getSvgIcon('timer', extraClass);
+    case 'assignment': return getSvgIcon('notebook-pen', extraClass);
+    case 'exam': return getSvgIcon('list-check', extraClass);
+    case 'project': return getSvgIcon('presentation', extraClass);
+    case 'lab': return getSvgIcon('flask-conical', extraClass);
     case 'meeting': return getSvgIcon('users', extraClass);
     default: return getSvgIcon('pin', extraClass);
   }

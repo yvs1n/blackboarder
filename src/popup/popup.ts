@@ -224,11 +224,11 @@ function getSvgIcon(name: string, extraClass: string = ''): string {
 
 function getTaskTypeIcon(type: TaskType): string {
   switch (type) {
-    case 'quiz': return getSvgIcon('pencil');
-    case 'exam': return getSvgIcon('target');
-    case 'assignment': return getSvgIcon('clipboard');
-    case 'project': return getSvgIcon('terminal');
-    case 'lab': return getSvgIcon('flask');
+    case 'quiz': return getSvgIcon('timer');
+    case 'exam': return getSvgIcon('list-check');
+    case 'assignment': return getSvgIcon('notebook-pen');
+    case 'project': return getSvgIcon('presentation');
+    case 'lab': return getSvgIcon('flask-conical');
     case 'meeting': return getSvgIcon('users');
     default: return getSvgIcon('pin');
   }
