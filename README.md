@@ -1,7 +1,7 @@
 # ⚡ Blackboarder
 
 <p align="center">
-  <img src="assets/logo.png" alt="Blackboarder Logo" width="160" height="160" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+  <img src="assets/logo.png" alt="Blackboarder Logo" width="160" height="160" />
 </p>
 
 <p align="center">
