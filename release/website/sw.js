@@ -1,11 +1,11 @@
-const CACHE_NAME = 'sidekick-mobile-v7';
+const CACHE_NAME = 'sidekick-mobile-v8';
 const STATIC_ASSETS = [
   './index.html',
   './',
   './styles.css',
   './styles.css?v=6',
   './app.js',
-  './app.js?v=5',
+  './app.js?v=6',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -172,7 +172,135 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Push notification received
+// ============================================================================
+// Deadline Notification Storage & Background Engine
+// ============================================================================
+
+const NOTIF_CACHE_URL = '/__bbs_scheduled_tasks__';
+
+async function getStoredTasksForNotifications() {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const resp = await cache.match(NOTIF_CACHE_URL);
+    if (resp) {
+      return await resp.json();
+    }
+  } catch (e) {
+    console.warn('[SW] Error reading cached notification tasks:', e);
+  }
+  return { tasks: [], notifiedMap: {}, pushEnabled: true };
+}
+
+async function saveStoredTasksForNotifications(data) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const existing = await getStoredTasksForNotifications();
+    const merged = {
+      tasks: data.tasks !== undefined ? data.tasks : existing.tasks,
+      notifiedMap: data.notifiedMap !== undefined ? data.notifiedMap : existing.notifiedMap,
+      pushEnabled: data.pushEnabled !== undefined ? data.pushEnabled : existing.pushEnabled
+    };
+    await cache.put(
+      new Request(NOTIF_CACHE_URL),
+      new Response(JSON.stringify(merged), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+  } catch (e) {
+    console.warn('[SW] Failed to cache scheduled tasks:', e);
+  }
+}
+
+// Evaluates deadlines and triggers native notifications
+async function checkDeadlinesInServiceWorker() {
+  try {
+    const store = await getStoredTasksForNotifications();
+    if (!store || store.pushEnabled === false || !Array.isArray(store.tasks) || store.tasks.length === 0) {
+      return;
+    }
+
+    const now = Date.now();
+    const tasks = store.tasks;
+    const notifiedMap = store.notifiedMap || {};
+    let changed = false;
+
+    for (const task of tasks) {
+      if (task.status === 'completed') continue;
+      const dueTime = new Date(task.dueDate).getTime();
+      if (isNaN(dueTime)) continue;
+
+      const timeRemaining = dueTime - now;
+
+      // 1. 24 Hour Advance Reminder (between 2h and 24h)
+      if (timeRemaining > 2 * 3600 * 1000 && timeRemaining <= 24 * 3600 * 1000) {
+        const key = `${task.id}_24h`;
+        const last = notifiedMap[key] || 0;
+        if (now - last > 18 * 3600 * 1000) {
+          notifiedMap[key] = now;
+          changed = true;
+          const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+          await self.registration.showNotification(`⏰ 24h Deadline: ${task.title}`, {
+            body: `Due in about ${hoursLeft} hours! Course: ${task.courseCode || task.courseName}`,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: `bbs-24h-${task.id}`,
+            renotify: true,
+            vibrate: [200, 100, 200],
+            data: { url: './index.html', taskId: task.id }
+          });
+        }
+      }
+
+      // 2. 2 Hour Urgent Alert (between 0 and 2h)
+      if (timeRemaining > 0 && timeRemaining <= 2 * 3600 * 1000) {
+        const key = `${task.id}_2h`;
+        const last = notifiedMap[key] || 0;
+        if (now - last > 3 * 3600 * 1000) {
+          notifiedMap[key] = now;
+          changed = true;
+          const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+          const timeLeftStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+          await self.registration.showNotification(`🚨 Urgent (2h): ${task.title}`, {
+            body: `Due in ${timeLeftStr}! Don't forget to submit for ${task.courseCode || task.courseName}.`,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: `bbs-2h-${task.id}`,
+            renotify: true,
+            vibrate: [300, 150, 300],
+            data: { url: './index.html', taskId: task.id }
+          });
+        }
+      }
+
+      // 3. Due Now / Closing (0 to -30m)
+      if (timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+        const key = `${task.id}_due`;
+        const last = notifiedMap[key] || 0;
+        if (now - last > 2 * 3600 * 1000) {
+          notifiedMap[key] = now;
+          changed = true;
+          await self.registration.showNotification(`⏳ Deadline Closing: ${task.title}`, {
+            body: `Due time has arrived for ${task.courseCode || task.courseName}.`,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: `bbs-due-${task.id}`,
+            renotify: true,
+            vibrate: [200, 100, 200],
+            data: { url: './index.html', taskId: task.id }
+          });
+        }
+      }
+    }
+
+    if (changed) {
+      await saveStoredTasksForNotifications({ notifiedMap });
+    }
+  } catch (err) {
+    console.warn('[SW] Error checking deadlines:', err);
+  }
+}
+
+// Push notification received via WebPush server
 self.addEventListener('push', event => {
   let data = {
     title: '🚨 Blackboard Deadline Alert',
@@ -205,15 +333,19 @@ self.addEventListener('push', event => {
   );
 });
 
-// Notification click
+// Notification click: Focus app and open target task
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
+  const taskId = event.notification.data && event.notification.data.taskId;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
-        if (client.url.includes(targetUrl) && 'focus' in client) {
+        if (client.url.includes('index.html') && 'focus' in client) {
+          if (taskId) {
+            client.postMessage({ type: 'OPEN_TASK', taskId });
+          }
           return client.focus();
         }
       }
@@ -224,15 +356,49 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// Direct message from client (e.g. Test Notification)
+// Periodic Background Sync (runs in background on Android/Chromium PWAs)
+self.addEventListener('periodicsync', event => {
+  if (event.tag === 'check-deadlines' || event.tag === 'bbs-check-deadlines') {
+    event.waitUntil(checkDeadlinesInServiceWorker());
+  }
+});
+
+// Background Sync
+self.addEventListener('sync', event => {
+  if (event.tag === 'check-deadlines' || event.tag === 'bbs-check-deadlines') {
+    event.waitUntil(checkDeadlinesInServiceWorker());
+  }
+});
+
+// Direct messages from client
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'TEST_NOTIFICATION') {
-    self.registration.showNotification('🚨 Blackboarder Alert', {
-      body: 'Test Notification: Calculus 1 Midterm is coming up!',
+  if (!event.data) return;
+
+  if (event.data.type === 'TEST_NOTIFICATION') {
+    self.registration.showNotification(event.data.title || '🚨 Blackboarder Alert', {
+      body: event.data.body || 'Test Notification: Calculus 1 Midterm is coming up!',
       icon: './icon-192.png',
       badge: './icon-192.png',
       vibrate: [200, 100, 200],
       data: { url: './index.html' }
     });
+  } else if (event.data.type === 'DISPATCH_NOTIFICATION') {
+    self.registration.showNotification(event.data.title || 'Blackboarder Alert', {
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      vibrate: [200, 100, 200],
+      data: { url: './index.html' },
+      ...event.data.options
+    });
+  } else if (event.data.type === 'SYNC_TASKS_FOR_NOTIFICATIONS') {
+    event.waitUntil(
+      saveStoredTasksForNotifications({
+        tasks: event.data.tasks || [],
+        notifiedMap: event.data.notifiedMap || {},
+        pushEnabled: event.data.enabled !== false
+      }).then(() => checkDeadlinesInServiceWorker())
+    );
+  } else if (event.data.type === 'CHECK_DEADLINES') {
+    event.waitUntil(checkDeadlinesInServiceWorker());
   }
 });

@@ -1861,6 +1861,8 @@ function initServiceWorker() {
         if (reg.update) {
           reg.update().catch(() => {});
         }
+        registerPeriodicSync();
+        syncTasksToServiceWorker();
       })
       .catch(err => {
         console.warn('[SW] Registration failed:', err);
@@ -1874,6 +1876,192 @@ function initServiceWorker() {
         console.log('[SW] App updated to latest offline version.');
       }
     });
+
+    // Handle clicks from Service Worker notifications
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data?.type === 'OPEN_TASK' && event.data.taskId) {
+        const target = (state.tasks || []).find(t => t.id === event.data.taskId);
+        if (target) {
+          openReadingSheet(target);
+        }
+      }
+    });
+  }
+}
+
+// ==========================================================================
+// Notifications & Background Deadline Scheduler
+// ==========================================================================
+
+async function sendMobileNotification(title, options = {}) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return false;
+  }
+  const isEnabled = localStorage.getItem('bbs_push_enabled') === 'true';
+  if (!isEnabled) return false;
+
+  const notifOptions = {
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    vibrate: [200, 100, 200],
+    data: { url: './index.html' },
+    ...options
+  };
+
+  // 1. Mobile PWA / Service Worker (Android Chrome & iOS Safari compliant)
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, notifOptions);
+        return true;
+      }
+    } catch (swErr) {
+      console.warn('[Notif] Service Worker showNotification failed:', swErr);
+    }
+  }
+
+  // 2. Fallback to standard Desktop constructor
+  try {
+    new Notification(title, notifOptions);
+    return true;
+  } catch (err) {
+    console.warn('[Notif] Desktop Notification constructor failed:', err);
+    return false;
+  }
+}
+
+function syncTasksToServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const pushEnabled = localStorage.getItem('bbs_push_enabled') === 'true';
+  const notifiedRaw = localStorage.getItem('bbs_notified_map') || '{}';
+  let notifiedMap = {};
+  try { notifiedMap = JSON.parse(notifiedRaw); } catch (e) {}
+
+  const messageData = {
+    type: 'SYNC_TASKS_FOR_NOTIFICATIONS',
+    tasks: state.tasks || [],
+    notifiedMap,
+    enabled: pushEnabled
+  };
+
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage(messageData);
+  } else {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.active?.postMessage(messageData);
+    }).catch(() => {});
+  }
+}
+
+async function registerPeriodicSync() {
+  if ('serviceWorker' in navigator && 'periodicSync' in navigator.serviceWorker) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const tags = await reg.periodicSync.getTags();
+      if (!tags.includes('check-deadlines')) {
+        await reg.periodicSync.register('check-deadlines', {
+          minInterval: 15 * 60 * 1000
+        });
+        console.log('[SW] Periodic sync registered');
+      }
+    } catch (err) {
+      console.log('[SW] Periodic sync not available or denied:', err.message);
+    }
+  }
+}
+
+async function checkUpcomingDeadlines(isInteractive = false) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+  const isEnabled = localStorage.getItem('bbs_push_enabled') === 'true';
+  if (!isEnabled) return;
+
+  const now = Date.now();
+  const notifiedRaw = localStorage.getItem('bbs_notified_map') || '{}';
+  let notifiedMap = {};
+  try { notifiedMap = JSON.parse(notifiedRaw); } catch (e) {}
+
+  let changed = false;
+  let notificationsTriggered = 0;
+
+  for (const task of (state.tasks || [])) {
+    if (task.status === 'completed') continue;
+    const dueTime = new Date(task.dueDate).getTime();
+    if (isNaN(dueTime)) continue;
+
+    const timeRemaining = dueTime - now;
+
+    // 1. 24 Hour Advance Reminder (between 2h and 24h)
+    if (timeRemaining > 2 * 3600 * 1000 && timeRemaining <= 24 * 3600 * 1000) {
+      const key = `${task.id}_24h`;
+      const last = notifiedMap[key] || 0;
+      if (now - last > 18 * 3600 * 1000) {
+        notifiedMap[key] = now;
+        changed = true;
+        notificationsTriggered++;
+        const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+        await sendMobileNotification(`⏰ 24h Deadline: ${task.title}`, {
+          body: `Due in about ${hoursLeft} hours! Course: ${task.courseCode || task.courseName}`,
+          tag: `bbs-24h-${task.id}`,
+          renotify: true,
+          vibrate: [200, 100, 200],
+          data: { url: './index.html', taskId: task.id }
+        });
+      }
+    }
+
+    // 2. 2 Hour Urgent Alert (between 0 and 2h)
+    if (timeRemaining > 0 && timeRemaining <= 2 * 3600 * 1000) {
+      const key = `${task.id}_2h`;
+      const last = notifiedMap[key] || 0;
+      if (now - last > 3 * 3600 * 1000) {
+        notifiedMap[key] = now;
+        changed = true;
+        notificationsTriggered++;
+        const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+        const timeLeftStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+        await sendMobileNotification(`🚨 Urgent (2h): ${task.title}`, {
+          body: `Due in ${timeLeftStr}! Don't forget to submit for ${task.courseCode || task.courseName}.`,
+          tag: `bbs-2h-${task.id}`,
+          renotify: true,
+          vibrate: [300, 150, 300],
+          data: { url: './index.html', taskId: task.id }
+        });
+      }
+    }
+
+    // 3. Due Now / Closing (0 to -30m)
+    if (timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+      const key = `${task.id}_due`;
+      const last = notifiedMap[key] || 0;
+      if (now - last > 2 * 3600 * 1000) {
+        notifiedMap[key] = now;
+        changed = true;
+        notificationsTriggered++;
+        await sendMobileNotification(`⏳ Deadline Closing: ${task.title}`, {
+          body: `Due time has arrived for ${task.courseCode || task.courseName}.`,
+          tag: `bbs-due-${task.id}`,
+          renotify: true,
+          vibrate: [200, 100, 200],
+          data: { url: './index.html', taskId: task.id }
+        });
+      }
+    }
+  }
+
+  if (changed) {
+    localStorage.setItem('bbs_notified_map', JSON.stringify(notifiedMap));
+    syncTasksToServiceWorker();
+  }
+
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CHECK_DEADLINES' });
+  }
+
+  if (isInteractive && notificationsTriggered === 0) {
+    console.log('[Notif] Deadline check completed: No active deadlines within notification window.');
   }
 }
 
@@ -1953,6 +2141,8 @@ function loadCachedTasks() {
       });
 
       updateAllViews();
+      syncTasksToServiceWorker();
+      checkUpcomingDeadlines(false);
     }
   } catch (err) {
     console.error('Error loading cached tasks:', err);
@@ -2096,6 +2286,38 @@ async function fetchTasksFromServer(isManual = false) {
 
       updateAllViews();
       updateSyncBanner();
+
+      // Check for newly announced upcoming deadlines
+      const knownIdsRaw = localStorage.getItem('bbs_known_task_ids');
+      if (knownIdsRaw) {
+        try {
+          const knownIds = new Set(JSON.parse(knownIdsRaw));
+          const isPushEnabled = localStorage.getItem('bbs_push_enabled') === 'true' && Notification.permission === 'granted';
+          if (isPushEnabled) {
+            for (const t of state.tasks) {
+              if (!knownIds.has(t.id) && t.status !== 'completed') {
+                const dueMs = new Date(t.dueDate).getTime();
+                if (dueMs > Date.now()) {
+                  sendMobileNotification(`📢 New Deadline Added: ${t.title}`, {
+                    body: `New ${t.type || 'task'} scheduled for ${t.courseCode || t.courseName}.`,
+                    tag: `bbs-new-${t.id}`,
+                    renotify: true,
+                    data: { url: './index.html', taskId: t.id }
+                  });
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+      try {
+        const currentIds = (state.tasks || []).map(t => t.id);
+        localStorage.setItem('bbs_known_task_ids', JSON.stringify(currentIds));
+      } catch (e) {}
+
+      syncTasksToServiceWorker();
+      checkUpcomingDeadlines(false);
+
       if (isManual) {
         showToast('Synced with Firebase: ' + state.tasks.length + ' deadlines up to date');
       }
@@ -2185,16 +2407,25 @@ function initOnlineListeners() {
   });
   window.addEventListener('offline', () => updateStatus(false));
   window.addEventListener('focus', () => {
+    checkUpcomingDeadlines(false);
     if (navigator.onLine) {
       flushOfflineMutations().then(() => fetchTasksFromServer());
     }
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) {
-      fetchTasksFromServer();
+    if (document.visibilityState === 'visible') {
+      checkUpcomingDeadlines(false);
+      if (navigator.onLine) {
+        fetchTasksFromServer();
+      }
     }
   });
+
+  // Scheduled check every 60 seconds for imminent deadlines
+  setInterval(() => {
+    checkUpcomingDeadlines(false);
+  }, 60000);
 
   // Heartbeat poll every 10 seconds while tab is active so extension changes mirror immediately
   setInterval(() => {
@@ -3533,6 +3764,9 @@ function initSettings() {
         if (result === 'granted') {
           localStorage.setItem('bbs_push_enabled', 'true');
           updateNotificationUi();
+          registerPeriodicSync();
+          syncTasksToServiceWorker();
+          await checkUpcomingDeadlines(true);
           showToast('Notifications enabled! You will receive countdown alerts.');
         } else {
           togglePush.checked = false;
@@ -3544,31 +3778,37 @@ function initSettings() {
     } else {
       localStorage.setItem('bbs_push_enabled', 'false');
       updateNotificationUi();
+      syncTasksToServiceWorker();
       showToast('Mobile push notifications turned off.');
     }
   });
 
-  btnTestNotif?.addEventListener('click', () => {
+  btnTestNotif?.addEventListener('click', async () => {
     if (!('Notification' in window)) {
       showToast('Notifications are not supported on this device.');
       return;
     }
 
     if (Notification.permission === 'granted') {
-      try {
-        new Notification('Blackboarder Alert', {
-          body: 'Test Notification: Calculus 1 Midterm is coming up!',
-          icon: './icon-192.png'
-        });
+      const now = Date.now();
+      const nextTask = (state.tasks || []).find(t => t.status !== 'completed' && new Date(t.dueDate).getTime() >= now);
+      const title = nextTask ? `🚨 Upcoming: ${nextTask.title}` : '🚨 Blackboarder Alert';
+      const body = nextTask 
+        ? `Reminder: ${nextTask.courseCode || nextTask.courseName} is due soon!`
+        : 'Test Notification: Blackboarder deadline alerts are working!';
+
+      const sent = await sendMobileNotification(title, {
+        body,
+        tag: 'bbs-test-notification',
+        renotify: true,
+        vibrate: [200, 100, 200],
+        data: { url: './index.html', taskId: nextTask?.id }
+      });
+
+      if (sent) {
         showToast('Sent test notification to your screen!');
-      } catch (err) {
-        // In mobile PWA context, show via service worker
-        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'TEST_NOTIFICATION' });
-          showToast('Notification triggered via Service Worker');
-        } else {
-          showToast('Notification sent (check your notifications shade).');
-        }
+      } else {
+        showToast('Notification triggered (check your notifications shade).');
       }
     } else {
       showToast('Please enable the Push Alerts toggle switch first.');
@@ -4608,6 +4848,8 @@ async function syncToCloudAndLocal() {
 
   updateAllViews();
   updateSyncBanner();
+  syncTasksToServiceWorker();
+  checkUpcomingDeadlines(false);
 
   const payload = {
     tasks: state.tasks,
