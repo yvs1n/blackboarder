@@ -18,6 +18,7 @@ export function parseCourseDetails(rawText: string): CourseInfo {
     .replace(/courses?/gi, '')
     .replace(/stream/gi, '')
     .replace(/university of sharjah/gi, '')
+    .replace(/^(?:Due\s*(?:in|date)?|تسليم|تاريخ\s*الاستحقاق)[:\s-]*/gi, '')
     .replace(/(?:Report)?Due\s*date:.*$/gi, '') // Strip trailing stream card metadata
     .replace(/New\s*Group\s*\d+/gi, '')
     .replace(/\(UTC[+-]?\d+\)/gi, '')
@@ -209,7 +210,14 @@ export function sanitizeDoctorAnnouncementText(
  * by resolving to official course titles ("Physics 1 Lab", "English for Academic Purposes")
  * while preserving custom edits made by the user.
  */
-export function resolveCourseInfo(task: { courseName?: string; courseCode?: string; title?: string }): { courseName: string; courseCode: string } {
+export function resolveCourseInfo(task: {
+  courseName?: string;
+  courseCode?: string;
+  title?: string;
+  description?: string;
+  sourceSnippet?: string;
+  notes?: string;
+}): { courseName: string; courseCode: string } {
   let courseName = (task.courseName || '').trim();
   let courseCode = (task.courseCode || '').trim();
   const title = (task.title || '').trim();
@@ -247,7 +255,7 @@ export function resolveCourseInfo(task: { courseName?: string; courseCode?: stri
                     courseName === courseCode;
 
   if (isGeneric) {
-    const combined = `${courseCode} ${courseName} ${title}`;
+    const combined = `${courseCode} ${courseName} ${title} ${task.description || ''} ${task.sourceSnippet || ''} ${task.notes || ''}`;
     if (/(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101)/i.test(combined)) {
       courseName = 'Introduction to Computer Eng.';
       courseCode = '1502101';
@@ -269,6 +277,26 @@ export function resolveCourseInfo(task: { courseName?: string; courseCode?: stri
     }
   }
 
-  return { courseName: courseName || 'General Course', courseCode: courseCode || 'UOS' };
+  // Clean UOS strings: Never return 'UOS' as a course code or course name!
+  const finalName = (!courseName || courseName.toLowerCase() === 'uos') ? 'General Course' : courseName;
+  const finalCode = (courseCode && courseCode.toUpperCase() !== 'UOS' && courseCode !== finalName) ? courseCode : '';
+
+  return { courseName: finalName, courseCode: finalCode };
+}
+
+/**
+ * Filters out empty or ghost tasks that lack a valid title or are meaningless artifacts
+ * from stream submission receipts, notifications, or generic reminder text.
+ */
+export function isValidTask(task: { title?: string; courseName?: string; courseCode?: string }): boolean {
+  if (!task || !task.title || !task.title.trim()) return false;
+  const titleLower = task.title.trim().toLowerCase();
+  const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
+  const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
+  const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
+  if (isGenericTitle && isGenericCourse && isGenericCode) {
+    return false;
+  }
+  return true;
 }
 

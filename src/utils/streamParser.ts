@@ -12,6 +12,11 @@ import { resolveTaskWeight } from './syllabusWeights';
 export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
   if (!cardText) return null;
 
+  // 1. Skip submission receipts and confirmation cards (student already submitted)
+  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText)) {
+    return null;
+  }
+
   // Regex for "Due Date: 9/18/26, 11:59 PM (UTC+4)" or Arabic equivalent
   const dueDateRegex = /(?:Due Date:\s*|تاريخ الاستحقاق:\s*)(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s*(\d{1,2}):(\d{2})\s*(AM|PM)(?:\s*\((?:UTC)?([+-]?\d+)?\))?/i;
   const dateMatch = cardText.match(dueDateRegex);
@@ -39,8 +44,11 @@ export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
   let rawCourseText = '';
   const dueIndex = lines.findIndex(l => /(?:Due:|تسليم:)/i.test(l));
   if (dueIndex > 0) {
-    rawCourseText = lines[dueIndex - 1];
-  } else if (lines.length > 0) {
+    const candidate = lines[dueIndex - 1];
+    if (!/(?:Due\s*Date|تاريخ\s*الاستحقاق|\d{1,2}\/\d{1,2}\/\d{2,4})/i.test(candidate)) {
+      rawCourseText = candidate;
+    }
+  } else if (lines.length > 0 && !/(?:Due:|تسليم:|Due\s*Date|تاريخ\s*الاستحقاق|\d{1,2}\/\d{1,2}\/\d{2,4})/i.test(lines[0])) {
     rawCourseText = lines[0];
   }
 
@@ -53,12 +61,29 @@ export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
     } else if (/lab\.?\s*report/i.test(cardText)) {
       const match = cardText.match(/([^\n\r,]+(?:Lab\.?\s*Report|Exp\.?))/i);
       title = match ? match[1].trim() : 'Lab Report';
-    } else {
-      title = 'Assignment';
     }
   }
 
+  // Sanitize title: strip "Due in 2 days", "Reminder:", etc.
+  if (title) {
+    title = title.replace(/^(?:due\s*(?:in|date)?|reminder|announcement)[:\s-]*/i, '').trim();
+  }
+
   const courseInfo = parseCourseDetails(rawCourseText);
+
+  // If title is missing or generic (e.g. "Assignment", "Due in...", "Untitled") AND course is generic, discard!
+  const isGenericTitle = !title || /^(?:assignment|due(?:\s+in.*)?|untitled|reminder|activity|announcement)$/i.test(title);
+  const isGenericCourse = !courseInfo.name || 
+                          courseInfo.name === 'General Course' || 
+                          courseInfo.name.toLowerCase() === 'uos' ||
+                          /^due[:\s-]/i.test(courseInfo.name);
+  if (isGenericTitle && isGenericCourse) {
+    return null;
+  }
+
+  if (!title) {
+    title = 'Assignment';
+  }
 
   // Identify type
   let type: TaskType = 'assignment';
@@ -67,19 +92,20 @@ export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
   else if (/project|مشروع|بحث/i.test(title)) type = 'project';
   else if (/hw|homework|واجب/i.test(title)) type = 'assignment';
 
-  const taskId = `stream_${courseInfo.code}_${title.slice(0, 15).replace(/\s+/g, '')}_${dueDate.getTime()}`;
+  const cleanCourseCode = (courseInfo.code && courseInfo.code !== 'UOS') ? courseInfo.code : '';
+  const taskId = `stream_${cleanCourseCode || 'task'}_${title.slice(0, 15).replace(/\s+/g, '')}_${dueDate.getTime()}`;
 
   const weightInfo = resolveTaskWeight({
     title,
     courseName: courseInfo.name,
-    courseCode: courseInfo.code,
+    courseCode: cleanCourseCode,
     type,
     sourceSnippet: dateMatch[0]
   });
 
   return {
     id: taskId,
-    courseCode: courseInfo.code,
+    courseCode: cleanCourseCode,
     courseName: courseInfo.name,
     title,
     description: '',

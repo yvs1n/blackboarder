@@ -52,7 +52,12 @@ function scrapeUltraStreamDueItems(knownDirectTaskIds?: Set<string>): DeadlineTa
     const card = dateEl.closest('li, [role="listitem"], .stream-item, [class*="stream-item"], [class*="stream-entry"], [class*="activity-card"], [class*="element-card"], [class*="timeline"], [class*="base-card"], div[class*="card"]') || dateEl.parentElement?.parentElement || dateEl.parentElement;
     if (!card) continue;
 
-    const parsed = parseDirectStreamCard(card.textContent || '');
+    const cardText = card.textContent || '';
+    if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText)) {
+      continue;
+    }
+
+    const parsed = parseDirectStreamCard(cardText);
     if (parsed) {
       if (knownDirectTaskIds && knownDirectTaskIds.has(parsed.id)) {
         consecutiveKnown++;
@@ -639,12 +644,14 @@ async function fetchCourseAnnouncementsApi(
       const temp = document.createElement('div');
       temp.innerHTML = item.body || '';
       const text = temp.textContent?.trim() || temp.innerText?.trim() || '';
-      const cleanText = sanitizeDoctorAnnouncementText(text, cName || 'General Course', cCode || 'UOS', item.title);
+      const cleanCourseCode = (cCode && cCode !== 'UOS') ? cCode : '';
+      const cleanCourseName = (cName && cName.toLowerCase() !== 'uos') ? cName : 'General Course';
+      const cleanText = sanitizeDoctorAnnouncementText(text, cleanCourseName, cleanCourseCode, item.title);
 
       return {
         id: `ann_api_${item.id || idx}`,
-        courseCode: cCode || 'UOS',
-        courseName: cName || 'General Course',
+        courseCode: cleanCourseCode,
+        courseName: cleanCourseName,
         title: item.title || `Announcement ${idx + 1}`,
         postedAt: item.created || new Date().toISOString(),
         contentText: cleanText,

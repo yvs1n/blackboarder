@@ -1034,7 +1034,7 @@ function resolveCourseInfo(task) {
                     courseName === courseCode;
 
   if (isGeneric) {
-    const combined = `${courseCode} ${courseName} ${title}`;
+    const combined = `${courseCode} ${courseName} ${title} ${task.description || ''} ${task.sourceSnippet || ''} ${task.notes || ''}`;
     for (const item of PERMANENT_COURSE_LEGEND) {
       if (item.pattern.test(combined)) {
         courseName = item.name;
@@ -1055,13 +1055,12 @@ function resolveCourseInfo(task) {
     }
   }
 
-  if (!courseName || courseName.toLowerCase() === 'uos') {
-    courseName = courseCode || 'General Course';
-  }
+  const finalName = (!courseName || courseName.toLowerCase() === 'uos') ? 'General Course' : courseName;
+  const finalCode = (courseCode && courseCode.toLowerCase() !== 'uos' && courseCode !== finalName) ? courseCode : '';
 
   return {
-    courseName,
-    courseCode: courseCode && courseCode !== courseName ? courseCode : ''
+    courseName: finalName,
+    courseCode: finalCode
   };
 }
 
@@ -1971,6 +1970,61 @@ async function registerPeriodicSync() {
   }
 }
 
+function isValidTask(task) {
+  if (!task || !task.title || !task.title.trim()) return false;
+  const titleLower = task.title.trim().toLowerCase();
+  const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
+  const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
+  const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
+  if (isGenericTitle && isGenericCourse && isGenericCode) {
+    return false;
+  }
+  return true;
+}
+
+function formatNotificationPayload(task, windowType, timeRemaining) {
+  const resolved = resolveCourseInfo(task);
+  const courseDisplay = resolved.courseCode && resolved.courseCode.toLowerCase() !== 'uos'
+    ? `${resolved.courseName} (${resolved.courseCode})`
+    : resolved.courseName;
+
+  const dueDateObj = new Date(task.dueDate);
+  const timeStr = !isNaN(dueDateObj) ? dueDateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+  const dateStr = !isNaN(dueDateObj) ? dueDateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+
+  const room = task.room || resolveTaskRoom(task);
+  let locationStr = '';
+  if (room) {
+    locationStr = `📍 Room: ${room}`;
+  } else if (task.type === 'exam' || task.type === 'quiz') {
+    locationStr = '📍 In-class on paper';
+  } else {
+    locationStr = '💻 Online Submission on Blackboard';
+  }
+
+  const weightStr = task.weight ? ` • Worth ${task.weight}%` : '';
+
+  let title = '';
+  let timeDesc = '';
+  if (windowType === '24h') {
+    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+    title = `⏰ 24h Reminder: ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
+  } else if (windowType === '2h') {
+    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+    title = `🚨 Urgent (2h): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
+  } else {
+    title = `⏳ Due Now: ${task.title}`;
+    timeDesc = `🕒 Due time has arrived (${dateStr} at ${timeStr})`;
+  }
+
+  const body = `${courseDisplay}${weightStr}\n${timeDesc}\n${locationStr}`;
+
+  return { title, body };
+}
+
 async function checkUpcomingDeadlines(isInteractive = false) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     return;
@@ -1988,6 +2042,7 @@ async function checkUpcomingDeadlines(isInteractive = false) {
 
   for (const task of (state.tasks || [])) {
     if (task.status === 'completed') continue;
+    if (!isValidTask(task)) continue;
     const dueTime = new Date(task.dueDate).getTime();
     if (isNaN(dueTime)) continue;
 
@@ -2001,11 +2056,11 @@ async function checkUpcomingDeadlines(isInteractive = false) {
         notifiedMap[key] = now;
         changed = true;
         notificationsTriggered++;
-        const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
-        await sendMobileNotification(`⏰ 24h Deadline: ${task.title}`, {
-          body: `Due in about ${hoursLeft} hours! Course: ${task.courseCode || task.courseName}`,
+        const { title, body } = formatNotificationPayload(task, '24h', timeRemaining);
+        await sendMobileNotification(title, {
+          body,
           tag: `bbs-24h-${task.id}`,
-          renotify: true,
+          renotify: false,
           vibrate: [200, 100, 200],
           data: { url: './index.html', taskId: task.id }
         });
@@ -2020,12 +2075,11 @@ async function checkUpcomingDeadlines(isInteractive = false) {
         notifiedMap[key] = now;
         changed = true;
         notificationsTriggered++;
-        const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
-        const timeLeftStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
-        await sendMobileNotification(`🚨 Urgent (2h): ${task.title}`, {
-          body: `Due in ${timeLeftStr}! Don't forget to submit for ${task.courseCode || task.courseName}.`,
+        const { title, body } = formatNotificationPayload(task, '2h', timeRemaining);
+        await sendMobileNotification(title, {
+          body,
           tag: `bbs-2h-${task.id}`,
-          renotify: true,
+          renotify: false,
           vibrate: [300, 150, 300],
           data: { url: './index.html', taskId: task.id }
         });
@@ -2040,10 +2094,11 @@ async function checkUpcomingDeadlines(isInteractive = false) {
         notifiedMap[key] = now;
         changed = true;
         notificationsTriggered++;
-        await sendMobileNotification(`⏳ Deadline Closing: ${task.title}`, {
-          body: `Due time has arrived for ${task.courseCode || task.courseName}.`,
+        const { title, body } = formatNotificationPayload(task, 'due', timeRemaining);
+        await sendMobileNotification(title, {
+          body,
           tag: `bbs-due-${task.id}`,
-          renotify: true,
+          renotify: false,
           vibrate: [200, 100, 200],
           data: { url: './index.html', taskId: task.id }
         });
@@ -2054,10 +2109,6 @@ async function checkUpcomingDeadlines(isInteractive = false) {
   if (changed) {
     localStorage.setItem('bbs_notified_map', JSON.stringify(notifiedMap));
     syncTasksToServiceWorker();
-  }
-
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'CHECK_DEADLINES' });
   }
 
   if (isInteractive && notificationsTriggered === 0) {
@@ -2120,12 +2171,20 @@ function loadCachedTasks() {
     const cachedRaw = localStorage.getItem('bbs_mobile_tasks');
     const cachedSync = localStorage.getItem('bbs_mobile_last_sync');
     if (cachedRaw) {
-      state.tasks = JSON.parse(cachedRaw);
+      state.tasks = (JSON.parse(cachedRaw) || []).filter(isValidTask);
       state.tasks.sort(compareTasksByTime);
       state.lastSync = cachedSync;
 
       // Auto-backfill rooms and syllabus weights if missing
       state.tasks.forEach(t => {
+        if (t.courseCode === 'UOS') t.courseCode = '';
+        const resolved = resolveCourseInfo(t);
+        if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
+          t.courseName = resolved.courseName;
+        }
+        if (resolved.courseCode && !t.courseCode) {
+          t.courseCode = resolved.courseCode;
+        }
         if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
@@ -2260,12 +2319,20 @@ async function fetchTasksFromServer(isManual = false) {
         }
       }
 
-      state.tasks = mergedTasks;
+      state.tasks = mergedTasks.filter(isValidTask);
       state.tasks.sort(compareTasksByTime);
       state.lastSync = fetchedSync;
 
       // Auto-backfill rooms and syllabus weights if missing
       state.tasks.forEach(t => {
+        if (t.courseCode === 'UOS') t.courseCode = '';
+        const resolved = resolveCourseInfo(t);
+        if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
+          t.courseName = resolved.courseName;
+        }
+        if (resolved.courseCode && !t.courseCode) {
+          t.courseCode = resolved.courseCode;
+        }
         if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
@@ -3098,10 +3165,10 @@ function renderTaskCardHtml(task, isCompact = false) {
     <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex};">
       <!-- Course Banner with Permanent Subject Color -->
       <div class="task-course-banner">
-        <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};" title="${escapeHtml(courseName)} ${courseCode ? `(${escapeHtml(courseCode)})` : ''}">
+        <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};" title="${escapeHtml(courseName)}${courseCode && courseCode.toLowerCase() !== 'uos' ? ` (${escapeHtml(courseCode)})` : ''}">
           <span class="course-color-dot" style="background: ${courseTheme.hex};"></span>
           <span class="course-name-text">${escapeHtml(courseName)}</span>
-          ${courseCode ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
+          ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
         <div class="task-header-right">
           <span class="type-pill type-${task.type || 'assignment'}">
@@ -3325,7 +3392,7 @@ function renderReadingPane(task) {
         <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};">
           <span class="course-color-dot" style="background: ${courseTheme.hex};"></span>
           <span class="course-name-text">${escapeHtml(courseName)}</span>
-          ${courseCode ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
+          ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
         <span class="type-pill type-${task.type || 'assignment'}">
           <span>${typeIcon}</span>
@@ -3791,16 +3858,20 @@ function initSettings() {
 
     if (Notification.permission === 'granted') {
       const now = Date.now();
-      const nextTask = (state.tasks || []).find(t => t.status !== 'completed' && new Date(t.dueDate).getTime() >= now);
-      const title = nextTask ? `🚨 Upcoming: ${nextTask.title}` : '🚨 Blackboarder Alert';
-      const body = nextTask 
-        ? `Reminder: ${nextTask.courseCode || nextTask.courseName} is due soon!`
-        : 'Test Notification: Blackboarder deadline alerts are working!';
+      const nextTask = (state.tasks || []).find(t => t.status !== 'completed' && new Date(t.dueDate).getTime() >= now) || (state.tasks || [])[0];
+      let title = '🚨 Blackboarder Alert';
+      let body = 'Calculus I for Engineering (1440 133)\n🕒 Due: Tomorrow at 12:30 PM (in ~24 hours)\n📍 Room: A12-110';
+
+      if (nextTask) {
+        const payload = formatNotificationPayload(nextTask, '2h', Math.max(0, new Date(nextTask.dueDate).getTime() - now));
+        title = payload.title;
+        body = payload.body;
+      }
 
       const sent = await sendMobileNotification(title, {
         body,
         tag: 'bbs-test-notification',
-        renotify: true,
+        renotify: false,
         vibrate: [200, 100, 200],
         data: { url: './index.html', taskId: nextTask?.id }
       });
@@ -4707,7 +4778,7 @@ function openReadingSheet(task) {
     <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};">
       <span class="course-color-dot" style="background: ${courseTheme.hex};"></span>
       <span class="course-name-text">${escapeHtml(courseName)}</span>
-      ${courseCode ? `<span class="course-code-tag" style="color: ${courseTheme.textDark};">${escapeHtml(courseCode)}</span>` : ''}
+      ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark};">${escapeHtml(courseCode)}</span>` : ''}
     </div>
     <span class="type-pill type-${task.type || 'assignment'}">
       <span>${typeIcon}</span>
@@ -4838,6 +4909,7 @@ function closeReadingSheet() {
 }
 
 async function syncToCloudAndLocal() {
+  state.tasks = (state.tasks || []).filter(isValidTask);
   state.tasks.sort(compareTasksByTime);
   state.lastSync = new Date().toISOString();
   localStorage.setItem('bbs_mobile_tasks', JSON.stringify(state.tasks));

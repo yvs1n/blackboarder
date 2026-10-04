@@ -3,7 +3,7 @@ import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, save
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo } from '../utils/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask } from '../utils/courseHelper';
 import { getCourseHex, getCourseColorTheme, PERMANENT_COURSE_LEGEND } from '../utils/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
 import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
@@ -1122,10 +1122,10 @@ function renderTasks() {
     card.innerHTML = `
       <!-- Course Banner with Permanent Subject Color -->
       <div class="task-course-banner">
-        <div class="course-badge-main" style="background: ${courseTheme.bgLight} !important; border: 1px solid ${courseTheme.border} !important; color: ${courseTheme.textDark} !important;" title="${escapeHtml(resolved.courseName)} ${resolved.courseCode ? `(${escapeHtml(resolved.courseCode)})` : ''}">
+        <div class="course-badge-main" style="background: ${courseTheme.bgLight} !important; border: 1px solid ${courseTheme.border} !important; color: ${courseTheme.textDark} !important;" title="${escapeHtml(resolved.courseName)}${resolved.courseCode && resolved.courseCode !== 'UOS' ? ` (${escapeHtml(resolved.courseCode)})` : ''}">
           <span class="course-color-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${courseTheme.hex}; display: inline-block; flex-shrink: 0;"></span>
           <span class="course-name-text" style="color: ${courseTheme.textDark}; font-weight: 700;">${escapeHtml(resolved.courseName)}</span>
-          ${resolved.courseCode && resolved.courseCode !== resolved.courseName ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
+          ${resolved.courseCode && resolved.courseCode !== resolved.courseName && resolved.courseCode !== 'UOS' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
           <span class="type-pill type-${task.type}" style="display: inline-flex; align-items: center; gap: 3px;">
@@ -1274,7 +1274,7 @@ function openReadingSheet(task: DeadlineTask) {
     <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};">
       <span class="course-color-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${courseTheme.hex}; display: inline-block;"></span>
       <span class="course-name-text">${escapeHtml(resolved.courseName)}</span>
-      ${resolved.courseCode ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
+      ${resolved.courseCode && resolved.courseCode !== 'UOS' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
     </div>
     <span class="type-pill type-${task.type || 'assignment'}">
       <span>${getTaskTypeIcon(task.type)}</span>
@@ -3073,11 +3073,12 @@ async function initApp() {
     }
   } catch {}
 
-  currentTasks = await getTasks();
+  currentTasks = (await getTasks()).filter(isValidTask);
   currentTasks.sort(compareTasksByTime);
 
   // Proactively pull freshest updates from Firebase Cloud BEFORE performing retroactive upgrades
   await pullTasksFromFirebaseIfNewer();
+  currentTasks = currentTasks.filter(isValidTask);
 
   // Retroactively refresh syllabus weights, sanitize doctor quotes, and repair assessment times
   let updatedAny = false;
@@ -3115,9 +3116,32 @@ async function initApp() {
       taskUpdated = true;
     }
 
+    // Retroactively resolve course and strip generic 'UOS' code tag
+    let courseName = task.courseName;
+    let courseCode = task.courseCode;
+    if (courseCode === 'UOS') {
+      courseCode = '';
+      taskUpdated = true;
+    }
+    const resolvedCourse = resolveCourseInfo({
+      courseName,
+      courseCode,
+      title: task.title,
+      description,
+      sourceSnippet
+    });
+    if (resolvedCourse.courseName !== 'General Course' && (!courseName || courseName === 'General Course' || courseName.toLowerCase() === 'uos')) {
+      courseName = resolvedCourse.courseName;
+      taskUpdated = true;
+    }
+    if (resolvedCourse.courseCode && !courseCode) {
+      courseCode = resolvedCourse.courseCode;
+      taskUpdated = true;
+    }
+
     // Refresh weights with updated syllabus database
     const resolved = resolveTaskWeight(
-      task.courseName || task.courseCode,
+      courseName || courseCode,
       task.title,
       task.type,
       description || sourceSnippet
@@ -3142,8 +3166,8 @@ async function initApp() {
     // Test extraction on combined text to see if an explicit assessment time is stated
     const testAnn = {
       id: task.announcementId || 'temp',
-      courseCode: task.courseCode,
-      courseName: task.courseName,
+      courseCode: courseCode,
+      courseName: courseName,
       title: task.title,
       contentText: combinedDoctorText,
       sourceUrl: '',
@@ -3170,7 +3194,7 @@ async function initApp() {
     if (!hasSpecificTime) {
       const schedRes = resolveTaskTimeWithSchedule({
         dueDate: new Date(dueDate),
-        courseNameOrCode: task.courseName || task.courseCode,
+        courseNameOrCode: courseName || courseCode,
         hasSpecificTime: false,
         announcementText: description || sourceSnippet,
         title: task.title
@@ -3186,7 +3210,7 @@ async function initApp() {
     let room = task.room;
     if (!room) {
       const resolvedRoom = resolveTaskRoom({
-        courseNameOrCode: task.courseName || task.courseCode,
+        courseNameOrCode: courseName || courseCode,
         announcementText: description || sourceSnippet,
         title: task.title
       });
@@ -3200,6 +3224,8 @@ async function initApp() {
       updatedAny = true;
       return {
         ...task,
+        courseName,
+        courseCode,
         room,
         description,
         sourceSnippet,

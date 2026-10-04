@@ -211,11 +211,60 @@ async function saveStoredTasksForNotifications(data) {
   }
 }
 
+function formatSwNotification(task, windowType, timeRemaining) {
+  const courseName = (task.courseName && task.courseName.toLowerCase() !== 'uos') ? task.courseName : 'General Course';
+  const courseCode = (task.courseCode && task.courseCode.toLowerCase() !== 'uos' && task.courseCode !== courseName) ? task.courseCode : '';
+  const courseDisplay = courseCode ? `${courseName} (${courseCode})` : courseName;
+
+  const dueDateObj = new Date(task.dueDate);
+  const timeStr = !isNaN(dueDateObj) ? dueDateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+  const dateStr = !isNaN(dueDateObj) ? dueDateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+
+  const room = task.room || '';
+  let locationStr = '';
+  if (room) {
+    locationStr = `📍 Room: ${room}`;
+  } else if (task.type === 'exam' || task.type === 'quiz') {
+    locationStr = '📍 In-class on paper';
+  } else {
+    locationStr = '💻 Online Submission on Blackboard';
+  }
+
+  const weightStr = task.weight ? ` • Worth ${task.weight}%` : '';
+
+  let title = '';
+  let timeDesc = '';
+  if (windowType === '24h') {
+    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+    title = `⏰ 24h Reminder: ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
+  } else if (windowType === '2h') {
+    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+    title = `🚨 Urgent (2h): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
+  } else {
+    title = `⏳ Due Now: ${task.title}`;
+    timeDesc = `🕒 Due time has arrived (${dateStr} at ${timeStr})`;
+  }
+
+  const body = `${courseDisplay}${weightStr}\n${timeDesc}\n${locationStr}`;
+
+  return { title, body };
+}
+
 // Evaluates deadlines and triggers native notifications
 async function checkDeadlinesInServiceWorker() {
   try {
     const store = await getStoredTasksForNotifications();
     if (!store || store.pushEnabled === false || !Array.isArray(store.tasks) || store.tasks.length === 0) {
+      return;
+    }
+
+    // If an active window client is open and visible in foreground, let app.js handle alerts
+    const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const isForeground = windowClients.some(c => c.visibilityState === 'visible');
+    if (isForeground) {
       return;
     }
 
@@ -238,13 +287,13 @@ async function checkDeadlinesInServiceWorker() {
         if (now - last > 18 * 3600 * 1000) {
           notifiedMap[key] = now;
           changed = true;
-          const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
-          await self.registration.showNotification(`⏰ 24h Deadline: ${task.title}`, {
-            body: `Due in about ${hoursLeft} hours! Course: ${task.courseCode || task.courseName}`,
+          const { title, body } = formatSwNotification(task, '24h', timeRemaining);
+          await self.registration.showNotification(title, {
+            body,
             icon: './icon-192.png',
             badge: './icon-192.png',
             tag: `bbs-24h-${task.id}`,
-            renotify: true,
+            renotify: false,
             vibrate: [200, 100, 200],
             data: { url: './index.html', taskId: task.id }
           });
@@ -258,14 +307,13 @@ async function checkDeadlinesInServiceWorker() {
         if (now - last > 3 * 3600 * 1000) {
           notifiedMap[key] = now;
           changed = true;
-          const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
-          const timeLeftStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
-          await self.registration.showNotification(`🚨 Urgent (2h): ${task.title}`, {
-            body: `Due in ${timeLeftStr}! Don't forget to submit for ${task.courseCode || task.courseName}.`,
+          const { title, body } = formatSwNotification(task, '2h', timeRemaining);
+          await self.registration.showNotification(title, {
+            body,
             icon: './icon-192.png',
             badge: './icon-192.png',
             tag: `bbs-2h-${task.id}`,
-            renotify: true,
+            renotify: false,
             vibrate: [300, 150, 300],
             data: { url: './index.html', taskId: task.id }
           });
@@ -279,12 +327,13 @@ async function checkDeadlinesInServiceWorker() {
         if (now - last > 2 * 3600 * 1000) {
           notifiedMap[key] = now;
           changed = true;
-          await self.registration.showNotification(`⏳ Deadline Closing: ${task.title}`, {
-            body: `Due time has arrived for ${task.courseCode || task.courseName}.`,
+          const { title, body } = formatSwNotification(task, 'due', timeRemaining);
+          await self.registration.showNotification(title, {
+            body,
             icon: './icon-192.png',
             badge: './icon-192.png',
             tag: `bbs-due-${task.id}`,
-            renotify: true,
+            renotify: false,
             vibrate: [200, 100, 200],
             data: { url: './index.html', taskId: task.id }
           });
@@ -396,7 +445,7 @@ self.addEventListener('message', event => {
         tasks: event.data.tasks || [],
         notifiedMap: event.data.notifiedMap || {},
         pushEnabled: event.data.enabled !== false
-      }).then(() => checkDeadlinesInServiceWorker())
+      })
     );
   } else if (event.data.type === 'CHECK_DEADLINES') {
     event.waitUntil(checkDeadlinesInServiceWorker());
