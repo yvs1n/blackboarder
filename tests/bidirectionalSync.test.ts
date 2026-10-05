@@ -41,7 +41,7 @@ describe('Bidirectional Sync & Notes Parity', () => {
 
   it('pushTasksToFirebase preserves notes and announcement separately', async () => {
     let capturedBody: any = null;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async (url, init) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
       capturedBody = JSON.parse(init?.body as string);
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
@@ -217,7 +217,7 @@ describe('Bidirectional Sync & Notes Parity', () => {
 
   it('pushTasksToFirebase transmits tombstones in payload and fetchTasksFromFirebase parses them', async () => {
     let capturedBody: any = null;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async (url, init) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
       capturedBody = JSON.parse(init?.body as string);
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
