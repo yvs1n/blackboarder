@@ -458,10 +458,18 @@ export default {
     // 7. Pass all other static requests (HTML, CSS, JS, icons) to Cloudflare Pages Assets
     if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
       const assetRes = await env.ASSETS.fetch(request);
-      if (pathname === '/sw.js') {
+      const isSw = pathname === '/sw.js';
+      const isHtml = pathname === '/' || pathname === '/index.html';
+      const isCode = pathname.endsWith('.js') || pathname.endsWith('.css');
+
+      if (isSw || isHtml || isCode) {
         const newHeaders = new Headers(assetRes.headers);
-        newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        newHeaders.set('Service-Worker-Allowed', '/');
+        if (isSw || isHtml) {
+          newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          if (isSw) newHeaders.set('Service-Worker-Allowed', '/');
+        } else if (isCode) {
+          newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
+        }
         return new Response(assetRes.body, {
           status: assetRes.status,
           statusText: assetRes.statusText,

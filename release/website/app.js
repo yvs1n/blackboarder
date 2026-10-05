@@ -1860,6 +1860,23 @@ function initServiceWorker() {
         if (reg.update) {
           reg.update().catch(() => {});
         }
+
+        // Detect new worker installed and prompt immediate update
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[SW] New version detected and installed. Reloading...');
+                showToast('Website updated to latest version! Reloading...', 2000);
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              }
+            });
+          }
+        });
+
         registerPeriodicSync();
         syncTasksToServiceWorker();
       })
@@ -1872,7 +1889,8 @@ function initServiceWorker() {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
         refreshing = true;
-        console.log('[SW] App updated to latest offline version.');
+        console.log('[SW] New service worker activated, reloading page...');
+        window.location.reload();
       }
     });
 
@@ -2607,7 +2625,16 @@ function initOnlineListeners() {
   });
 
   document.getElementById('btn-refresh')?.addEventListener('click', () => syncBidirectionally(true));
-  document.getElementById('btn-force-refresh')?.addEventListener('click', () => syncBidirectionally(true));
+  document.getElementById('btn-force-refresh')?.addEventListener('click', async () => {
+    showToast('Checking for application updates and synchronizing cloud...', 2000);
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+      } catch (e) {}
+    }
+    await syncBidirectionally(true);
+  });
 }
 
 // ==========================================================================

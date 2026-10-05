@@ -1,11 +1,11 @@
-const CACHE_NAME = 'sidekick-mobile-v8';
+const CACHE_NAME = 'sidekick-mobile-v9';
 const STATIC_ASSETS = [
   './index.html',
   './',
   './styles.css',
-  './styles.css?v=6',
+  './styles.css?v=9',
   './app.js',
-  './app.js?v=6',
+  './app.js?v=9',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -80,27 +80,34 @@ self.addEventListener('fetch', event => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       (async () => {
-        // Fast-network-first with quick 2s timeout for instantaneous offline responsiveness
+        // Fast network-first with quick 2s timeout for instantaneous updates and offline fallback
         try {
           const networkPromise = fetch(event.request).then(res => cleanResponse(res));
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Network timeout')), 2000)
           );
-          return await Promise.race([networkPromise, timeoutPromise]);
-        } catch (err) {
-          const cache = await caches.open(CACHE_NAME);
-          const cached = (await cache.match('./index.html', { ignoreSearch: true })) ||
-                         (await cache.match('/index.html', { ignoreSearch: true })) ||
-                         (await cache.match('./', { ignoreSearch: true })) ||
-                         (await cache.match('/', { ignoreSearch: true }));
-          if (cached) {
-            return cleanResponse(cached);
+          const netRes = await Promise.race([networkPromise, timeoutPromise]);
+          if (netRes && (netRes.ok || netRes.status === 304)) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(event.request, netRes.clone());
+            return netRes;
           }
-          return new Response('Offline: Blackboarder cached shell not available.', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-          });
+        } catch (err) {
+          // Network failed or timed out, fall back to cached index.html
         }
+
+        const cache = await caches.open(CACHE_NAME);
+        const cached = (await cache.match('./index.html', { ignoreSearch: true })) ||
+                       (await cache.match('/index.html', { ignoreSearch: true })) ||
+                       (await cache.match('./', { ignoreSearch: true })) ||
+                       (await cache.match('/', { ignoreSearch: true }));
+        if (cached) {
+          return cleanResponse(cached);
+        }
+        return new Response('Offline: Blackboarder cached shell not available.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
       })()
     );
     return;
@@ -129,7 +136,38 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Static assets: Cache-first with query-string tolerance (ignoreSearch) & safe offline fallback
+  // 3. Application Code (app.js, styles.css): Network-first with fast 2s timeout & offline cache fallback
+  if (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const netPromise = fetch(event.request);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Network timeout')), 2000)
+          );
+          const netRes = await Promise.race([netPromise, timeoutPromise]);
+          if (netRes && (netRes.ok || netRes.status === 304)) {
+            cache.put(event.request, netRes.clone());
+            return cleanResponse(netRes);
+          }
+        } catch (err) {
+          // Network unavailable or slow: fall back to cache below
+        }
+
+        const cached = (await cache.match(event.request)) ||
+                       (await cache.match(event.request, { ignoreSearch: true })) ||
+                       (await cache.match(url.pathname, { ignoreSearch: true })) ||
+                       (await cache.match('.' + url.pathname, { ignoreSearch: true }));
+        if (cached) return cleanResponse(cached);
+
+        return new Response('', { status: 408, statusText: 'Offline Asset Unavailable' });
+      })()
+    );
+    return;
+  }
+
+  // 4. Static media assets (icons, manifest): Cache-first with network fallback
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
@@ -142,9 +180,9 @@ self.addEventListener('fetch', event => {
       if (!cached) {
         // Match by relative or clean path
         const strippedUrl = url.origin + url.pathname;
-        cached = await cache.match(strippedUrl, { ignoreSearch: true }) ||
-                 await cache.match(url.pathname, { ignoreSearch: true }) ||
-                 await cache.match('.' + url.pathname, { ignoreSearch: true });
+        cached = (await cache.match(strippedUrl, { ignoreSearch: true })) ||
+                 (await cache.match(url.pathname, { ignoreSearch: true })) ||
+                 (await cache.match('.' + url.pathname, { ignoreSearch: true }));
       }
 
       if (cached) {
@@ -449,5 +487,11 @@ self.addEventListener('message', event => {
     );
   } else if (event.data.type === 'CHECK_DEADLINES') {
     event.waitUntil(checkDeadlinesInServiceWorker());
+  } else if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  } else if (event.data.type === 'CLEAR_CACHE') {
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    );
   }
 });
