@@ -83,32 +83,33 @@ function i(e) {
 	let t = (e || "").trim().replace(/[^a-zA-Z0-9_-]/g, "");
 	return t ? `${r}/users/${t}/data.json` : `${r}/data.json`;
 }
-async function a(e, t = "Chrome Extension", n, a) {
+async function a(e, t = "Chrome Extension", n, a, o) {
 	try {
-		let o = (/* @__PURE__ */ new Date()).toISOString(), s = {
+		let s = (/* @__PURE__ */ new Date()).toISOString(), c = {
 			tasks: e,
-			lastSync: o,
+			lastSync: s,
 			device: t,
 			count: e.length,
 			syncKey: n || void 0,
-			quickLinks: a || void 0
-		}, c = i(n), l = await fetch(c, {
+			quickLinks: a || void 0,
+			tombstones: o || void 0
+		}, l = i(n), u = await fetch(l, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(s)
+			body: JSON.stringify(c)
 		});
-		if (!l.ok) {
-			let e = await l.text().catch(() => "");
+		if (!u.ok) {
+			let e = await u.text().catch(() => "");
 			return {
 				success: !1,
-				message: `Firebase error (${l.status}): ${e}`
+				message: `Firebase error (${u.status}): ${e}`
 			};
 		}
-		if (n && c !== `${r}/data.json`) try {
+		if (n && l !== `${r}/data.json`) try {
 			await fetch(`${r}/data.json`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(s)
+				body: JSON.stringify(c)
 			});
 		} catch (e) {
 			console.warn("Firebase root mirror error:", e);
@@ -116,7 +117,7 @@ async function a(e, t = "Chrome Extension", n, a) {
 		return {
 			success: !0,
 			message: `Synchronized ${e.length} deadlines with Firebase Cloud`,
-			lastSync: o,
+			lastSync: s,
 			count: e.length
 		};
 	} catch (e) {
@@ -139,13 +140,15 @@ async function o(e) {
 			success: !0,
 			tasks: [],
 			lastSync: void 0,
-			quickLinks: r?.quickLinks
+			quickLinks: r?.quickLinks,
+			tombstones: r?.tombstones
 		} : {
 			success: !0,
 			tasks: r.tasks,
 			lastSync: r.lastSync,
 			device: r.device,
-			quickLinks: r.quickLinks
+			quickLinks: r.quickLinks,
+			tombstones: r.tombstones
 		};
 	} catch (e) {
 		return {
@@ -646,41 +649,49 @@ function Y() {
 }
 async function X() {
 	try {
-		let e = await o();
-		if (!e.success || !Array.isArray(e.tasks) || e.tasks.length === 0) return !1;
-		let t = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], n = /* @__PURE__ */ new Map();
-		for (let e of t) n.set(e.id, e);
-		let r = !1;
-		for (let t of e.tasks) if (!n.has(t.id)) n.set(t.id, t), r = !0;
+		let e = await chrome.storage.local.get(["bbs_settings", "bbs_tombstones"]), t = e.bbs_settings?.syncKey, n = await o(t);
+		if (!n.success || !Array.isArray(n.tasks)) return !1;
+		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = /* @__PURE__ */ new Map();
+		for (let e of r) i.set(e.id, e);
+		let a = !1;
+		if (n.tombstones && typeof n.tombstones == "object") {
+			let t = {
+				...e.bbs_tombstones || {},
+				...n.tombstones
+			};
+			await chrome.storage.local.set({ bbs_tombstones: t });
+			for (let e of Object.keys(n.tombstones)) i.has(e) && (i.delete(e), a = !0);
+		}
+		for (let e of n.tasks) if (!i.has(e.id)) i.set(e.id, e), a = !0;
 		else {
-			let e = n.get(t.id), i = new Date(e.updatedAt || e.createdAt || 0).getTime(), a = new Date(t.updatedAt || t.createdAt || 0).getTime();
-			if (a > i) n.set(t.id, {
-				...e,
+			let t = i.get(e.id), n = new Date(t.updatedAt || t.createdAt || 0).getTime(), r = new Date(e.updatedAt || e.createdAt || 0).getTime();
+			if (r > n) i.set(e.id, {
 				...t,
-				courseName: t.courseName || e.courseName,
-				courseCode: t.courseCode || e.courseCode,
-				title: t.title || e.title,
-				description: t.description === void 0 ? e.description : t.description,
-				sourceSnippet: t.sourceSnippet === void 0 ? e.sourceSnippet : t.sourceSnippet,
-				notes: t.notes === void 0 ? e.notes : t.notes,
-				dueDate: t.dueDate || e.dueDate,
-				hasSpecificTime: t.hasSpecificTime === void 0 ? e.hasSpecificTime : t.hasSpecificTime,
-				room: t.room === void 0 ? e.room : t.room,
-				type: t.type || e.type,
-				priority: t.priority || e.priority,
-				status: t.status || e.status,
-				weight: t.weight === void 0 ? e.weight : t.weight,
-				weightDisplay: t.weightDisplay === void 0 ? e.weightDisplay : t.weightDisplay,
-				syllabusNote: t.syllabusNote === void 0 ? e.syllabusNote : t.syllabusNote,
-				updatedAt: t.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
-			}), r = !0;
+				...e,
+				courseName: e.courseName || t.courseName,
+				courseCode: e.courseCode || t.courseCode,
+				title: e.title || t.title,
+				description: e.description === void 0 ? t.description : e.description,
+				sourceSnippet: e.sourceSnippet === void 0 ? t.sourceSnippet : e.sourceSnippet,
+				notes: e.notes === void 0 ? t.notes : e.notes,
+				dueDate: e.dueDate || t.dueDate,
+				hasSpecificTime: e.hasSpecificTime === void 0 ? t.hasSpecificTime : e.hasSpecificTime,
+				room: e.room === void 0 ? t.room : e.room,
+				type: e.type || t.type,
+				priority: e.priority || t.priority,
+				status: e.status || t.status,
+				weight: e.weight === void 0 ? t.weight : e.weight,
+				weightDisplay: e.weightDisplay === void 0 ? t.weightDisplay : e.weightDisplay,
+				syllabusNote: e.syllabusNote === void 0 ? t.syllabusNote : e.syllabusNote,
+				updatedAt: e.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+			}), a = !0;
 			else {
-				let o = !1, s = { ...e };
-				t.courseName && t.courseName !== e.courseName && (s.courseName = t.courseName, t.courseCode && (s.courseCode = t.courseCode), o = !0), t.courseCode && !e.courseCode && (s.courseCode = t.courseCode, o = !0), t.notes && t.notes !== e.notes && (s.notes = t.notes, o = !0), t.status && t.status !== e.status && a >= i && (s.status = t.status, o = !0), t.room && t.room !== e.room && (s.room = t.room, o = !0), t.description && t.description !== e.description && t.description.trim() && (s.description = t.description, o = !0), o && (n.set(t.id, s), r = !0);
+				let o = !1, s = { ...t };
+				e.courseName && e.courseName !== t.courseName && (s.courseName = e.courseName, e.courseCode && (s.courseCode = e.courseCode), o = !0), e.courseCode && !t.courseCode && (s.courseCode = e.courseCode, o = !0), e.notes && e.notes !== t.notes && (s.notes = e.notes, o = !0), e.status && e.status !== t.status && r >= n && (s.status = e.status, o = !0), e.room && e.room !== t.room && (s.room = e.room, o = !0), e.description && e.description !== t.description && e.description.trim() && (s.description = e.description, o = !0), o && (i.set(e.id, s), a = !0);
 			}
 		}
-		if (r) {
-			let e = Array.from(n.values()).sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime());
+		if (a) {
+			let e = Array.from(i.values()).sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime());
 			return await chrome.storage.local.set({ bbs_tasks: e }), await Q(), console.log("[Background Sync] Pulled and merged latest deadlines & course changes from Firebase into storage"), !0;
 		}
 		return !1;
@@ -696,11 +707,11 @@ async function Z() {
 			ok: !1,
 			reason: "disabled"
 		};
-		let [o, s] = await Promise.all([a(r, "Midnight Extension Sync"), n(r, i)]);
-		return console.log("[Auto-Sync] Firebase Result:", o, "Server Result:", s), {
-			ok: o.success || s.success,
-			fbResult: o,
-			serverResult: s
+		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, [s, c] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, void 0, o), n(r, i)]);
+		return console.log("[Auto-Sync] Firebase Result:", s, "Server Result:", c), {
+			ok: s.success || c.success,
+			fbResult: s,
+			serverResult: c
 		};
 	} catch (e) {
 		return console.error("[Auto-Sync] Failed syncing to mobile server:", e), {

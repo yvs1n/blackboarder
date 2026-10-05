@@ -214,5 +214,35 @@ describe('Bidirectional Sync & Notes Parity', () => {
     expect(updated.courseName).toBe('Calculus I for Engineering');
     expect(updated.courseCode).toBe('1440133');
   });
+
+  it('pushTasksToFirebase transmits tombstones in payload and fetchTasksFromFirebase parses them', async () => {
+    let capturedBody: any = null;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async (url, init) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+
+    const tombstones = { 'task-deleted-1': '2026-10-05T04:00:00.000Z' };
+    const res = await pushTasksToFirebase([baseTask], 'Chrome Extension', 'BBS-TEST', undefined, tombstones);
+    expect(res.success).toBe(true);
+    expect(capturedBody.tombstones).toEqual(tombstones);
+    fetchSpy.mockRestore();
+
+    // Now test fetchTasksFromFirebase reading them back
+    const fetchSpy2 = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        tasks: [baseTask],
+        lastSync: '2026-10-05T04:00:00.000Z',
+        count: 1,
+        tombstones: { 'task-deleted-1': '2026-10-05T04:00:00.000Z' }
+      }), { status: 200 })
+    );
+
+    const fetched = await fetchTasksFromFirebase('BBS-TEST');
+    expect(fetched.success).toBe(true);
+    expect(fetched.tombstones).toBeDefined();
+    expect(fetched.tombstones?.['task-deleted-1']).toBe('2026-10-05T04:00:00.000Z');
+    fetchSpy2.mockRestore();
+  });
 });
 

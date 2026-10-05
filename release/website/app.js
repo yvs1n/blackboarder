@@ -2208,6 +2208,33 @@ function loadCachedTasks() {
   }
 }
 
+function recordLocalTombstone(taskId) {
+  try {
+    const raw = localStorage.getItem('bbs_tombstones') || '{}';
+    const tombs = JSON.parse(raw);
+    tombs[taskId] = new Date().toISOString();
+    localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+  } catch (e) {}
+}
+
+function removeLocalTombstone(taskId) {
+  try {
+    const raw = localStorage.getItem('bbs_tombstones') || '{}';
+    const tombs = JSON.parse(raw);
+    delete tombs[taskId];
+    localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+  } catch (e) {}
+}
+
+function getLocalTombstones() {
+  try {
+    const raw = localStorage.getItem('bbs_tombstones') || '{}';
+    return JSON.parse(raw);
+  } catch (e) {
+    return {};
+  }
+}
+
 let _isFetchingFromServer = false;
 
 async function fetchTasksFromServer(isManual = false) {
@@ -2239,6 +2266,18 @@ async function fetchTasksFromServer(isManual = false) {
           }
           if (!localStorage.getItem('bbs_sync_key') && fbData.syncKey) {
             localStorage.setItem('bbs_sync_key', fbData.syncKey);
+            const inputKey = document.getElementById('web-sync-key-input');
+            if (inputKey && !inputKey.value) inputKey.value = fbData.syncKey;
+            const syncKeyStatus = document.getElementById('web-sync-key-status');
+            if (syncKeyStatus) {
+              syncKeyStatus.textContent = `Paired with ${fbData.syncKey} (auto-discovered)`;
+              syncKeyStatus.style.color = '#15803d';
+            }
+          }
+          if (fbData.tombstones && typeof fbData.tombstones === 'object') {
+            const tombs = getLocalTombstones();
+            Object.assign(tombs, fbData.tombstones);
+            localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
           }
         }
       }
@@ -2270,9 +2309,8 @@ async function fetchTasksFromServer(isManual = false) {
 
     if (tasksLoaded) {
       const localMap = new Map((state.tasks || []).map(t => [t.id, t]));
-      const tombstonesRaw = localStorage.getItem('bbs_tombstones') || '{}';
-      let tombstones = {};
-      try { tombstones = JSON.parse(tombstonesRaw); } catch (e) {}
+      const tombstones = getLocalTombstones();
+      let hasLocalModifications = false;
 
       const mergedTasks = [];
       const processedIds = new Set();
@@ -2281,7 +2319,7 @@ async function fetchTasksFromServer(isManual = false) {
         if (tombstones[fbTask.id]) {
           const tombTime = new Date(tombstones[fbTask.id]).getTime();
           const fbTime = new Date(fbTask.updatedAt || fbTask.createdAt || 0).getTime();
-          if (tombTime >= fbTime) continue; // Deleted locally, skip resurrection
+          if (tombTime >= fbTime) continue; // Deleted, skip resurrection
         }
 
         const localTask = localMap.get(fbTask.id);
@@ -2299,6 +2337,7 @@ async function fetchTasksFromServer(isManual = false) {
               ...fbTask,
               ...localTask
             });
+            hasLocalModifications = true;
           } else {
             // Cloud task is newer or equal
             mergedTasks.push({
@@ -2306,16 +2345,24 @@ async function fetchTasksFromServer(isManual = false) {
               ...fbTask,
               notes: fbTask.notes !== undefined ? fbTask.notes : localTask.notes,
               description: fbTask.description !== undefined ? fbTask.description : localTask.description,
-              sourceSnippet: fbTask.sourceSnippet !== undefined ? fbTask.sourceSnippet : localTask.sourceSnippet
+              sourceSnippet: fbTask.sourceSnippet !== undefined ? fbTask.sourceSnippet : localTask.sourceSnippet,
+              room: fbTask.room !== undefined ? fbTask.room : localTask.room,
+              status: fbTask.status !== undefined ? fbTask.status : localTask.status,
+              dueDate: fbTask.dueDate || localTask.dueDate,
+              title: fbTask.title || localTask.title,
+              courseName: fbTask.courseName || localTask.courseName,
+              courseCode: fbTask.courseCode !== undefined ? fbTask.courseCode : localTask.courseCode
             });
           }
         }
       }
 
-      // Retain any locally created tasks not yet in fetchedTasks
+      // Retain any locally created tasks not yet in fetchedTasks (unless tombstoned)
       for (const [id, localTask] of localMap.entries()) {
-        if (!processedIds.has(id) && !tombstones[id]) {
+        if (!processedIds.has(id)) {
+          if (tombstones[id]) continue;
           mergedTasks.push(localTask);
+          hasLocalModifications = true;
         }
       }
 
@@ -2385,8 +2432,13 @@ async function fetchTasksFromServer(isManual = false) {
       syncTasksToServiceWorker();
       checkUpcomingDeadlines(false);
 
+      if (hasLocalModifications) {
+        // Local additions or updates need to be saved back to Firebase Cloud
+        syncToCloudAndLocal().catch(() => {});
+      }
+
       if (isManual) {
-        showToast('Synced with Firebase: ' + state.tasks.length + ' deadlines up to date');
+        showToast('Synced with cloud: ' + state.tasks.length + ' deadlines up to date');
       }
     } else {
       throw new Error('No data returned from cloud endpoints');
@@ -2408,6 +2460,42 @@ async function fetchTasksFromServer(isManual = false) {
         refreshBtn.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
       }, 400);
     }
+  }
+}
+
+/**
+ * True bidirectional sync:
+ * 1. Flushes pending offline mutations
+ * 2. Fetches freshest tasks from cloud and reconciles
+ * 3. Pushes reconciled state back to cloud so both sides are identical
+ */
+async function syncBidirectionally(isManual = false) {
+  const refreshBtn = document.getElementById('btn-refresh');
+  const syncBanner = document.getElementById('sync-banner-text');
+  refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
+  if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+
+  try {
+    // 1. Flush any pending offline mutations first
+    await flushOfflineMutations();
+
+    // 2. Fetch latest tasks from cloud & reconcile
+    await fetchTasksFromServer(false);
+
+    // 3. Push full reconciled state to cloud so both laptop and phone are in lockstep
+    await syncToCloudAndLocal();
+
+    if (isManual) {
+      showToast(`Synced with cloud: ${state.tasks.length} deadlines up to date`);
+    }
+  } catch (err) {
+    console.warn('Bidirectional sync failed:', err);
+    if (isManual) {
+      showToast('Sync error: ' + (err.message || 'offline'));
+    }
+  } finally {
+    refreshBtn?.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
+    updateSyncBanner();
   }
 }
 
@@ -2518,8 +2606,8 @@ function initOnlineListeners() {
     }
   });
 
-  document.getElementById('btn-refresh')?.addEventListener('click', () => fetchTasksFromServer(true));
-  document.getElementById('btn-force-refresh')?.addEventListener('click', () => fetchTasksFromServer(true));
+  document.getElementById('btn-refresh')?.addEventListener('click', () => syncBidirectionally(true));
+  document.getElementById('btn-force-refresh')?.addEventListener('click', () => syncBidirectionally(true));
 }
 
 // ==========================================================================
@@ -4499,6 +4587,7 @@ function initModals() {
       dayDrawer.style.display = 'none';
     }
 
+    recordLocalTombstone(taskId);
     enqueueOfflineMutation({ type: 'delete', taskId });
     await syncToCloudAndLocal();
 
@@ -4506,6 +4595,7 @@ function initModals() {
       `Deleted "${deletedTask.title.slice(0, 22)}..."`,
       'Undo',
       async () => {
+        removeLocalTombstone(deletedTask.id);
         state.tasks.splice(taskIndex, 0, deletedTask);
         enqueueOfflineMutation({ type: 'add', task: deletedTask });
         await syncToCloudAndLocal();
@@ -4923,13 +5013,15 @@ async function syncToCloudAndLocal() {
   syncTasksToServiceWorker();
   checkUpcomingDeadlines(false);
 
+  const tombstones = getLocalTombstones();
   const payload = {
     tasks: state.tasks,
     quickLinks: state.quickLinks,
     lastSync: state.lastSync,
     device: 'Mobile Web App',
     count: state.tasks.length,
-    syncKey: getSyncKey() || undefined
+    syncKey: getSyncKey() || undefined,
+    tombstones: Object.keys(tombstones).length > 0 ? tombstones : undefined
   };
 
   try {

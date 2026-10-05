@@ -29,6 +29,7 @@ export interface FirebaseSyncPayload {
   count: number;
   syncKey?: string;
   quickLinks?: QuickLink[];
+  tombstones?: Record<string, string>;
 }
 
 export interface DeletionTombstone {
@@ -45,7 +46,8 @@ export async function pushTasksToFirebase(
   tasks: DeadlineTask[],
   device: string = 'Chrome Extension',
   syncKey?: string,
-  quickLinks?: QuickLink[]
+  quickLinks?: QuickLink[],
+  tombstones?: Record<string, string>
 ): Promise<{ success: boolean; message: string; lastSync?: string; count?: number }> {
   try {
     const lastSync = new Date().toISOString();
@@ -55,7 +57,8 @@ export async function pushTasksToFirebase(
       device,
       count: tasks.length,
       syncKey: syncKey || undefined,
-      quickLinks: quickLinks || undefined
+      quickLinks: quickLinks || undefined,
+      tombstones: tombstones || undefined
     };
 
     const targetUrl = getFirebaseDataUrl(syncKey);
@@ -108,6 +111,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
   device?: string;
   error?: string;
   quickLinks?: QuickLink[];
+  tombstones?: Record<string, string>;
 }> {
   try {
     const targetUrl = getFirebaseDataUrl(syncKey);
@@ -121,7 +125,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
 
     const data: FirebaseSyncPayload = await res.json();
     if (!data || !Array.isArray(data.tasks)) {
-      return { success: true, tasks: [], lastSync: undefined, quickLinks: data?.quickLinks };
+      return { success: true, tasks: [], lastSync: undefined, quickLinks: data?.quickLinks, tombstones: data?.tombstones };
     }
 
     return {
@@ -129,7 +133,8 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       tasks: data.tasks,
       lastSync: data.lastSync,
       device: data.device,
-      quickLinks: data.quickLinks
+      quickLinks: data.quickLinks,
+      tombstones: data.tombstones
     };
   } catch (err: any) {
     return {

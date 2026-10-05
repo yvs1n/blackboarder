@@ -24,8 +24,13 @@ function scheduleMidnightAlarm() {
  */
 export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
   try {
-    const res = await fetchTasksFromFirebase();
-    if (!res.success || !Array.isArray(res.tasks) || res.tasks.length === 0) {
+    const settingsData = await chrome.storage.local.get(['bbs_settings', 'bbs_tombstones']) as {
+      bbs_settings?: UserSettings;
+      bbs_tombstones?: Record<string, string>;
+    };
+    const syncKey = settingsData.bbs_settings?.syncKey;
+    const res = await fetchTasksFromFirebase(syncKey);
+    if (!res.success || !Array.isArray(res.tasks)) {
       return false;
     }
 
@@ -37,6 +42,20 @@ export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
     }
 
     let changed = false;
+
+    // Reconcile deleted tasks via cloud tombstones
+    if (res.tombstones && typeof res.tombstones === 'object') {
+      const mergedTombs = { ...(settingsData.bbs_tombstones || {}), ...res.tombstones };
+      await chrome.storage.local.set({ bbs_tombstones: mergedTombs });
+
+      for (const tombId of Object.keys(res.tombstones)) {
+        if (mergedMap.has(tombId)) {
+          mergedMap.delete(tombId);
+          changed = true;
+        }
+      }
+    }
+
     for (const fbTask of res.tasks) {
       if (!mergedMap.has(fbTask.id)) {
         mergedMap.set(fbTask.id, fbTask);
@@ -147,8 +166,11 @@ async function syncDeadlinesToMobileServer() {
       return { ok: false, reason: 'disabled' };
     }
 
+    const tombstonesData = await chrome.storage.local.get(['bbs_tombstones']) as { bbs_tombstones?: Record<string, string> };
+    const tombstones = tombstonesData.bbs_tombstones || {};
+
     const [fbResult, serverResult] = await Promise.all([
-      pushTasksToFirebase(tasks, 'Midnight Extension Sync'),
+      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, undefined, tombstones),
       pushTasksToSyncServer(tasks, settings)
     ]);
     console.log('[Auto-Sync] Firebase Result:', fbResult, 'Server Result:', serverResult);

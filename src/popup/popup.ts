@@ -610,6 +610,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
   card.querySelector('.btn-card-delete')?.addEventListener('click', async e => {
     e.stopPropagation();
     const taskToDelete = task;
+    await recordLocalTombstone(task.id);
     currentTasks = await deleteTask(task.id);
     refreshAllViews();
     syncTasksToCloud(currentTasks, 'Drawer Deleted Deadline');
@@ -617,6 +618,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
       `Deleted "${taskToDelete.title.slice(0, 22)}..."`,
       'Undo',
       async () => {
+        await removeLocalTombstone(taskToDelete.id);
         currentTasks = await addTask(taskToDelete);
         refreshAllViews();
         syncTasksToCloud(currentTasks, 'Restored Deadline');
@@ -1454,12 +1456,50 @@ function refreshAllViews() {
   }
 }
 
+async function recordLocalTombstone(taskId: string): Promise<void> {
+  try {
+    const raw = await new Promise<any>(resolve => {
+      chrome.storage?.local?.get(['bbs_tombstones'], res => resolve(res?.bbs_tombstones || {}));
+    });
+    const map = (typeof raw === 'object' && raw) ? { ...raw } : {};
+    map[taskId] = new Date().toISOString();
+    await new Promise<void>(resolve => {
+      chrome.storage?.local?.set({ bbs_tombstones: map }, () => resolve());
+    });
+  } catch {}
+}
+
+async function removeLocalTombstone(taskId: string): Promise<void> {
+  try {
+    const raw = await new Promise<any>(resolve => {
+      chrome.storage?.local?.get(['bbs_tombstones'], res => resolve(res?.bbs_tombstones || {}));
+    });
+    if (typeof raw === 'object' && raw && raw[taskId]) {
+      delete raw[taskId];
+      await new Promise<void>(resolve => {
+        chrome.storage?.local?.set({ bbs_tombstones: raw }, () => resolve());
+      });
+    }
+  } catch {}
+}
+
+async function getLocalTombstones(): Promise<Record<string, string>> {
+  try {
+    const raw = await new Promise<any>(resolve => {
+      chrome.storage?.local?.get(['bbs_tombstones'], res => resolve(res?.bbs_tombstones || {}));
+    });
+    return (typeof raw === 'object' && raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Automatically pushes deadlines to Firebase Realtime Database and Sync Server.
  */
 function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Extension Update') {
-  getSettings().then(settings => {
-    pushTasksToFirebase(tasks, actionDescription, settings.syncKey, currentQuickLinks).then(res => {
+  Promise.all([getSettings(), getLocalTombstones()]).then(([settings, tombstones]) => {
+    pushTasksToFirebase(tasks, actionDescription, settings.syncKey, currentQuickLinks, tombstones).then(res => {
       console.log(`[Firebase Cloud Sync] ${actionDescription}:`, res);
     }).catch(err => {
       console.warn('[Firebase Cloud Sync error]:', err);
@@ -1486,11 +1526,31 @@ async function pullTasksFromFirebaseIfNewer() {
   try {
     const settings = await getSettings();
     const res = await fetchTasksFromFirebase(settings.syncKey);
-    if (res.success && Array.isArray(res.tasks) && res.tasks.length > 0) {
+    if (res.success && Array.isArray(res.tasks)) {
       const mergedMap = new Map<string, DeadlineTask>();
       currentTasks.forEach(t => mergedMap.set(t.id, t));
 
       let changed = false;
+
+      // Reconcile deleted tasks via cloud tombstones
+      if (res.tombstones && typeof res.tombstones === 'object') {
+        const localTombs = await getLocalTombstones();
+        const mergedTombs = { ...localTombs, ...res.tombstones };
+        chrome.storage?.local?.set({ bbs_tombstones: mergedTombs });
+
+        for (const [tombId, tombTimeStr] of Object.entries(res.tombstones)) {
+          if (mergedMap.has(tombId)) {
+            const task = mergedMap.get(tombId)!;
+            const tombTime = new Date(tombTimeStr).getTime();
+            const taskTime = new Date(task.updatedAt || task.createdAt || 0).getTime();
+            if (tombTime >= taskTime) {
+              mergedMap.delete(tombId);
+              changed = true;
+            }
+          }
+        }
+      }
+
       for (const fbTask of res.tasks) {
         if (!mergedMap.has(fbTask.id)) {
           mergedMap.set(fbTask.id, fbTask);
@@ -2319,6 +2379,7 @@ function setupEvents() {
     const taskToDelete = currentTasks.find(t => t.id === editingTaskId);
     if (!taskToDelete) return;
 
+    await recordLocalTombstone(editingTaskId);
     currentTasks = await deleteTask(editingTaskId);
     closeEditModal();
     refreshAllViews();
@@ -2328,6 +2389,7 @@ function setupEvents() {
       `Deleted "${taskToDelete.title.slice(0, 22)}..."`,
       'Undo',
       async () => {
+        await removeLocalTombstone(taskToDelete.id);
         currentTasks = await addTask(taskToDelete);
         refreshAllViews();
         syncTasksToCloud(currentTasks, 'Restored Deadline');
@@ -2476,20 +2538,27 @@ function setupEvents() {
     const settings = await getSettings();
     const statusEl = document.getElementById('sync-status-msg');
     if (statusEl) {
-      statusEl.textContent = 'Syncing deadlines to Firebase & mobile...';
+      statusEl.textContent = 'Syncing deadlines with cloud (bidirectional)...';
       statusEl.style.color = '#3b82f6';
     }
 
+    // 1. Proactively pull freshest updates from phone / cloud first so mobile edits are preserved
+    await pullTasksFromFirebaseIfNewer();
+
+    // 2. Push current tasks & tombstones to Firebase Cloud & sync server
+    const tombstones = await getLocalTombstones();
     const [fbRes, serverRes] = await Promise.all([
-      pushTasksToFirebase(currentTasks, 'Extension Manual Sync', settings.syncKey),
-      pushTasksToSyncServer(currentTasks, settings)
+      pushTasksToFirebase(currentTasks, 'Extension Manual Sync', settings.syncKey, currentQuickLinks, tombstones),
+      pushTasksToSyncServer(currentTasks, settings, currentQuickLinks)
     ]);
+
+    refreshAllViews();
 
     if (fbRes.success || serverRes.success) {
       if (statusEl) {
         statusEl.innerHTML = `<span style="color: #16a34a; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Synced ${currentTasks.length} deadlines with Firebase Cloud!</span></span>`;
       }
-      alert(`Successfully synchronized ${currentTasks.length} deadlines with Firebase Realtime Database!\n\nYour mobile dashboard and calendar feed will now work 24/7 even when your laptop is turned off.`);
+      alert(`Successfully synchronized ${currentTasks.length} deadlines with Firebase Realtime Database!\n\nBoth laptop and mobile devices are now up to date.`);
     } else {
       if (statusEl) {
         statusEl.innerHTML = `<span style="color: #dc2626; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>${escapeHtml(fbRes.message || serverRes.message || 'Sync error')}</span></span>`;
@@ -3233,7 +3302,8 @@ async function initApp() {
         hasSpecificTime,
         weight,
         weightDisplay,
-        syllabusNote
+        syllabusNote,
+        updatedAt: new Date().toISOString()
       };
     }
 
@@ -3243,6 +3313,7 @@ async function initApp() {
   currentTasks.sort(compareTasksByTime);
   if (updatedAny) {
     await saveTasks(currentTasks);
+    syncTasksToCloud(currentTasks, 'Retroactive Upgrades');
   }
 
   // If there are upcoming tasks, center calendar on current date or nearest task
