@@ -1,4 +1,5 @@
 import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS } from '../types';
+import { isValidTask } from './courseHelper';
 
 const STORAGE_KEYS = {
   TASKS: 'bbs_tasks',
@@ -28,9 +29,30 @@ export function isExtensionContextValid(): boolean {
 
 const memoryStorage = new Map<string, string>();
 
+function canUseLocalStorage(): boolean {
+  try {
+    const hasLocalStorage = typeof localStorage !== 'undefined';
+    if (!hasLocalStorage) return false;
+
+    // If running in browser window
+    if (typeof window !== 'undefined') {
+      // If running inside a content script on an external web page (e.g. Blackboard),
+      // do not read/write host webpage localStorage
+      if (typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id)) {
+        if (window.location?.protocol === 'http:' || window.location?.protocol === 'https:') {
+          return false;
+        }
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function safeGetLocalStorage(key: string): string | null {
   try {
-    if (typeof localStorage !== 'undefined') {
+    if (canUseLocalStorage()) {
       return localStorage.getItem(key);
     }
   } catch {
@@ -41,7 +63,7 @@ function safeGetLocalStorage(key: string): string | null {
 
 function safeSetLocalStorage(key: string, value: string): void {
   try {
-    if (typeof localStorage !== 'undefined') {
+    if (canUseLocalStorage()) {
       localStorage.setItem(key, value);
       return;
     }
@@ -49,6 +71,40 @@ function safeSetLocalStorage(key: string, value: string): void {
     // Ignore storage quota or access errors
   }
   memoryStorage.set(key, value);
+}
+
+export function getCachedTasksSync(): DeadlineTask[] {
+  const raw = safeGetLocalStorage(STORAGE_KEYS.TASKS);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(isValidTask);
+      }
+    } catch {}
+  }
+  return [];
+}
+
+export function getCachedQuickLinksSync(): QuickLink[] {
+  const raw = safeGetLocalStorage(STORAGE_KEYS.QUICK_LINKS);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  return DEFAULT_QUICK_LINKS;
+}
+
+export function getCachedSettingsSync(): UserSettings {
+  const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
+  if (raw) {
+    try {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    } catch {}
+  }
+  return DEFAULT_SETTINGS;
 }
 
 export async function getSettings(): Promise<UserSettings> {
@@ -64,7 +120,9 @@ export async function getSettings(): Promise<UserSettings> {
                 return;
               }
               const stored = result?.[STORAGE_KEYS.SETTINGS];
-              resolve(stored && typeof stored === 'object' ? { ...DEFAULT_SETTINGS, ...stored } : DEFAULT_SETTINGS);
+              const resolved = stored && typeof stored === 'object' ? { ...DEFAULT_SETTINGS, ...stored } : DEFAULT_SETTINGS;
+              safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(resolved));
+              resolve(resolved);
             } catch {
               const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
               resolve(raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS);
@@ -94,6 +152,7 @@ export async function getSettings(): Promise<UserSettings> {
 export async function saveSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
   const current = await getSettings();
   const updated = { ...current, ...settings };
+  safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
 
   if (isExtensionContextValid()) {
     try {
@@ -110,7 +169,6 @@ export async function saveSettings(settings: Partial<UserSettings>): Promise<Use
     }
   }
 
-  safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
   return updated;
 }
 
@@ -126,7 +184,11 @@ export async function getTasks(): Promise<DeadlineTask[]> {
                 resolve(raw ? JSON.parse(raw) : []);
                 return;
               }
-              resolve((result?.[STORAGE_KEYS.TASKS] as DeadlineTask[]) || []);
+              const tasks = (result?.[STORAGE_KEYS.TASKS] as DeadlineTask[]) || [];
+              if (tasks && tasks.length > 0) {
+                safeSetLocalStorage(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+              }
+              resolve(tasks);
             } catch {
               const raw = safeGetLocalStorage(STORAGE_KEYS.TASKS);
               resolve(raw ? JSON.parse(raw) : []);
@@ -154,6 +216,8 @@ export async function getTasks(): Promise<DeadlineTask[]> {
 }
 
 export async function saveTasks(tasks: DeadlineTask[]): Promise<void> {
+  safeSetLocalStorage(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+
   if (isExtensionContextValid()) {
     try {
       await new Promise<void>(resolve => {
@@ -181,8 +245,6 @@ export async function saveTasks(tasks: DeadlineTask[]): Promise<void> {
       // Fall through to localStorage
     }
   }
-
-  safeSetLocalStorage(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
 }
 
 export async function addTask(task: DeadlineTask): Promise<DeadlineTask[]> {
@@ -380,7 +442,9 @@ export async function getQuickLinks(): Promise<QuickLink[]> {
                 return;
               }
               const links = result?.[STORAGE_KEYS.QUICK_LINKS];
-              resolve(Array.isArray(links) && links.length > 0 ? links : DEFAULT_QUICK_LINKS);
+              const resolved = Array.isArray(links) && links.length > 0 ? links : DEFAULT_QUICK_LINKS;
+              safeSetLocalStorage(STORAGE_KEYS.QUICK_LINKS, JSON.stringify(resolved));
+              resolve(resolved);
             } catch {
               const raw = safeGetLocalStorage(STORAGE_KEYS.QUICK_LINKS);
               resolve(raw ? JSON.parse(raw) : DEFAULT_QUICK_LINKS);
@@ -409,6 +473,8 @@ export async function getQuickLinks(): Promise<QuickLink[]> {
 }
 
 export async function saveQuickLinks(links: QuickLink[]): Promise<void> {
+  safeSetLocalStorage(STORAGE_KEYS.QUICK_LINKS, JSON.stringify(links));
+
   if (isExtensionContextValid()) {
     try {
       await new Promise<void>(resolve => {
@@ -423,8 +489,6 @@ export async function saveQuickLinks(links: QuickLink[]): Promise<void> {
       // Fall through to localStorage
     }
   }
-
-  safeSetLocalStorage(STORAGE_KEYS.QUICK_LINKS, JSON.stringify(links));
 }
 
 export async function addQuickLink(newLink: Omit<QuickLink, 'id' | 'createdAt'>): Promise<QuickLink[]> {

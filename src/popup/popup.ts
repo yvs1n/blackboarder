@@ -1,5 +1,5 @@
 import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS } from '../types';
-import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault } from '../utils/storage';
+import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -117,18 +117,28 @@ async function toggleTheme() {
   } catch {}
 }
 
-async function initTheme() {
+function initThemeSync() {
   let theme: 'light' | 'dark' | 'system' = 'light';
   try {
-    const settings = await getSettings();
-    if (settings.theme) {
-      theme = settings.theme;
+    const localTheme = localStorage.getItem('bbs_theme') as any;
+    if (localTheme) {
+      theme = localTheme;
     } else {
-      const localTheme = localStorage.getItem('bbs_theme') as any;
-      if (localTheme) theme = localTheme;
+      const cached = getCachedSettingsSync();
+      if (cached.theme) theme = cached.theme;
     }
   } catch {}
   applyTheme(theme);
+}
+
+async function initTheme() {
+  initThemeSync();
+  try {
+    const settings = await getSettings();
+    if (settings.theme && settings.theme !== currentThemeSetting) {
+      applyTheme(settings.theme);
+    }
+  } catch {}
 }
 
 
@@ -3035,219 +3045,7 @@ function initAiExtractModal() {
 // ============================================================================
 // Initialization
 // ============================================================================
-async function initApp() {
-  await initTheme();
-  setupEvents();
-  initAiExtractModal();
-  initGradeTrackerToggle();
-  renderLegend();
-  renderSyllabusReference();
-  renderScheduleReference();
-
-  // Load and render academic quick links
-  currentQuickLinks = await getQuickLinks();
-  renderQuickLinksBar();
-  initQuickLinksModal();
-
-  // Auto-upgrade legacy HTTP remote sync server URL to HTTPS to prevent CORS preflight redirect errors
-  try {
-    const currentSettings = await getSettings();
-    if (currentSettings.syncServerUrl) {
-      const normalized = normalizeSyncUrl(currentSettings.syncServerUrl);
-      if (normalized !== currentSettings.syncServerUrl) {
-        await saveSettings({ syncServerUrl: normalized });
-      }
-    }
-    // Ensure every user has a unique, isolated Sync Key on first run
-    if (!currentSettings.syncKey) {
-      const generatedKey = 'BBS-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-      await saveSettings({ syncKey: generatedKey });
-    }
-  } catch {}
-
-  currentTasks = (await getTasks()).filter(isValidTask);
-  currentTasks.sort(compareTasksByTime);
-
-  // Proactively pull freshest updates from Firebase Cloud BEFORE performing retroactive upgrades
-  await pullTasksFromFirebaseIfNewer();
-  currentTasks = currentTasks.filter(isValidTask);
-
-  // Retroactively refresh syllabus weights, sanitize doctor quotes, and repair assessment times
-  let updatedAny = false;
-  currentTasks = currentTasks.map(task => {
-    let taskUpdated = false;
-    let description = task.description || '';
-    let sourceSnippet = task.sourceSnippet || '';
-
-    // Clean legacy synthetic stream description if present
-    if (description.startsWith('Blackboard Ultra Stream item')) {
-      description = '';
-      taskUpdated = true;
-    }
-
-    // Sanitize doctor announcement text in description and sourceSnippet
-    const cleanDesc = sanitizeDoctorAnnouncementText(
-      description,
-      task.courseName,
-      task.courseCode,
-      task.title
-    );
-    if (cleanDesc !== description) {
-      description = cleanDesc;
-      taskUpdated = true;
-    }
-
-    const cleanSnippet = sanitizeDoctorAnnouncementText(
-      sourceSnippet,
-      task.courseName,
-      task.courseCode,
-      task.title
-    );
-    if (cleanSnippet !== sourceSnippet) {
-      sourceSnippet = cleanSnippet;
-      taskUpdated = true;
-    }
-
-    // Retroactively resolve course and strip generic 'UOS' code tag
-    let courseName = task.courseName;
-    let courseCode = task.courseCode;
-    if (courseCode === 'UOS') {
-      courseCode = '';
-      taskUpdated = true;
-    }
-    const resolvedCourse = resolveCourseInfo({
-      courseName,
-      courseCode,
-      title: task.title,
-      description,
-      sourceSnippet
-    });
-    if (resolvedCourse.courseName !== 'General Course' && (!courseName || courseName === 'General Course' || courseName.toLowerCase() === 'uos')) {
-      courseName = resolvedCourse.courseName;
-      taskUpdated = true;
-    }
-    if (resolvedCourse.courseCode && !courseCode) {
-      courseCode = resolvedCourse.courseCode;
-      taskUpdated = true;
-    }
-
-    // Refresh weights with updated syllabus database
-    const resolved = resolveTaskWeight(
-      courseName || courseCode,
-      task.title,
-      task.type,
-      description || sourceSnippet
-    );
-
-    let weight = task.weight;
-    let weightDisplay = task.weightDisplay;
-    let syllabusNote = task.syllabusNote;
-
-    if (resolved.weight !== undefined && (resolved.weight !== task.weight || resolved.weightDisplay !== task.weightDisplay)) {
-      weight = resolved.weight;
-      weightDisplay = resolved.weightDisplay;
-      syllabusNote = resolved.syllabusNote;
-      taskUpdated = true;
-    }
-
-    // Repair task due time if teacher gave an explicit time or if class schedule should apply
-    let dueDate = task.dueDate;
-    let hasSpecificTime = task.hasSpecificTime;
-    const combinedDoctorText = `${task.title} ${task.sourceSnippet || ''} ${task.description || ''}`;
-
-    // Test extraction on combined text to see if an explicit assessment time is stated
-    const testAnn = {
-      id: task.announcementId || 'temp',
-      courseCode: courseCode,
-      courseName: courseName,
-      title: task.title,
-      contentText: combinedDoctorText,
-      sourceUrl: '',
-      scannedAt: new Date().toISOString()
-    };
-    const extractedTasks = extractDeadlinesLocally(testAnn);
-    if (extractedTasks.length > 0) {
-      const best = extractedTasks[0];
-      const bestDate = new Date(best.dueDate);
-      const curDate = new Date(task.dueDate);
-
-      // If best has explicit time (e.g. 12:30 pm) and current time differs, update it!
-      if (best.hasSpecificTime) {
-        if (curDate.getHours() !== bestDate.getHours() || curDate.getMinutes() !== bestDate.getMinutes()) {
-          curDate.setHours(bestDate.getHours(), bestDate.getMinutes(), 0, 0);
-          dueDate = curDate.toISOString();
-          hasSpecificTime = true;
-          taskUpdated = true;
-        }
-      }
-    }
-
-    // Adjust to class schedule time if no specific teacher time was recorded
-    if (!hasSpecificTime) {
-      const schedRes = resolveTaskTimeWithSchedule({
-        dueDate: new Date(dueDate),
-        courseNameOrCode: courseName || courseCode,
-        hasSpecificTime: false,
-        announcementText: description || sourceSnippet,
-        title: task.title
-      });
-      if (schedRes.appliedSchedule) {
-        dueDate = schedRes.dueDate.toISOString();
-        hasSpecificTime = schedRes.hasSpecificTime;
-        taskUpdated = true;
-      }
-    }
-
-    // Retroactively assign room from announcement or course schedule if missing
-    let room = task.room;
-    if (!room) {
-      const resolvedRoom = resolveTaskRoom({
-        courseNameOrCode: courseName || courseCode,
-        announcementText: description || sourceSnippet,
-        title: task.title
-      });
-      if (resolvedRoom.room) {
-        room = resolvedRoom.room;
-        taskUpdated = true;
-      }
-    }
-
-    if (taskUpdated) {
-      updatedAny = true;
-      return {
-        ...task,
-        courseName,
-        courseCode,
-        room,
-        description,
-        sourceSnippet,
-        dueDate,
-        hasSpecificTime,
-        weight,
-        weightDisplay,
-        syllabusNote,
-        updatedAt: new Date().toISOString()
-      };
-    }
-
-    return task;
-  });
-
-  currentTasks.sort(compareTasksByTime);
-  if (updatedAny) {
-    await saveTasks(currentTasks);
-    syncTasksToCloud(currentTasks, 'Retroactive Upgrades');
-  }
-
-  // If there are upcoming tasks, center calendar on current date or nearest task
-  const now = new Date();
-  calendarYear = now.getFullYear();
-  calendarMonth = now.getMonth();
-  selectedDateStr = formatDateKey(now);
-
-  refreshAllViews();
-  switchView('calendar');
-
+function setupStorageAndSyncListeners() {
   // Listen for storage changes from background sync or other tabs to update views reactively
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -3289,6 +3087,255 @@ async function initApp() {
   setInterval(() => {
     pullTasksFromFirebaseIfNewer();
   }, 25000);
+}
+
+async function refreshDataInBackground() {
+  try {
+    // 1. Fetch from chrome.storage.local to pick up any background worker or content script additions
+    const freshTasks = (await getTasks()).filter(isValidTask);
+    const freshLinks = await getQuickLinks();
+    let viewsNeedUpdate = false;
+
+    if (freshLinks && freshLinks.length > 0 && JSON.stringify(freshLinks) !== JSON.stringify(currentQuickLinks)) {
+      currentQuickLinks = freshLinks;
+      renderQuickLinksBar();
+      renderQuickLinksManager();
+    }
+
+    if (freshTasks && freshTasks.length > 0 && JSON.stringify(freshTasks) !== JSON.stringify(currentTasks)) {
+      currentTasks = freshTasks;
+      currentTasks.sort(compareTasksByTime);
+      viewsNeedUpdate = true;
+    }
+
+    if (viewsNeedUpdate) {
+      refreshAllViews();
+    }
+
+    // 2. Auto-upgrade legacy HTTP remote sync server URL to HTTPS to prevent CORS preflight redirect errors
+    const currentSettings = await getSettings();
+    if (currentSettings.syncServerUrl) {
+      const normalized = normalizeSyncUrl(currentSettings.syncServerUrl);
+      if (normalized !== currentSettings.syncServerUrl) {
+        await saveSettings({ syncServerUrl: normalized });
+      }
+    }
+    // Ensure every user has a unique, isolated Sync Key on first run
+    if (!currentSettings.syncKey) {
+      const generatedKey = 'BBS-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      await saveSettings({ syncKey: generatedKey });
+    }
+
+    // 3. Proactively pull freshest updates from Firebase Cloud BEFORE performing retroactive upgrades
+    await pullTasksFromFirebaseIfNewer();
+    currentTasks = currentTasks.filter(isValidTask);
+
+    // 4. Retroactively refresh syllabus weights, sanitize doctor quotes, and repair assessment times
+    let updatedAny = false;
+    currentTasks = currentTasks.map(task => {
+      let taskUpdated = false;
+      let description = task.description || '';
+      let sourceSnippet = task.sourceSnippet || '';
+
+      // Clean legacy synthetic stream description if present
+      if (description.startsWith('Blackboard Ultra Stream item')) {
+        description = '';
+        taskUpdated = true;
+      }
+
+      // Sanitize doctor announcement text in description and sourceSnippet
+      const cleanDesc = sanitizeDoctorAnnouncementText(
+        description,
+        task.courseName,
+        task.courseCode,
+        task.title
+      );
+      if (cleanDesc !== description) {
+        description = cleanDesc;
+        taskUpdated = true;
+      }
+
+      const cleanSnippet = sanitizeDoctorAnnouncementText(
+        sourceSnippet,
+        task.courseName,
+        task.courseCode,
+        task.title
+      );
+      if (cleanSnippet !== sourceSnippet) {
+        sourceSnippet = cleanSnippet;
+        taskUpdated = true;
+      }
+
+      // Retroactively resolve course and strip generic 'UOS' code tag
+      let courseName = task.courseName;
+      let courseCode = task.courseCode;
+      if (courseCode === 'UOS') {
+        courseCode = '';
+        taskUpdated = true;
+      }
+      const resolvedCourse = resolveCourseInfo({
+        courseName,
+        courseCode,
+        title: task.title,
+        description,
+        sourceSnippet
+      });
+      if (resolvedCourse.courseName !== 'General Course' && (!courseName || courseName === 'General Course' || courseName.toLowerCase() === 'uos')) {
+        courseName = resolvedCourse.courseName;
+        taskUpdated = true;
+      }
+      if (resolvedCourse.courseCode && !courseCode) {
+        courseCode = resolvedCourse.courseCode;
+        taskUpdated = true;
+      }
+
+      // Refresh weights with updated syllabus database
+      const resolved = resolveTaskWeight(
+        courseName || courseCode,
+        task.title,
+        task.type,
+        description || sourceSnippet
+      );
+
+      let weight = task.weight;
+      let weightDisplay = task.weightDisplay;
+      let syllabusNote = task.syllabusNote;
+
+      if (resolved.weight !== undefined && (resolved.weight !== task.weight || resolved.weightDisplay !== task.weightDisplay)) {
+        weight = resolved.weight;
+        weightDisplay = resolved.weightDisplay;
+        syllabusNote = resolved.syllabusNote;
+        taskUpdated = true;
+      }
+
+      // Repair task due time if teacher gave an explicit time or if class schedule should apply
+      let dueDate = task.dueDate;
+      let hasSpecificTime = task.hasSpecificTime;
+      const combinedDoctorText = `${task.title} ${task.sourceSnippet || ''} ${task.description || ''}`;
+
+      // Test extraction on combined text to see if an explicit assessment time is stated
+      const testAnn = {
+        id: task.announcementId || 'temp',
+        courseCode: courseCode,
+        courseName: courseName,
+        title: task.title,
+        contentText: combinedDoctorText,
+        sourceUrl: '',
+        scannedAt: new Date().toISOString()
+      };
+      const extractedTasks = extractDeadlinesLocally(testAnn);
+      if (extractedTasks.length > 0) {
+        const best = extractedTasks[0];
+        const bestDate = new Date(best.dueDate);
+        const curDate = new Date(task.dueDate);
+
+        // If best has explicit time (e.g. 12:30 pm) and current time differs, update it!
+        if (best.hasSpecificTime) {
+          if (curDate.getHours() !== bestDate.getHours() || curDate.getMinutes() !== bestDate.getMinutes()) {
+            curDate.setHours(bestDate.getHours(), bestDate.getMinutes(), 0, 0);
+            dueDate = curDate.toISOString();
+            hasSpecificTime = true;
+            taskUpdated = true;
+          }
+        }
+      }
+
+      // Adjust to class schedule time if no specific teacher time was recorded
+      if (!hasSpecificTime) {
+        const schedRes = resolveTaskTimeWithSchedule({
+          dueDate: new Date(dueDate),
+          courseNameOrCode: courseName || courseCode,
+          hasSpecificTime: false,
+          announcementText: description || sourceSnippet,
+          title: task.title
+        });
+        if (schedRes.appliedSchedule) {
+          dueDate = schedRes.dueDate.toISOString();
+          hasSpecificTime = schedRes.hasSpecificTime;
+          taskUpdated = true;
+        }
+      }
+
+      // Retroactively assign room from announcement or course schedule if missing
+      let room = task.room;
+      if (!room) {
+        const resolvedRoom = resolveTaskRoom({
+          courseNameOrCode: courseName || courseCode,
+          announcementText: description || sourceSnippet,
+          title: task.title
+        });
+        if (resolvedRoom.room) {
+          room = resolvedRoom.room;
+          taskUpdated = true;
+        }
+      }
+
+      if (taskUpdated) {
+        updatedAny = true;
+        return {
+          ...task,
+          courseName,
+          courseCode,
+          room,
+          description,
+          sourceSnippet,
+          dueDate,
+          hasSpecificTime,
+          weight,
+          weightDisplay,
+          syllabusNote,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      return task;
+    });
+
+    currentTasks.sort(compareTasksByTime);
+    if (updatedAny) {
+      await saveTasks(currentTasks);
+      syncTasksToCloud(currentTasks, 'Retroactive Upgrades');
+      refreshAllViews();
+    }
+  } catch (err) {
+    console.warn('[Popup] Background data refresh encountered error:', err);
+  }
+}
+
+function initApp() {
+  // Synchronously initialize theme to eliminate light/dark flashes
+  initThemeSync();
+
+  const now = new Date();
+  calendarYear = now.getFullYear();
+  calendarMonth = now.getMonth();
+  selectedDateStr = formatDateKey(now);
+
+  setupEvents();
+  initAiExtractModal();
+  initGradeTrackerToggle();
+  renderLegend();
+  renderSyllabusReference();
+  renderScheduleReference();
+
+  // Load and render academic quick links synchronously from cache
+  currentQuickLinks = getCachedQuickLinksSync();
+  renderQuickLinksBar();
+  initQuickLinksModal();
+
+  // Load and render deadlines synchronously from cache (<5ms)
+  currentTasks = getCachedTasksSync();
+  currentTasks.sort(compareTasksByTime);
+
+  // Render all views immediately so the popup appears instantly populated like on mobile
+  refreshAllViews();
+  switchView('calendar');
+
+  // Set up listeners for reactive updates
+  setupStorageAndSyncListeners();
+
+  // Run cloud pull and retroactive upgrades non-blockingly in the background
+  refreshDataInBackground();
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

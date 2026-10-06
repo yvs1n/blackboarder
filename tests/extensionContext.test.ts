@@ -8,7 +8,10 @@ import {
   getLastScanCheckpoint,
   saveLastScanCheckpoint,
   getAnnouncements,
-  saveAnnouncements
+  saveAnnouncements,
+  getCachedTasksSync,
+  getCachedQuickLinksSync,
+  getCachedSettingsSync
 } from '../src/utils/storage';
 import { classifyAnnouncementWithJev } from '../src/engine/jevClassifier';
 import { extractDeadlinesWithAi } from '../src/engine/aiExtractor';
@@ -322,4 +325,41 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
       }
     });
   });
+
+  describe('Instant Synchronous Cache Retrieval for Zero-Lag Popup Render', () => {
+    it('getCachedTasksSync returns tasks synchronously without awaiting async promises', async () => {
+      const mockTask: DeadlineTask = {
+        id: 't_cached_1',
+        title: 'Cached Lab',
+        courseName: 'Embedded Systems',
+        dueDate: '2026-10-20T10:00:00.000Z',
+        type: 'lab',
+        priority: 'high',
+        status: 'pending'
+      };
+
+      // Initially empty
+      expect(getCachedTasksSync()).toEqual([]);
+
+      // Save tasks
+      await saveTasks([mockTask]);
+
+      // Synchronously retrieved
+      const cached = getCachedTasksSync();
+      expect(cached).toHaveLength(1);
+      expect(cached[0].id).toBe('t_cached_1');
+      expect(cached[0].title).toBe('Cached Lab');
+    });
+
+    it('getCachedQuickLinksSync returns default quick links or saved links synchronously', () => {
+      expect(getCachedQuickLinksSync().length).toBeGreaterThan(0);
+    });
+
+    it('getCachedSettingsSync returns settings synchronously', async () => {
+      await saveSettings({ theme: 'dark' });
+      const cached = getCachedSettingsSync();
+      expect(cached.theme).toBe('dark');
+    });
+  });
 });
+
