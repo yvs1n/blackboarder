@@ -9,6 +9,7 @@ import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
 import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase, FIREBASE_DB_URL } from '../utils/firebaseSync';
+import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 
 // State
 let currentTasks: DeadlineTask[] = [];
@@ -619,7 +620,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
       'Undo',
       async () => {
         await removeLocalTombstone(taskToDelete.id);
-        currentTasks = await addTask(taskToDelete);
+        currentTasks = await addTask({ ...taskToDelete, updatedAt: new Date().toISOString() });
         refreshAllViews();
         syncTasksToCloud(currentTasks, 'Restored Deadline');
         showToast('Deadline restored');
@@ -741,7 +742,7 @@ function renderScheduleReference() {
           <span class="syllabus-course-dot" style="background-color: ${hex};"></span>
           <span>${escapeHtml(s.courseName)}</span>
         </div>
-        <span class="syllabus-course-source" style="background: #ecfdf5; color: #065f46; font-weight: 700; display: inline-flex; align-items: center;">
+        <span class="syllabus-course-source pill-green" style="font-weight: 700; display: inline-flex; align-items: center;">
           ${getSvgIcon('clock', 'mr-1')} <span>${escapeHtml(s.timeRangeDisplay)}</span>
         </span>
       </div>
@@ -1498,15 +1499,20 @@ async function getLocalTombstones(): Promise<Record<string, string>> {
  * Automatically pushes deadlines to Firebase Realtime Database and Sync Server.
  */
 function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Extension Update') {
-  Promise.all([getSettings(), getLocalTombstones()]).then(([settings, tombstones]) => {
-    pushTasksToFirebase(tasks, actionDescription, settings.syncKey, currentQuickLinks, tombstones).then(res => {
+  (async () => {
+    // Merge in anything the phone changed since the last pull before overwriting the cloud copy
+    const pulled = await pullTasksFromFirebaseIfNewer();
+    const toPush = pulled ?? tasks;
+    const [settings, tombstones] = await Promise.all([getSettings(), getLocalTombstones()]);
+
+    pushTasksToFirebase(toPush, actionDescription, settings.syncKey, currentQuickLinks, tombstones).then(res => {
       console.log(`[Firebase Cloud Sync] ${actionDescription}:`, res);
     }).catch(err => {
       console.warn('[Firebase Cloud Sync error]:', err);
     });
 
     if (settings.autoSyncOnScan !== false) {
-      pushTasksToSyncServer(tasks, settings, currentQuickLinks).catch(err => {
+      pushTasksToSyncServer(toPush, settings, currentQuickLinks).catch(err => {
         console.warn('[Sync Server error]:', err);
       });
     }
@@ -1516,118 +1522,32 @@ function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Ex
       channel.postMessage({ type: 'TASKS_UPDATED', timestamp: Date.now() });
       channel.close();
     } catch {}
-  });
+  })().catch(err => console.warn('[Cloud Sync error]:', err));
 }
 
 /**
- * Checks Firebase Realtime Database and pulls any status updates made on mobile.
+ * Pulls the cloud copy from Firebase and merges it into local state.
+ * Returns the merged list when local data changed, otherwise null.
  */
-async function pullTasksFromFirebaseIfNewer() {
+async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
+  let result: DeadlineTask[] | null = null;
   try {
     const settings = await getSettings();
     const res = await fetchTasksFromFirebase(settings.syncKey);
     if (res.success && Array.isArray(res.tasks)) {
-      const mergedMap = new Map<string, DeadlineTask>();
-      currentTasks.forEach(t => mergedMap.set(t.id, t));
-
-      let changed = false;
-
-      // Reconcile deleted tasks via cloud tombstones
-      if (res.tombstones && typeof res.tombstones === 'object') {
-        const localTombs = await getLocalTombstones();
-        const mergedTombs = { ...localTombs, ...res.tombstones };
-        chrome.storage?.local?.set({ bbs_tombstones: mergedTombs });
-
-        for (const [tombId, tombTimeStr] of Object.entries(res.tombstones)) {
-          if (mergedMap.has(tombId)) {
-            const task = mergedMap.get(tombId)!;
-            const tombTime = new Date(tombTimeStr).getTime();
-            const taskTime = new Date(task.updatedAt || task.createdAt || 0).getTime();
-            if (tombTime >= taskTime) {
-              mergedMap.delete(tombId);
-              changed = true;
-            }
-          }
-        }
+      const localTombs = await getLocalTombstones();
+      const tombstones = mergeTombstones(localTombs, res.tombstones || {});
+      if (JSON.stringify(tombstones) !== JSON.stringify(localTombs)) {
+        chrome.storage?.local?.set({ bbs_tombstones: tombstones });
       }
 
-      for (const fbTask of res.tasks) {
-        if (!mergedMap.has(fbTask.id)) {
-          mergedMap.set(fbTask.id, fbTask);
-          changed = true;
-        } else {
-          const localTask = mergedMap.get(fbTask.id)!;
-          const localTime = new Date(localTask.updatedAt || localTask.createdAt || 0).getTime();
-          const fbTime = new Date(fbTask.updatedAt || fbTask.createdAt || 0).getTime();
-
-          if (fbTime > localTime) {
-            // Cloud version was modified more recently on phone/web! Adopt cloud fields
-            mergedMap.set(fbTask.id, {
-              ...localTask,
-              ...fbTask,
-              courseName: fbTask.courseName || localTask.courseName,
-              courseCode: fbTask.courseCode || localTask.courseCode,
-              title: fbTask.title || localTask.title,
-              description: fbTask.description !== undefined ? fbTask.description : localTask.description,
-              sourceSnippet: fbTask.sourceSnippet !== undefined ? fbTask.sourceSnippet : localTask.sourceSnippet,
-              notes: fbTask.notes !== undefined ? fbTask.notes : localTask.notes,
-              dueDate: fbTask.dueDate || localTask.dueDate,
-              hasSpecificTime: fbTask.hasSpecificTime !== undefined ? fbTask.hasSpecificTime : localTask.hasSpecificTime,
-              room: fbTask.room !== undefined ? fbTask.room : localTask.room,
-              type: fbTask.type || localTask.type,
-              priority: fbTask.priority || localTask.priority,
-              status: fbTask.status || localTask.status,
-              weight: fbTask.weight !== undefined ? fbTask.weight : localTask.weight,
-              weightDisplay: fbTask.weightDisplay !== undefined ? fbTask.weightDisplay : localTask.weightDisplay,
-              syllabusNote: fbTask.syllabusNote !== undefined ? fbTask.syllabusNote : localTask.syllabusNote,
-              updatedAt: fbTask.updatedAt || new Date().toISOString()
-            });
-            changed = true;
-          } else {
-            // Check if cloud has notes, customized course info, or other non-colliding fields
-            let subChanged = false;
-            const updated = { ...localTask };
-
-            if (fbTask.courseName && fbTask.courseName !== localTask.courseName) {
-              updated.courseName = fbTask.courseName;
-              if (fbTask.courseCode) updated.courseCode = fbTask.courseCode;
-              subChanged = true;
-            }
-            if (fbTask.courseCode && !localTask.courseCode) {
-              updated.courseCode = fbTask.courseCode;
-              subChanged = true;
-            }
-            if (fbTask.notes && fbTask.notes !== localTask.notes) {
-              updated.notes = fbTask.notes;
-              subChanged = true;
-            }
-            if (fbTask.status && fbTask.status !== localTask.status && fbTime >= localTime) {
-              updated.status = fbTask.status;
-              subChanged = true;
-            }
-            if (fbTask.room && fbTask.room !== localTask.room) {
-              updated.room = fbTask.room;
-              subChanged = true;
-            }
-            if (fbTask.description && fbTask.description !== localTask.description && fbTask.description.trim()) {
-              updated.description = fbTask.description;
-              subChanged = true;
-            }
-
-            if (subChanged) {
-              mergedMap.set(fbTask.id, updated);
-              changed = true;
-            }
-          }
-        }
-      }
-
+      const { tasks, changed } = mergeCloudTasks(currentTasks, res.tasks, tombstones);
       if (changed) {
-        const mergedList = Array.from(mergedMap.values()).sort(compareTasksByTime);
-        currentTasks = mergedList;
+        currentTasks = tasks.sort(compareTasksByTime);
         await saveTasks(currentTasks);
         refreshAllViews();
-        console.log('[Firebase Sync] Synced notes & deadline updates from mobile phone/cloud');
+        result = currentTasks;
+        console.log('[Firebase Sync] Merged notes & deadline updates from mobile phone/cloud');
       }
 
       if (res.quickLinks && Array.isArray(res.quickLinks) && res.quickLinks.length > 0) {
@@ -1640,6 +1560,7 @@ async function pullTasksFromFirebaseIfNewer() {
   } catch (err) {
     console.warn('[Firebase Sync] Could not pull from cloud:', err);
   }
+  return result;
 }
 
 function escapeHtml(text: string): string {
@@ -1788,21 +1709,22 @@ async function loadSettingsForm() {
   const fbBadge = document.getElementById('firebase-status-badge');
   if (fbBadge) {
     fetchTasksFromFirebase(settings.syncKey).then(res => {
+      fbBadge.classList.toggle('is-warn', !res.success);
       if (res.success) {
         fbBadge.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #166534; font-weight: 600;">
-            <svg class="ui-icon" style="color: #ea580c;"><use href="#icon-flame"></use></svg>
+          <div class="fb-status-main">
+            <svg class="ui-icon fb-status-icon"><use href="#icon-flame"></use></svg>
             <span>Firebase Cloud: Online (${res.tasks.length} tasks synced${settings.syncKey ? ` - ${settings.syncKey}` : ''})</span>
           </div>
-          <span style="font-size: 10px; color: #15803d; font-weight: 500;">24/7 Always Active</span>
+          <span class="fb-status-sub">24/7 Always Active</span>
         `;
       } else {
         fbBadge.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #92400e; font-weight: 600;">
-            <svg class="ui-icon" style="color: #d97706;"><use href="#icon-urgent"></use></svg>
+          <div class="fb-status-main">
+            <svg class="ui-icon fb-status-icon"><use href="#icon-urgent"></use></svg>
             <span>Firebase Cloud: Connecting...</span>
           </div>
-          <span style="font-size: 10px; color: #b45309;">Offline fallback active</span>
+          <span class="fb-status-sub">Offline fallback active</span>
         `;
       }
     }).catch(() => {});
@@ -2390,7 +2312,7 @@ function setupEvents() {
       'Undo',
       async () => {
         await removeLocalTombstone(taskToDelete.id);
-        currentTasks = await addTask(taskToDelete);
+        currentTasks = await addTask({ ...taskToDelete, updatedAt: new Date().toISOString() });
         refreshAllViews();
         syncTasksToCloud(currentTasks, 'Restored Deadline');
         showToast('Deadline restored');
@@ -2916,7 +2838,7 @@ function initQuickLinksModal() {
 async function syncQuickLinksToCloud() {
   try {
     const settings = await getSettings();
-    await pushTasksToFirebase(currentTasks, 'Chrome Extension', settings.syncKey, currentQuickLinks);
+    await pushTasksToFirebase(currentTasks, 'Chrome Extension', settings.syncKey, currentQuickLinks, await getLocalTombstones());
     await pushTasksToSyncServer(currentTasks, settings, currentQuickLinks);
   } catch {}
 }

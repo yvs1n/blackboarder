@@ -4120,52 +4120,14 @@ function clearOfflineMutations() {
 let isFlushingMutations = false;
 async function flushOfflineMutations() {
   if (isFlushingMutations || !navigator.onLine) return;
-  const queue = getOfflineMutations();
-  if (queue.length === 0) return;
+  if (getOfflineMutations().length === 0) return;
 
   isFlushingMutations = true;
   try {
-    for (const item of queue) {
-      if (item.type === 'status') {
-        try {
-          await fetch('/api/task-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId: item.taskId, status: item.status })
-          });
-        } catch (e) {}
-      } else if (item.type === 'delete') {
-        try {
-          await fetch('/api/task-delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId: item.taskId })
-          });
-          const activeKey = getSyncKey();
-          const rootPath = activeKey ? `${FIREBASE_DB_URL}/users/${activeKey}` : FIREBASE_DB_URL;
-          await fetch(`${rootPath}/tombstones/${item.taskId}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deletedAt: item.timestamp, taskId: item.taskId })
-          });
-        } catch (e) {}
-      } else if (item.type === 'edit' || item.type === 'add') {
-        try {
-          if (item.task && item.task.id) {
-            const activeKey = getSyncKey();
-            const rootPath = activeKey ? `${FIREBASE_DB_URL}/users/${activeKey}` : FIREBASE_DB_URL;
-            await fetch(`${rootPath}/tasks/${item.task.id}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(item.task)
-            });
-          }
-        } catch (e) {}
-      }
-    }
-
-    clearOfflineMutations();
-    await syncToCloudAndLocal(false);
+    // Every queued mutation is already applied to state.tasks, so one full-state push replaces them.
+    // Per-key writes such as /tasks/<id>.json must not be used: they turn the Firebase tasks
+    // array into an object, which every client then reads as "no tasks".
+    await syncToCloudAndLocal();
   } catch (err) {
     console.warn('Failed to flush offline mutations:', err);
   } finally {
@@ -5051,13 +5013,15 @@ async function syncToCloudAndLocal() {
     tombstones: Object.keys(tombstones).length > 0 ? tombstones : undefined
   };
 
+  let cloudOk = false;
   try {
     const fbUrl = getFirebaseDataUrl();
-    await fetch(fbUrl, {
+    const fbRes = await fetch(fbUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    cloudOk = fbRes.ok;
 
     const activeKey = getSyncKey();
     if (activeKey && fbUrl !== `${FIREBASE_DB_URL}/data.json`) {
@@ -5086,5 +5050,8 @@ async function syncToCloudAndLocal() {
     syncChannel.postMessage({ type: 'TASKS_UPDATED', timestamp: Date.now() });
     syncChannel.close();
   } catch (err) {}
+
+  if (cloudOk) clearOfflineMutations();
+  return cloudOk;
 }
 

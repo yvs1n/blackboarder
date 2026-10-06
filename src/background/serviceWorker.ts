@@ -1,6 +1,7 @@
 import { DeadlineTask, UserSettings, DEFAULT_SETTINGS } from '../types';
 import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
+import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
 
 const ALARM_NAME = 'bbs_check_deadlines';
@@ -36,107 +37,15 @@ export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
 
     const data = await chrome.storage.local.get(['bbs_tasks']) as { bbs_tasks?: DeadlineTask[] };
     const localTasks: DeadlineTask[] = data.bbs_tasks || [];
-    const mergedMap = new Map<string, DeadlineTask>();
-    for (const t of localTasks) {
-      mergedMap.set(t.id, t);
+    const localTombs = settingsData.bbs_tombstones || {};
+    const tombstones = mergeTombstones(localTombs, res.tombstones || {});
+    if (JSON.stringify(tombstones) !== JSON.stringify(localTombs)) {
+      await chrome.storage.local.set({ bbs_tombstones: tombstones });
     }
 
-    let changed = false;
-
-    // Reconcile deleted tasks via cloud tombstones
-    if (res.tombstones && typeof res.tombstones === 'object') {
-      const mergedTombs = { ...(settingsData.bbs_tombstones || {}), ...res.tombstones };
-      await chrome.storage.local.set({ bbs_tombstones: mergedTombs });
-
-      for (const tombId of Object.keys(res.tombstones)) {
-        if (mergedMap.has(tombId)) {
-          mergedMap.delete(tombId);
-          changed = true;
-        }
-      }
-    }
-
-    for (const fbTask of res.tasks) {
-      if (!mergedMap.has(fbTask.id)) {
-        mergedMap.set(fbTask.id, fbTask);
-        changed = true;
-      } else {
-        const localTask = mergedMap.get(fbTask.id)!;
-        const localTime = new Date(localTask.updatedAt || localTask.createdAt || 0).getTime();
-        const fbTime = new Date(fbTask.updatedAt || fbTask.createdAt || 0).getTime();
-
-        if (fbTime > localTime) {
-          // Cloud version modified more recently on phone/web
-          mergedMap.set(fbTask.id, {
-            ...localTask,
-            ...fbTask,
-            courseName: fbTask.courseName || localTask.courseName,
-            courseCode: fbTask.courseCode || localTask.courseCode,
-            title: fbTask.title || localTask.title,
-            description: fbTask.description !== undefined ? fbTask.description : localTask.description,
-            sourceSnippet: fbTask.sourceSnippet !== undefined ? fbTask.sourceSnippet : localTask.sourceSnippet,
-            notes: fbTask.notes !== undefined ? fbTask.notes : localTask.notes,
-            dueDate: fbTask.dueDate || localTask.dueDate,
-            hasSpecificTime: fbTask.hasSpecificTime !== undefined ? fbTask.hasSpecificTime : localTask.hasSpecificTime,
-            room: fbTask.room !== undefined ? fbTask.room : localTask.room,
-            type: fbTask.type || localTask.type,
-            priority: fbTask.priority || localTask.priority,
-            status: fbTask.status || localTask.status,
-            weight: fbTask.weight !== undefined ? fbTask.weight : localTask.weight,
-            weightDisplay: fbTask.weightDisplay !== undefined ? fbTask.weightDisplay : localTask.weightDisplay,
-            syllabusNote: fbTask.syllabusNote !== undefined ? fbTask.syllabusNote : localTask.syllabusNote,
-            updatedAt: fbTask.updatedAt || new Date().toISOString()
-          });
-          changed = true;
-        } else {
-          // Cloud version has non-colliding fields or manual updates
-          let subChanged = false;
-          const updated = { ...localTask };
-
-          // Adopt customized course names/codes from mobile web
-          if (fbTask.courseName && fbTask.courseName !== localTask.courseName) {
-            updated.courseName = fbTask.courseName;
-            if (fbTask.courseCode) updated.courseCode = fbTask.courseCode;
-            subChanged = true;
-          }
-          if (fbTask.courseCode && !localTask.courseCode) {
-            updated.courseCode = fbTask.courseCode;
-            subChanged = true;
-          }
-          // Adopt custom notes
-          if (fbTask.notes && fbTask.notes !== localTask.notes) {
-            updated.notes = fbTask.notes;
-            subChanged = true;
-          }
-          // Adopt status if cloud timestamp is equal or newer
-          if (fbTask.status && fbTask.status !== localTask.status && fbTime >= localTime) {
-            updated.status = fbTask.status;
-            subChanged = true;
-          }
-          // Adopt room
-          if (fbTask.room && fbTask.room !== localTask.room) {
-            updated.room = fbTask.room;
-            subChanged = true;
-          }
-          // Adopt doctor description if updated on web
-          if (fbTask.description && fbTask.description !== localTask.description && fbTask.description.trim()) {
-            updated.description = fbTask.description;
-            subChanged = true;
-          }
-
-          if (subChanged) {
-            mergedMap.set(fbTask.id, updated);
-            changed = true;
-          }
-        }
-      }
-    }
-
+    const { tasks, changed } = mergeCloudTasks(localTasks, res.tasks, tombstones);
     if (changed) {
-      const mergedList = Array.from(mergedMap.values()).sort(
-        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-      );
-      await chrome.storage.local.set({ bbs_tasks: mergedList });
+      await chrome.storage.local.set({ bbs_tasks: tasks });
       await updateExtensionBadge();
       console.log('[Background Sync] Pulled and merged latest deadlines & course changes from Firebase into storage');
       return true;
@@ -154,7 +63,8 @@ async function syncDeadlinesToMobileServer() {
     // Proactively pull freshest updates from Firebase BEFORE pushing to prevent overwriting mobile edits
     await pullTasksFromFirebaseToLocal();
 
-    const data = await chrome.storage.local.get(['bbs_tasks', 'bbs_settings']) as {
+    const data = await chrome.storage.local.get(['bbs_tasks', 'bbs_settings', 'bbs_quick_links']) as {
+      bbs_quick_links?: any[];
       bbs_tasks?: DeadlineTask[];
       bbs_settings?: UserSettings;
     };
@@ -170,8 +80,8 @@ async function syncDeadlinesToMobileServer() {
     const tombstones = tombstonesData.bbs_tombstones || {};
 
     const [fbResult, serverResult] = await Promise.all([
-      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, undefined, tombstones),
-      pushTasksToSyncServer(tasks, settings)
+      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, data.bbs_quick_links, tombstones),
+      pushTasksToSyncServer(tasks, settings, data.bbs_quick_links)
     ]);
     console.log('[Auto-Sync] Firebase Result:', fbResult, 'Server Result:', serverResult);
     return { ok: fbResult.success || serverResult.success, fbResult, serverResult };

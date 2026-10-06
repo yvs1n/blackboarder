@@ -159,8 +159,92 @@ async function o(e) {
 	}
 }
 //#endregion
+//#region src/utils/taskMerge.ts
+function s(e) {
+	return new Date(e.updatedAt || e.createdAt || 0).getTime() || 0;
+}
+function c(e = {}, t = {}) {
+	let n = { ...e };
+	for (let [e, r] of Object.entries(t)) {
+		let t = n[e];
+		(!t || new Date(r).getTime() > new Date(t).getTime()) && (n[e] = r);
+	}
+	return n;
+}
+function l(e, t) {
+	let n = t[e.id];
+	if (!n) return !1;
+	let r = new Date(n).getTime();
+	return !isNaN(r) && r >= s(e);
+}
+var u = [
+	"room",
+	"notes",
+	"weight",
+	"weightDisplay",
+	"syllabusNote"
+], d = [
+	"courseName",
+	"courseCode",
+	"notes",
+	"room",
+	"description",
+	"sourceSnippet",
+	"weight",
+	"weightDisplay",
+	"syllabusNote"
+];
+function f(e, t) {
+	let n = {
+		...e,
+		...t,
+		courseName: t.courseName || e.courseName,
+		courseCode: t.courseCode === void 0 ? e.courseCode : t.courseCode,
+		title: t.title || e.title,
+		dueDate: t.dueDate || e.dueDate,
+		type: t.type || e.type,
+		priority: t.priority || e.priority,
+		status: t.status || e.status,
+		updatedAt: t.updatedAt || e.updatedAt
+	};
+	for (let e of u) t[e] === void 0 && (n[e] = void 0);
+	return n;
+}
+function p(e, t, n) {
+	let r = { ...e };
+	for (let n of d) {
+		let i = e[n], a = t[n];
+		(i == null || i === "") && a != null && a !== "" && (r[n] = a);
+	}
+	return n && t.status && t.status !== e.status && (r.status = t.status), r;
+}
+function m(e, t, n = {}) {
+	let r = /* @__PURE__ */ new Map(), i = !1;
+	for (let t of e) {
+		if (l(t, n)) {
+			i = !0;
+			continue;
+		}
+		r.set(t.id, t);
+	}
+	for (let e of t) {
+		if (l(e, n)) continue;
+		let t = r.get(e.id);
+		if (!t) {
+			r.set(e.id, e), i = !0;
+			continue;
+		}
+		let a = s(t), o = s(e), c = o > a ? f(t, e) : p(t, e, o === a);
+		JSON.stringify(c) !== JSON.stringify(t) && (r.set(e.id, c), i = !0);
+	}
+	return {
+		tasks: Array.from(r.values()).sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime()),
+		changed: i
+	};
+}
+//#endregion
 //#region node_modules/@typesafe-ai/sdk/dist/index.mjs
-var s = (e) => e.get("x-typesafe-request-id") ?? void 0, c = class e extends Promise {
+var h = (e) => e.get("x-typesafe-request-id") ?? void 0, g = class e extends Promise {
 	#e;
 	#t;
 	#n;
@@ -175,7 +259,7 @@ var s = (e) => e.get("x-typesafe-request-id") ?? void 0, c = class e extends Pro
 		return {
 			data: e,
 			response: t,
-			requestId: s(t.headers)
+			requestId: h(t.headers)
 		};
 	}
 	map(t) {
@@ -193,14 +277,14 @@ var s = (e) => e.get("x-typesafe-request-id") ?? void 0, c = class e extends Pro
 	finally(e) {
 		return this.#r().finally(e);
 	}
-}, l = {
+}, _ = {
 	apiKey: "TYPESAFE_API_KEY",
 	baseURL: "TYPESAFE_BASE_URL",
 	defaultModel: "TYPESAFE_DEFAULT_MODEL",
 	logLevel: "TYPESAFE_LOG_LEVEL"
-}, u = (e) => {
+}, v = (e) => {
 	if (!(typeof process > "u" || !process.env)) return process.env[e]?.trim() || void 0;
-}, d = (e, t) => e ?? u(t), f = {
+}, y = (e, t) => e ?? v(t), b = {
 	maxRetries: 2,
 	backoffInitialMs: 500,
 	backoffMaxMs: 5e3,
@@ -215,8 +299,8 @@ var s = (e) => e.get("x-typesafe-request-id") ?? void 0, c = class e extends Pro
 	apiConnectionError: !0,
 	apiTimeoutError: !0
 };
-f.maxRetries;
-var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
+b.maxRetries;
+var ee = (e, t = b) => t.httpStatuses.has(e), x = (e, t = Date.now()) => {
 	let n = Number(e.get("retry-after-ms"));
 	if (e.has("retry-after-ms") && Number.isFinite(n) && n >= 0) return n;
 	let r = e.get("retry-after");
@@ -225,14 +309,14 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 	if (Number.isFinite(i)) return i >= 0 ? i * 1e3 : void 0;
 	let a = Date.parse(r);
 	if (!Number.isNaN(a)) return Math.max(0, a - t);
-}, h = (e, t, n = f, r = Math.random) => {
+}, te = (e, t, n = b, r = Math.random) => {
 	if (n.respectRetryAfter && t !== void 0) {
-		let e = m(t);
+		let e = x(t);
 		if (e !== void 0 && e <= n.maxRetryAfterMs) return e;
 	}
 	let i = Math.min(n.backoffInitialMs * 2 ** e, n.backoffMaxMs);
 	return Math.round(i * (1 - r() * n.backoffJitter));
-}, g = (e, t) => new Promise((n, r) => {
+}, ne = (e, t) => new Promise((n, r) => {
 	if (t?.aborted) return r(t.reason);
 	let i = () => {
 		clearTimeout(a), r(t?.reason);
@@ -240,179 +324,179 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 		t?.removeEventListener("abort", i), n();
 	}, e);
 	t?.addEventListener("abort", i, { once: !0 });
-}), _ = class extends Error {
+}), S = class extends Error {
 	constructor(e, t) {
 		super(e, t), this.name = new.target.name;
 	}
-}, v = (e) => typeof e == "object" && !!e, y = (e) => {
+}, C = (e) => typeof e == "object" && !!e, re = (e) => {
 	if (typeof e == "string") return e || void 0;
-	if (!v(e)) return;
+	if (!C(e)) return;
 	let { error: t, message: n, detail: r } = e;
 	if (typeof t == "string") return t;
-	if (v(t) && typeof t.message == "string") return t.message;
+	if (C(t) && typeof t.message == "string") return t.message;
 	if (typeof n == "string") return n;
 	if (typeof r == "string") return r;
-	if (v(r) && typeof r.message == "string") return r.message;
-	if (Array.isArray(r)) return b(r);
-}, b = (e) => {
+	if (C(r) && typeof r.message == "string") return r.message;
+	if (Array.isArray(r)) return ie(r);
+}, ie = (e) => {
 	let t = e.flatMap((e) => {
-		if (!v(e) || typeof e.msg != "string") return [];
+		if (!C(e) || typeof e.msg != "string") return [];
 		let t = Array.isArray(e.loc) ? e.loc.filter((e) => e !== "body").join(".") : "";
 		return [t ? `${t}: ${e.msg}` : e.msg];
 	});
 	return t.length > 0 ? t.join("; ") : void 0;
-}, x = 200, S = class e extends _ {
+}, w = 200, T = class e extends S {
 	status;
 	headers;
 	body;
 	requestId;
 	constructor(t, n, r, i) {
-		super(i ?? e.describe(t, n)), this.status = t, this.body = n, this.headers = r, this.requestId = s(r);
+		super(i ?? e.describe(t, n)), this.status = t, this.body = n, this.headers = r, this.requestId = h(r);
 	}
 	static describe(e, t) {
-		let n = y(t);
+		let n = re(t);
 		if (n) return `${e} ${n}`;
 		if (t === void 0) return `${e} status code (no body)`;
 		let r = typeof t == "string" ? t : JSON.stringify(t);
-		return `${e} ${r.length > x ? `${r.slice(0, x)}…` : r}`;
+		return `${e} ${r.length > w ? `${r.slice(0, w)}…` : r}`;
 	}
 	static fromResponse(t, n, r) {
-		return t === 400 ? new C(t, n, r) : t === 401 ? new ee(t, n, r) : t === 403 ? new te(t, n, r) : t === 404 ? new ne(t, n, r) : t === 422 ? new re(t, n, r) : t === 429 ? new w(t, n, r) : t >= 500 ? new ie(t, n, r) : new e(t, n, r);
+		return t === 400 ? new ae(t, n, r) : t === 401 ? new oe(t, n, r) : t === 403 ? new se(t, n, r) : t === 404 ? new ce(t, n, r) : t === 422 ? new le(t, n, r) : t === 429 ? new ue(t, n, r) : t >= 500 ? new de(t, n, r) : new e(t, n, r);
 	}
-}, C = class extends S {}, ee = class extends S {}, te = class extends S {}, ne = class extends S {}, re = class extends S {}, w = class extends S {
-	retryAfterMs = m(this.headers);
-}, ie = class extends S {}, T = class extends _ {
+}, ae = class extends T {}, oe = class extends T {}, se = class extends T {}, ce = class extends T {}, le = class extends T {}, ue = class extends T {
+	retryAfterMs = x(this.headers);
+}, de = class extends T {}, E = class extends S {
 	constructor(e = "Connection error.", t) {
 		super(e, t);
 	}
-}, E = class extends T {
+}, D = class extends E {
 	timeoutMs;
 	constructor(e, t) {
 		super(`Request timed out after ${e}ms.`, t), this.timeoutMs = e;
 	}
-}, D = class extends _ {
+}, O = class extends S {
 	constructor(e = "Request was aborted.", t) {
 		super(e, t);
 	}
-}, O = [
+}, k = [
 	"debug",
 	"info",
 	"warn",
 	"error",
 	"off"
-], ae = "warn", oe = (e) => O.includes(e), k = (e, t) => {
-	if (oe(e)) return e;
-	throw new _(`Invalid log level "${e}" from ${t}. Expected one of: ${O.join(", ")}.`);
-}, A = "[typesafe-sdk]", se = {
-	debug: (e, ...t) => console.debug(`${A} ${e}`, ...t),
-	info: (e, ...t) => console.info(`${A} ${e}`, ...t),
-	warn: (e, ...t) => console.warn(`${A} ${e}`, ...t),
-	error: (e, ...t) => console.error(`${A} ${e}`, ...t)
-}, j = {
+], fe = "warn", pe = (e) => k.includes(e), A = (e, t) => {
+	if (pe(e)) return e;
+	throw new S(`Invalid log level "${e}" from ${t}. Expected one of: ${k.join(", ")}.`);
+}, j = "[typesafe-sdk]", me = {
+	debug: (e, ...t) => console.debug(`${j} ${e}`, ...t),
+	info: (e, ...t) => console.info(`${j} ${e}`, ...t),
+	warn: (e, ...t) => console.warn(`${j} ${e}`, ...t),
+	error: (e, ...t) => console.error(`${j} ${e}`, ...t)
+}, M = {
 	debug: 0,
 	info: 1,
 	warn: 2,
 	error: 3,
 	off: 4
-}, M = () => {}, ce = (e, t) => {
-	let n = (e) => j[e] >= j[t];
+}, N = () => {}, he = (e, t) => {
+	let n = (e) => M[e] >= M[t];
 	return {
-		debug: n("debug") ? (t, ...n) => e.debug(t, ...n) : M,
-		info: n("info") ? (t, ...n) => e.info(t, ...n) : M,
-		warn: n("warn") ? (t, ...n) => e.warn(t, ...n) : M,
-		error: n("error") ? (t, ...n) => e.error(t, ...n) : M
+		debug: n("debug") ? (t, ...n) => e.debug(t, ...n) : N,
+		info: n("info") ? (t, ...n) => e.info(t, ...n) : N,
+		warn: n("warn") ? (t, ...n) => e.warn(t, ...n) : N,
+		error: n("error") ? (t, ...n) => e.error(t, ...n) : N
 	};
-}, le = /* @__PURE__ */ new Set([
+}, ge = /* @__PURE__ */ new Set([
 	"authorization",
 	"proxy-authorization",
 	"x-api-key"
-]), ue = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), de = (e) => {
+]), _e = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), P = (e) => {
 	let [t, n] = e.includes(" ") ? e.split(/\s+/, 2) : [void 0, e], r = n && n.length > 8 ? n.slice(-4) : "";
 	return `${t ? `${t} ` : ""}***${r}`;
-}, fe = (e, t) => {
+}, F = (e, t) => {
 	let n = e.toLowerCase();
-	return le.has(n) ? de(t) : ue.has(n) ? "***" : t;
-}, pe = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, fe(e, t)])), N = (e = null, t) => ({
+	return ge.has(n) ? P(t) : _e.has(n) ? "***" : t;
+}, I = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, F(e, t)])), L = (e = null, t) => ({
 	type: "noul",
 	instructions: e,
 	criteria: t
-}), P = (e, t) => {
-	if (!Array.isArray(t)) throw new _("Score criteria must be a list of descriptions indexed by score from zero, not a map.");
+}), ve = (e, t) => {
+	if (!Array.isArray(t)) throw new S("Score criteria must be a list of descriptions indexed by score from zero, not a map.");
 	return {
 		type: "score",
 		instructions: e,
 		criteria: t
 	};
-}, F = (e, t) => {
-	if (Array.isArray(t)) throw new _("Choice criteria must be a map of labels to descriptions, not a list.");
+}, ye = (e, t) => {
+	if (Array.isArray(t)) throw new S("Choice criteria must be a map of labels to descriptions, not a list.");
 	return {
 		type: "choice",
 		instructions: e,
 		criteria: t
 	};
-}, I = (e) => {
-	if (Object.keys(e).length === 0) throw new _("At least one question is required.");
+}, be = (e) => {
+	if (Object.keys(e).length === 0) throw new S("At least one question is required.");
 	for (let [t, n] of Object.entries(e)) if (n.type === "score") {
-		if (!Array.isArray(n.criteria)) throw new _(`Score question "${t}" has criteria that are not a list; score criteria must be a list of descriptions indexed by score from zero.`);
-		if (n.criteria.length < 2) throw new _(`Score question "${t}" has ${n.criteria.length} criteria; at least two scores are required.`);
+		if (!Array.isArray(n.criteria)) throw new S(`Score question "${t}" has criteria that are not a list; score criteria must be a list of descriptions indexed by score from zero.`);
+		if (n.criteria.length < 2) throw new S(`Score question "${t}" has ${n.criteria.length} criteria; at least two scores are required.`);
 	}
-}, L = class {
+}, R = class {
 	#e;
 	constructor(e) {
 		this.#e = e;
 	}
 	list(e = {}) {
-		return this.#e.request("GET", "/v1/models", e).map(R);
+		return this.#e.request("GET", "/v1/models", e).map(xe);
 	}
-}, R = (e) => {
+}, xe = (e) => {
 	if (Array.isArray(e?.models)) return e.models;
-	throw new _("Unexpected response shape from GET /v1/models; expected { models: [...] }.");
-}, z = globalThis, B = () => z.window !== void 0 && z.window.document !== void 0 && z.navigator !== void 0, me = () => {
+	throw new S("Unexpected response shape from GET /v1/models; expected { models: [...] }.");
+}, z = globalThis, B = () => z.window !== void 0 && z.window.document !== void 0 && z.navigator !== void 0, Se = () => {
 	let e = z.process?.platform && z.process?.arch ? ` (${z.process.platform}; ${z.process.arch})` : "";
 	return z.Bun?.version ? `bun/${z.Bun.version}${e}` : z.Deno?.version?.deno ? `deno/${z.Deno.version.deno}${e}` : z.EdgeRuntime === void 0 ? z.navigator?.userAgent === "Cloudflare-Workers" ? "cloudflare-workers" : z.process?.versions?.node ? `node/${z.process.versions.node}${e}` : B() ? "browser" : "unknown" : "vercel-edge";
-}, V = "0.6.0", he = () => {
-	throw new _(`No API key was provided. Pass \`apiKey\` to the TypeSafeClient constructor or set the ${l.apiKey} environment variable.`);
-}, ge = () => {
-	throw new _("No global `fetch` is available in this runtime. Pass a `fetch` implementation to the TypeSafeClient constructor.");
-}, _e = () => {
-	throw new _("TypeSafeClient is running in a browser, which would expose your API key to anyone using the page. Call the API from a server instead, or pass `dangerouslyAllowBrowser: true` if you understand the risk.");
-}, ve = (e, t) => globalThis.fetch(e, t), ye = (e, t) => {
-	if (!Number.isInteger(t) || t < 0) throw new _(`\`${e}\` must be a non-negative integer, got ${String(t)}.`);
+}, V = "0.6.0", Ce = () => {
+	throw new S(`No API key was provided. Pass \`apiKey\` to the TypeSafeClient constructor or set the ${_.apiKey} environment variable.`);
+}, we = () => {
+	throw new S("No global `fetch` is available in this runtime. Pass a `fetch` implementation to the TypeSafeClient constructor.");
+}, Te = () => {
+	throw new S("TypeSafeClient is running in a browser, which would expose your API key to anyone using the page. Call the API from a server instead, or pass `dangerouslyAllowBrowser: true` if you understand the risk.");
+}, Ee = (e, t) => globalThis.fetch(e, t), De = (e, t) => {
+	if (!Number.isInteger(t) || t < 0) throw new S(`\`${e}\` must be a non-negative integer, got ${String(t)}.`);
 	return t;
 }, H = (e, t) => {
-	if (!Number.isFinite(t) || t <= 0) throw new _(`\`${e}\` must be a positive number of milliseconds, got ${String(t)}.`);
+	if (!Number.isFinite(t) || t <= 0) throw new S(`\`${e}\` must be a positive number of milliseconds, got ${String(t)}.`);
 	return t;
 }, U = (e, t) => {
-	if (!Number.isFinite(t) || t < 0) throw new _(`\`${e}\` must be a non-negative number of milliseconds, got ${String(t)}.`);
+	if (!Number.isFinite(t) || t < 0) throw new S(`\`${e}\` must be a non-negative number of milliseconds, got ${String(t)}.`);
 	return t;
-}, be = (e, t) => {
-	if (!Number.isFinite(t) || t < 0 || t > 1) throw new _(`\`${e}\` must be between 0 and 1, got ${String(t)}.`);
+}, Oe = (e, t) => {
+	if (!Number.isFinite(t) || t < 0 || t > 1) throw new S(`\`${e}\` must be between 0 and 1, got ${String(t)}.`);
 	return t;
-}, xe = (e, t) => {
-	for (let n of t) if (!Number.isInteger(n) || n < 100 || n > 999) throw new _(`\`${e}\` must contain HTTP status codes, got ${String(n)}.`);
+}, ke = (e, t) => {
+	for (let n of t) if (!Number.isInteger(n) || n < 100 || n > 999) throw new S(`\`${e}\` must contain HTTP status codes, got ${String(n)}.`);
 	return t;
 }, W = (e, t) => {
 	let n = t ?? {};
 	return {
-		maxRetries: n.maxRetries === void 0 ? e.maxRetries : ye("retry.maxRetries", n.maxRetries),
+		maxRetries: n.maxRetries === void 0 ? e.maxRetries : De("retry.maxRetries", n.maxRetries),
 		backoffInitialMs: n.backoffInitialMs === void 0 ? e.backoffInitialMs : U("retry.backoffInitialMs", n.backoffInitialMs),
 		backoffMaxMs: n.backoffMaxMs === void 0 ? e.backoffMaxMs : U("retry.backoffMaxMs", n.backoffMaxMs),
-		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : be("retry.backoffJitter", n.backoffJitter),
-		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : xe("retry.httpStatuses", n.httpStatuses)),
+		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : Oe("retry.backoffJitter", n.backoffJitter),
+		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : ke("retry.httpStatuses", n.httpStatuses)),
 		respectRetryAfter: n.respectRetryAfter ?? e.respectRetryAfter,
 		maxRetryAfterMs: n.maxRetryAfterMs === void 0 ? e.maxRetryAfterMs : U("retry.maxRetryAfterMs", n.maxRetryAfterMs),
 		apiConnectionError: n.apiConnectionError ?? e.apiConnectionError,
 		apiTimeoutError: n.apiTimeoutError ?? e.apiTimeoutError
 	};
-}, Se = (e, t) => e instanceof E ? t.apiTimeoutError : e instanceof T && t.apiConnectionError, Ce = (e) => {
-	if (e !== void 0) return k(e, "the `logLevel` option");
-	let t = u(l.logLevel);
-	return t === void 0 ? ae : k(t, l.logLevel);
-}, we = (e) => e.replace(/\/+$/, ""), G = (...e) => {
+}, Ae = (e, t) => e instanceof D ? t.apiTimeoutError : e instanceof E && t.apiConnectionError, je = (e) => {
+	if (e !== void 0) return A(e, "the `logLevel` option");
+	let t = v(_.logLevel);
+	return t === void 0 ? fe : A(t, _.logLevel);
+}, Me = (e) => e.replace(/\/+$/, ""), G = (...e) => {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e) for (let [e, r] of Object.entries(n)) r === void 0 ? t.delete(e.toLowerCase()) : t.set(e.toLowerCase(), [e, r]);
 	return Object.fromEntries(t.values());
-}, Te = async (e, t) => {
+}, Ne = async (e, t) => {
 	let n = e.clone().body?.getReader();
 	if (!n) return;
 	let r = () => {
@@ -425,7 +509,7 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 	} finally {
 		t.removeEventListener("abort", r), n.releaseLock();
 	}
-}, Ee = me(), De = class {
+}, Pe = Se(), Fe = class {
 	#e;
 	baseURL;
 	defaultModel;
@@ -438,15 +522,15 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 	models;
 	#t = 0;
 	constructor(e = {}) {
-		B() && !e.dangerouslyAllowBrowser && _e(), this.#e = d(e.apiKey, l.apiKey) ?? he(), this.baseURL = we(d(e.baseURL, l.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = d(e.defaultModel, l.defaultModel) ?? "jev-latest", this.logLevel = Ce(e.logLevel), this.logger = ce(e.logger ?? se, this.logLevel), this.retry = W(f, e.retry), this.timeout = H("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && ge(), this.fetch = e.fetch ?? ve;
+		B() && !e.dangerouslyAllowBrowser && Te(), this.#e = y(e.apiKey, _.apiKey) ?? Ce(), this.baseURL = Me(y(e.baseURL, _.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = y(e.defaultModel, _.defaultModel) ?? "jev-latest", this.logLevel = je(e.logLevel), this.logger = he(e.logger ?? me, this.logLevel), this.retry = W(b, e.retry), this.timeout = H("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && we(), this.fetch = e.fetch ?? Ee;
 		let t = {
 			request: (e, t, n) => this.#n(e, t, n),
 			defaultModel: this.defaultModel
 		};
-		this.models = new L(t);
+		this.models = new R(t);
 	}
 	systemOne(e, t = {}) {
-		I(e.questions);
+		be(e.questions);
 		let n = {
 			...e,
 			model: e.model ?? this.defaultModel
@@ -466,7 +550,7 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 			timeout: n.timeout === void 0 ? this.timeout : H("timeout", n.timeout),
 			retry: W(this.retry, n.retry)
 		}, i = `#${++this.#t} ${e} ${t}`;
-		return new c(this.fetchWithRetries(i, r), async (e) => {
+		return new g(this.fetchWithRetries(i, r), async (e) => {
 			let t = await K(e);
 			return this.logger.debug(`${i} <- body`, t), t;
 		});
@@ -477,38 +561,38 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 			Accept: "application/json",
 			"User-Agent": `typesafe-sdk/${V}`,
 			"X-TypeSafe-SDK": `typesafe-sdk/${V}`,
-			"X-TypeSafe-Runtime": Ee,
+			"X-TypeSafe-Runtime": Pe,
 			"Content-Type": t.body === void 0 ? void 0 : "application/json",
 			"X-TypeSafe-Retry-Count": void 0
 		}), i = t.body === void 0 ? void 0 : JSON.stringify(t.body);
 		for (let a = 0;; a++) {
-			let o = t.retry.maxRetries - a, c = a === 0 ? r : {
+			let o = t.retry.maxRetries - a, s = a === 0 ? r : {
 				...r,
 				"X-TypeSafe-Retry-Count": String(a)
 			};
 			this.logger.debug(`${e} -> ${n}`, {
-				headers: pe(c),
+				headers: I(s),
 				body: t.body
 			});
-			let l = Date.now(), u;
+			let c = Date.now(), l;
 			try {
-				u = await this.attempt(e, n, {
+				l = await this.attempt(e, n, {
 					method: t.method,
-					headers: c,
+					headers: s,
 					body: i
 				}, t);
 			} catch (n) {
-				if (n instanceof D || o <= 0 || !Se(n, t.retry)) throw n;
+				if (n instanceof O || o <= 0 || !Ae(n, t.retry)) throw n;
 				await this.backOff(e, a, o, n.message, void 0, t);
 				continue;
 			}
-			let d = s(u.headers);
-			if (this.logger.info(`${e} <- ${u.status} in ${Date.now() - l}ms${d ? ` (request ${d})` : ""}`), u.ok) return u;
-			let f = await K(u);
-			this.logger.debug(`${e} <- error body`, f);
-			let m = S.fromResponse(u.status, f, u.headers);
-			if (o <= 0 || !p(u.status, t.retry)) throw m;
-			await this.backOff(e, a, o, `${u.status}`, u.headers, t);
+			let u = h(l.headers);
+			if (this.logger.info(`${e} <- ${l.status} in ${Date.now() - c}ms${u ? ` (request ${u})` : ""}`), l.ok) return l;
+			let d = await K(l);
+			this.logger.debug(`${e} <- error body`, d);
+			let f = T.fromResponse(l.status, d, l.headers);
+			if (o <= 0 || !ee(l.status, t.retry)) throw f;
+			await this.backOff(e, a, o, `${l.status}`, l.headers, t);
 		}
 	}
 	async attempt(e, t, n, { signal: r, timeout: i }) {
@@ -522,20 +606,20 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 				...n,
 				signal: a.signal
 			});
-			return await Te(e, a.signal), e;
+			return await Ne(e, a.signal), e;
 		} catch (t) {
-			throw r?.aborted ? (this.logger.info(`${e} aborted by caller after ${u()}`), new D(void 0, { cause: t })) : s ? (this.logger.info(`${e} timed out after ${u()}`), new E(i, { cause: t })) : (this.logger.info(`${e} connection error after ${u()}`, t), new T(t instanceof Error ? `Connection error: ${t.message}` : void 0, { cause: t }));
+			throw r?.aborted ? (this.logger.info(`${e} aborted by caller after ${u()}`), new O(void 0, { cause: t })) : s ? (this.logger.info(`${e} timed out after ${u()}`), new D(i, { cause: t })) : (this.logger.info(`${e} connection error after ${u()}`, t), new E(t instanceof Error ? `Connection error: ${t.message}` : void 0, { cause: t }));
 		} finally {
 			clearTimeout(c), r?.removeEventListener("abort", o);
 		}
 	}
 	async backOff(e, t, n, r, i, { retry: a, signal: o }) {
-		let s = h(t, i, a), c = t + 1, l = t + n;
+		let s = te(t, i, a), c = t + 1, l = t + n;
 		this.logger.info(`${e} retrying in ${s}ms (retry ${c}/${l}) after ${r}`);
 		try {
-			await g(s, o);
+			await ne(s, o);
 		} catch (t) {
-			throw this.logger.info(`${e} aborted by caller while waiting to retry`), new D(void 0, { cause: t });
+			throw this.logger.info(`${e} aborted by caller while waiting to retry`), new O(void 0, { cause: t });
 		}
 	}
 }, K = async (e) => {
@@ -555,7 +639,7 @@ var p = (e, t = f) => t.httpStatuses.has(e), m = (e, t = Date.now()) => {
 };
 //#endregion
 //#region src/engine/jevClassifier.ts
-async function Oe(e, t, n = 6e3) {
+async function Ie(e, t, n = 6e3) {
 	let r = {
 		isDeadline: !0,
 		deadlineProbability: .5,
@@ -592,15 +676,15 @@ async function Oe(e, t, n = 6e3) {
 		}
 	} catch {}
 	try {
-		let r = new De({
+		let r = new Fe({
 			apiKey: t.trim(),
 			dangerouslyAllowBrowser: !0,
 			timeout: n
 		}), i = e.length > 1200 ? e.slice(0, 1200) : e, a = (await r.systemOne({
 			state: i,
 			questions: {
-				is_deadline: N("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
-				category: F("What type of academic task or event is described?", {
+				is_deadline: L("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
+				category: ye("What type of academic task or event is described?", {
 					quiz: "A quiz, pop quiz, short assessment, or test",
 					exam: "A midterm exam, final exam, or major examination",
 					assignment: "A homework assignment, problem set, essay, paper, or exercise",
@@ -608,15 +692,15 @@ async function Oe(e, t, n = 6e3) {
 					project: "A semester project, group project, milestone, presentation, or term project",
 					not_a_task: "General announcement, lecture slides notice, office hours, syllabus info, or greetings with no upcoming assessment"
 				}),
-				urgency: P("How urgent or high-priority is this academic event?", [
+				urgency: ve("How urgent or high-priority is this academic event?", [
 					"Low priority or non-mandatory notice",
 					"Standard homework or recurring reading",
 					"Medium priority assignment or lab report",
 					"High priority quiz or milestone",
 					"Critical high-stakes midterm or final exam"
 				]),
-				has_room: N("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
-				has_time: N("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
+				has_room: L("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
+				has_time: L("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
 			}
 		})).answers, o = a.is_deadline?.noul ?? .5, s = a.category?.choice ?? "not_a_task", c = a.category?.confidence ?? .5, l = a.urgency?.score ?? 2, u = a.has_room?.noul ?? .5, d = a.has_time?.noul ?? .5, f = u >= .5, p = d >= .5, m = "medium";
 		l >= 2.8 ? m = "high" : l < 1.3 && (m = "low");
@@ -651,50 +735,10 @@ async function X() {
 	try {
 		let e = await chrome.storage.local.get(["bbs_settings", "bbs_tombstones"]), t = e.bbs_settings?.syncKey, n = await o(t);
 		if (!n.success || !Array.isArray(n.tasks)) return !1;
-		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = /* @__PURE__ */ new Map();
-		for (let e of r) i.set(e.id, e);
-		let a = !1;
-		if (n.tombstones && typeof n.tombstones == "object") {
-			let t = {
-				...e.bbs_tombstones || {},
-				...n.tombstones
-			};
-			await chrome.storage.local.set({ bbs_tombstones: t });
-			for (let e of Object.keys(n.tombstones)) i.has(e) && (i.delete(e), a = !0);
-		}
-		for (let e of n.tasks) if (!i.has(e.id)) i.set(e.id, e), a = !0;
-		else {
-			let t = i.get(e.id), n = new Date(t.updatedAt || t.createdAt || 0).getTime(), r = new Date(e.updatedAt || e.createdAt || 0).getTime();
-			if (r > n) i.set(e.id, {
-				...t,
-				...e,
-				courseName: e.courseName || t.courseName,
-				courseCode: e.courseCode || t.courseCode,
-				title: e.title || t.title,
-				description: e.description === void 0 ? t.description : e.description,
-				sourceSnippet: e.sourceSnippet === void 0 ? t.sourceSnippet : e.sourceSnippet,
-				notes: e.notes === void 0 ? t.notes : e.notes,
-				dueDate: e.dueDate || t.dueDate,
-				hasSpecificTime: e.hasSpecificTime === void 0 ? t.hasSpecificTime : e.hasSpecificTime,
-				room: e.room === void 0 ? t.room : e.room,
-				type: e.type || t.type,
-				priority: e.priority || t.priority,
-				status: e.status || t.status,
-				weight: e.weight === void 0 ? t.weight : e.weight,
-				weightDisplay: e.weightDisplay === void 0 ? t.weightDisplay : e.weightDisplay,
-				syllabusNote: e.syllabusNote === void 0 ? t.syllabusNote : e.syllabusNote,
-				updatedAt: e.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
-			}), a = !0;
-			else {
-				let o = !1, s = { ...t };
-				e.courseName && e.courseName !== t.courseName && (s.courseName = e.courseName, e.courseCode && (s.courseCode = e.courseCode), o = !0), e.courseCode && !t.courseCode && (s.courseCode = e.courseCode, o = !0), e.notes && e.notes !== t.notes && (s.notes = e.notes, o = !0), e.status && e.status !== t.status && r >= n && (s.status = e.status, o = !0), e.room && e.room !== t.room && (s.room = e.room, o = !0), e.description && e.description !== t.description && e.description.trim() && (s.description = e.description, o = !0), o && (i.set(e.id, s), a = !0);
-			}
-		}
-		if (a) {
-			let e = Array.from(i.values()).sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime());
-			return await chrome.storage.local.set({ bbs_tasks: e }), await Q(), console.log("[Background Sync] Pulled and merged latest deadlines & course changes from Firebase into storage"), !0;
-		}
-		return !1;
+		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = e.bbs_tombstones || {}, a = c(i, n.tombstones || {});
+		JSON.stringify(a) !== JSON.stringify(i) && await chrome.storage.local.set({ bbs_tombstones: a });
+		let { tasks: s, changed: l } = m(r, n.tasks, a);
+		return l ? (await chrome.storage.local.set({ bbs_tasks: s }), await Q(), console.log("[Background Sync] Pulled and merged latest deadlines & course changes from Firebase into storage"), !0) : !1;
 	} catch (e) {
 		return console.warn("[Background Sync] Failed pulling tasks from Firebase:", e), !1;
 	}
@@ -702,12 +746,16 @@ async function X() {
 async function Z() {
 	try {
 		await X();
-		let t = await chrome.storage.local.get(["bbs_tasks", "bbs_settings"]), r = t.bbs_tasks || [], i = t.bbs_settings || e;
+		let t = await chrome.storage.local.get([
+			"bbs_tasks",
+			"bbs_settings",
+			"bbs_quick_links"
+		]), r = t.bbs_tasks || [], i = t.bbs_settings || e;
 		if (i.autoSyncMidnight === !1) return console.log("[Auto-Sync] Skipped: autoSyncMidnight is disabled in settings"), {
 			ok: !1,
 			reason: "disabled"
 		};
-		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, [s, c] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, void 0, o), n(r, i)]);
+		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, [s, c] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, t.bbs_quick_links, o), n(r, i, t.bbs_quick_links)]);
 		return console.log("[Auto-Sync] Firebase Result:", s, "Server Result:", c), {
 			ok: s.success || c.success,
 			fbResult: s,
@@ -765,7 +813,7 @@ chrome.runtime.onInstalled.addListener(() => {
 	chrome.alarms.create(q, { periodInMinutes: 30 }), Y(), X().then(() => Q());
 }), chrome.alarms.onAlarm.addListener((e) => {
 	e.name === q ? X().then(() => $()) : e.name === J && (Z(), Y());
-}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? (Oe(e.text, e.apiKey, e.timeoutMs).then((e) => n({
+}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? (Ie(e.text, e.apiKey, e.timeoutMs).then((e) => n({
 	ok: !0,
 	result: e,
 	data: e

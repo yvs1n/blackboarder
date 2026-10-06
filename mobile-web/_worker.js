@@ -325,7 +325,10 @@ export default {
         lastSync: syncTimestamp,
         device: body.device || 'Chrome Extension',
         count: body.tasks.length,
-        syncKey: activeKey || undefined
+        syncKey: activeKey || undefined,
+        // Keep quick links and deletion tombstones; dropping them here made deleted tasks reappear
+        quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : undefined,
+        tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : undefined
       };
 
       await saveStoredTasks(payload, env, activeKey);
