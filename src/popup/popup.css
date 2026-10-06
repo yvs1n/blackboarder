@@ -2269,7 +2269,6 @@ body {
 .day-summary-card.is-completed {
   background: #f8fafc;
   opacity: 0.88;
-  border-left-color: #94a3b8 !important;
 }
 
 .day-card-header {

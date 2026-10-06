@@ -497,7 +497,8 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
 
   const card = document.createElement('div');
   card.className = `day-summary-card ${isCompleted ? 'is-completed' : ''}`;
-  card.style.borderLeft = `4px solid ${isCompleted ? '#94a3b8' : courseHex}`;
+  card.style.borderLeft = `4px solid ${courseHex}`;
+  card.style.setProperty('border-left-color', courseHex, 'important');
 
   card.innerHTML = `
     <div class="day-card-header">

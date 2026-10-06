@@ -2974,7 +2974,8 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
 
     const item = document.createElement('div');
     item.className = `selected-day-item ${isCompleted ? 'status-completed' : ''}`;
-    item.style.borderLeftColor = color;
+    item.style.borderLeft = `4px solid ${color}`;
+    item.style.setProperty('border-left-color', color, 'important');
     item.setAttribute('data-id', task.id);
 
     item.innerHTML = `
@@ -3277,7 +3278,7 @@ function renderTaskCardHtml(task, isCompact = false) {
   const isSelected = state.selectedTaskId === task.id;
 
   return `
-    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex};">
+    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex} !important;">
       <!-- Course Banner with Permanent Subject Color -->
       <div class="task-course-banner">
         <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};" title="${escapeHtml(courseName)}${courseCode && courseCode.toLowerCase() !== 'uos' ? ` (${escapeHtml(courseCode)})` : ''}">
@@ -3729,7 +3730,7 @@ function renderGradeTracker() {
     ? Math.min(100, Math.round((totalTrackedCompleted / totalTrackedWeight) * 100))
     : 0;
 
-  badge.textContent = `${overallPct}% Done (${Math.round(totalTrackedCompleted)}% completed)`;
+  badge.textContent = `${overallPct}% Done (${Math.round(totalTrackedCompleted)} pts tracked)`;
 
   breakdown.innerHTML = courseStats.map(stat => {
     const course = stat.course;
