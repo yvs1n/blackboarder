@@ -467,9 +467,11 @@ export default {
 
       if (isSw || isHtml || isCode) {
         const newHeaders = new Headers(assetRes.headers);
-        if (isSw || isHtml) {
+        if (isSw) {
           newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          if (isSw) newHeaders.set('Service-Worker-Allowed', '/');
+          newHeaders.set('Service-Worker-Allowed', '/');
+        } else if (isHtml) {
+          newHeaders.set('Cache-Control', 'no-cache, must-revalidate');
         } else if (isCode) {
           newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
         }

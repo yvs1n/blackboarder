@@ -1853,6 +1853,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // Register Service Worker
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
+    let refreshing = false;
+
+    // When the new service worker activates and claims the client
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('[SW] New service worker activated, reloading page...');
+        window.location.reload();
+      }
+    });
+
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('[SW] Registered successfully:', reg.scope);
@@ -1867,11 +1878,16 @@ function initServiceWorker() {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[SW] New version detected and installed. Reloading...');
-                showToast('Website updated to latest version! Reloading...', 2000);
-                setTimeout(() => {
-                  window.location.reload();
-                }, 1000);
+                console.log('[SW] New version detected and installed.');
+                if (!refreshing) {
+                  showToast('Website updated to latest version! Reloading...', 2000);
+                  setTimeout(() => {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload();
+                    }
+                  }, 1200);
+                }
               }
             });
           }
@@ -1883,16 +1899,6 @@ function initServiceWorker() {
       .catch(err => {
         console.warn('[SW] Registration failed:', err);
       });
-
-    // When the new service worker activates and claims the client
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        console.log('[SW] New service worker activated, reloading page...');
-        window.location.reload();
-      }
-    });
 
     // Handle clicks from Service Worker notifications
     navigator.serviceWorker.addEventListener('message', (event) => {
