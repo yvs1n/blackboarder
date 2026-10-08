@@ -146,10 +146,25 @@ async function initTheme() {
 const formAddTask = document.getElementById('form-add-task') as HTMLFormElement;
 const formSettings = document.getElementById('form-settings') as HTMLFormElement;
 
+const addTypeSelect = document.getElementById('add-type') as HTMLSelectElement | null;
 const addRoomInput = document.getElementById('add-room') as HTMLInputElement;
 const addWeightInput = document.getElementById('add-weight') as HTMLInputElement;
 const btnCalcAddWeight = document.getElementById('btn-calc-add-weight') as HTMLButtonElement;
 const addWeightHint = document.getElementById('add-weight-hint') as HTMLElement;
+
+function updateAddRoomVisibility() {
+  const isHwOrProj = addTypeSelect?.value === 'assignment' || (addTypeSelect?.value as string) === 'hw' || addTypeSelect?.value === 'project';
+  const group = addRoomInput ? addRoomInput.closest('.form-group') as HTMLElement | null : null;
+  if (group) group.style.display = isHwOrProj ? 'none' : '';
+  if (isHwOrProj && addRoomInput) addRoomInput.value = '';
+}
+
+function updateEditRoomVisibility() {
+  const isHwOrProj = editTypeSelect?.value === 'assignment' || (editTypeSelect?.value as string) === 'hw' || editTypeSelect?.value === 'project';
+  const group = editRoomInput ? editRoomInput.closest('.form-group') as HTMLElement | null : null;
+  if (group) group.style.display = isHwOrProj ? 'none' : '';
+  if (isHwOrProj && editRoomInput) editRoomInput.value = '';
+}
 
 // Edit Modal Elements
 const modalEditTask = document.getElementById('modal-edit-task') as HTMLDivElement;
@@ -206,6 +221,7 @@ function switchView(view: AppView) {
     renderTasks();
   } else if (view === 'add') {
     viewAdd.classList.add('active');
+    updateAddRoomVisibility();
   } else if (view === 'settings') {
     viewSettings.classList.add('active');
     loadSettingsForm();
@@ -505,6 +521,8 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
   const countdown = formatCountdown(task.dueDate, task.hasSpecificTime);
   const timeDisplay = formatTaskTime(task);
 
+  const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
+
   const card = document.createElement('div');
   card.className = `day-summary-card ${isCompleted ? 'is-completed' : ''}`;
   card.style.borderLeft = `4px solid ${courseHex}`;
@@ -538,7 +556,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
       <div class="day-card-time" title="Scheduled / Due Time">
         ${getSvgIcon('clock', 'mr-1')} <span class="day-card-time-text">${escapeHtml(timeDisplay)}</span>
       </div>
-      ${task.room ? `
+      ${(!isHwOrProject && task.room) ? `
         <div class="day-card-room" title="Classroom / Exam Hall" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #4338ca; background: #e0e7ff; padding: 2px 7px; border-radius: 4px; border: 1px solid #c7d2fe;">
           ${getSvgIcon('pin', 'mr-1')} <span class="day-card-room-text">${escapeHtml(task.room)}</span>
         </div>
@@ -1051,22 +1069,25 @@ function renderTasks() {
     const courseTheme = getCourseColorTheme(resolved.courseName, resolved.courseCode, task.title);
     const gcalUrl = createGoogleCalendarUrl(task);
 
-    // Room pill button (1-click room changer)
+    // Room pill button (1-click room changer - only if not hw or project)
+    const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
     let roomBadgeHtml = '';
-    if (task.room) {
-      roomBadgeHtml = `
-        <button type="button" class="room-pill-btn" data-id="${task.id}" title="Click to change room">
-          <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
-          <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
-        </button>
-      `;
-    } else {
-      roomBadgeHtml = `
-        <button type="button" class="room-pill-btn" data-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
-          <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
-          <span class="room-edit-hint">${getSvgIcon('plus')}</span>
-        </button>
-      `;
+    if (!isHwOrProject) {
+      if (task.room) {
+        roomBadgeHtml = `
+          <button type="button" class="room-pill-btn" data-id="${task.id}" title="Click to change room">
+            <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
+            <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
+          </button>
+        `;
+      } else {
+        roomBadgeHtml = `
+          <button type="button" class="room-pill-btn" data-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
+            <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
+            <span class="room-edit-hint">${getSvgIcon('plus')}</span>
+          </button>
+        `;
+      }
     }
 
     // Weight badge
@@ -1278,6 +1299,7 @@ function openReadingSheet(task: DeadlineTask) {
   const resolved = resolveCourseInfo(task);
   const courseTheme = getCourseColorTheme(resolved.courseName, resolved.courseCode, task.title);
   const isCompleted = task.status === 'completed';
+  const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
   const countdown = formatCountdown(task.dueDate, task.hasSpecificTime, task.status);
   const gcalUrl = createGoogleCalendarUrl(task);
 
@@ -1305,10 +1327,12 @@ function openReadingSheet(task: DeadlineTask) {
           ? `${getSvgIcon('check', 'mr-1')} ${escapeHtml(countdown.label)}`
           : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
       </span>
+      ${!isHwOrProject ? `
       <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${task.id}">
         <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room || 'No room set')}</span>
         <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
       </button>
+      ` : ''}
       ${task.weightDisplay || task.weight ? `<span class="task-weight-pill weight-major">${getSvgIcon('scale', 'mr-1')} ${escapeHtml(task.weightDisplay || `${task.weight}%`)}</span>` : ''}
       ${task.priority === 'high' ? '<span class="high-priority-tag">HIGH PRIORITY</span>' : ''}
     </div>
@@ -1613,6 +1637,7 @@ function openEditModal(task: DeadlineTask) {
   if (editRoomInput) {
     editRoomInput.value = task.room || '';
   }
+  updateEditRoomVisibility();
   editWeightInput.value = task.weight !== undefined && task.weight !== null ? String(task.weight) : '';
   editWeightHint.textContent = task.syllabusNote || (task.weightDisplay ? `Saved weight: ${task.weightDisplay}` : '');
 
@@ -2055,6 +2080,10 @@ function setupEvents() {
     renderTasks();
   });
 
+  // Type selection changes dynamically toggle room visibility
+  addTypeSelect?.addEventListener('change', updateAddRoomVisibility);
+  editTypeSelect?.addEventListener('change', updateEditRoomVisibility);
+
   // Auto-suggest class meeting time and default room when user enters course in Add Task
   const addCourseInput = document.getElementById('add-course') as HTMLInputElement;
   addCourseInput?.addEventListener('input', () => {
@@ -2066,7 +2095,8 @@ function setupEvents() {
       const mm = String(sched.startMinute).padStart(2, '0');
       timeInput.value = `${hh}:${mm}`;
     }
-    if (sched && addRoomInput && !addRoomInput.value) {
+    const isHwOrProj = addTypeSelect?.value === 'assignment' || (addTypeSelect?.value as string) === 'hw' || addTypeSelect?.value === 'project';
+    if (!isHwOrProj && sched && addRoomInput && !addRoomInput.value) {
       addRoomInput.value = sched.room || '';
     }
   });
@@ -2110,14 +2140,16 @@ function setupEvents() {
       }
     }
 
-    const manualRoom = addRoomInput ? addRoomInput.value.trim() : '';
-    const resolvedRoomObj = resolveTaskRoom({
+    const isHwOrProject = type === 'assignment' || (type as string) === 'hw' || type === 'project';
+    const manualRoom = (!isHwOrProject && addRoomInput) ? addRoomInput.value.trim() : '';
+    const resolvedRoomObj = isHwOrProject ? { room: '', isCustom: false } : resolveTaskRoom({
       courseNameOrCode: parsedCourse.name || parsedCourse.code,
       announcementText: notes,
       title,
-      existingRoom: manualRoom
+      existingRoom: manualRoom,
+      type
     });
-    const room = resolvedRoomObj.room || undefined;
+    const room = (!isHwOrProject && resolvedRoomObj.room) ? resolvedRoomObj.room : undefined;
 
     const weightVal = addWeightInput ? addWeightInput.value.trim() : '';
     let weight: number | undefined = weightVal ? parseFloat(weightVal) : undefined;
@@ -2233,8 +2265,9 @@ function setupEvents() {
       }
     }
 
-    const roomVal = editRoomInput ? editRoomInput.value.trim() : '';
-    const room = roomVal || undefined;
+    const isHwOrProject = type === 'assignment' || (type as string) === 'hw' || type === 'project';
+    const roomVal = (!isHwOrProject && editRoomInput) ? editRoomInput.value.trim() : '';
+    const room = (!isHwOrProject && roomVal) ? roomVal : undefined;
 
     const weightVal = editWeightInput ? editWeightInput.value.trim() : '';
     let weight: number | undefined = weightVal ? parseFloat(weightVal) : undefined;
@@ -3256,13 +3289,20 @@ async function refreshDataInBackground() {
         }
       }
 
-      // Retroactively assign room from announcement or course schedule if missing
+      // Clear room if task is hw or project; otherwise assign from announcement or course schedule if missing
+      const isHwOrProj = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
       let room = task.room;
-      if (!room) {
+      if (isHwOrProj) {
+        if (room) {
+          room = undefined;
+          taskUpdated = true;
+        }
+      } else if (!room) {
         const resolvedRoom = resolveTaskRoom({
           courseNameOrCode: courseName || courseCode,
           announcementText: description || sourceSnippet,
-          title: task.title
+          title: task.title,
+          type: task.type
         });
         if (resolvedRoom.room) {
           room = resolvedRoom.room;

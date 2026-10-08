@@ -289,18 +289,19 @@ ${cleanBody}`;
           title: item.title
         });
 
-        const roomInfo = resolveTaskRoom({
-          courseNameOrCode: announcement.courseName || item.courseCode || announcement.courseCode,
-          announcementText: cleanBody,
-          title: item.title,
-          existingRoom: item.room
-        });
-
         const resolvedType = (item.type && item.type !== 'other')
           ? (item.type as TaskType)
           : (jevHint?.category && jevHint.category !== 'not_a_task' && jevHint.category !== 'other'
               ? (jevHint.category as TaskType)
               : (item.type as TaskType || 'other'));
+
+        const roomInfo = resolveTaskRoom({
+          courseNameOrCode: announcement.courseName || item.courseCode || announcement.courseCode,
+          announcementText: cleanBody,
+          title: item.title,
+          existingRoom: item.room,
+          type: resolvedType
+        });
 
         const resolvedPriority = item.priority || jevHint?.priority || 'medium';
 

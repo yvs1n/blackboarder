@@ -108,7 +108,11 @@ function extractRoomFromText(text) {
  * Resolves room for a task: prioritizes professor's announced room, then schedule default.
  */
 function resolveTaskRoom(task) {
-  const combined = `${task.title || ''} ${task.sourceSnippet || ''} ${task.description || ''}`.trim();
+  const type = (task?.type || '').toLowerCase();
+  if (type === 'assignment' || type === 'hw' || type === 'project') {
+    return '';
+  }
+  const combined = `${task?.title || ''} ${task?.sourceSnippet || ''} ${task?.description || ''}`.trim();
   const announced = extractRoomFromText(combined);
   if (announced) return announced;
 
@@ -2319,7 +2323,11 @@ function loadCachedTasks() {
         if (resolved.courseCode && !t.courseCode) {
           t.courseCode = resolved.courseCode;
         }
-        if (!t.room) {
+        const cleanT = (t.type || '').toLowerCase();
+        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
+        if (isHwOrProj) {
+          t.room = undefined;
+        } else if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
         }
@@ -2521,7 +2529,11 @@ async function fetchTasksFromServer(isManual = false) {
         if (resolved.courseCode && !t.courseCode) {
           t.courseCode = resolved.courseCode;
         }
-        if (!t.room) {
+        const cleanT = (t.type || '').toLowerCase();
+        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
+        if (isHwOrProj) {
+          t.room = undefined;
+        } else if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
         }
@@ -3136,13 +3148,15 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     item.style.setProperty('border-left-color', color, 'important');
     item.setAttribute('data-id', task.id);
 
+    const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
+
     item.innerHTML = `
       <div class="selected-day-info">
         <div class="selected-day-course" style="color: ${color};">${escapeHtml(courseName)}</div>
         <div class="selected-day-item-title">${escapeHtml(task.title)}</div>
         <div class="selected-day-meta-row">
           <span class="selected-day-time">${getSvgIcon('clock', 'mr-1')} ${escapeHtml(timeDisplay)}</span>
-          ${task.room ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
+          ${(!isHwOrProj && task.room) ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
           ${weightHtml}
         </div>
       </div>
@@ -3356,22 +3370,25 @@ function renderTaskCardHtml(task, isCompact = false) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
 
-  // Room pill button (1-click room changer)
+  // Room pill button (1-click room changer - only if not hw or project)
+  const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
   let roomBadgeHtml = '';
-  if (task.room) {
-    roomBadgeHtml = `
-      <button type="button" class="room-pill-btn" data-task-id="${task.id}" title="Click to change room">
-        <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
-        <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
-      </button>
-    `;
-  } else {
-    roomBadgeHtml = `
-      <button type="button" class="room-pill-btn" data-task-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
-        <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
-        <span class="room-edit-hint">${getSvgIcon('plus')}</span>
-      </button>
-    `;
+  if (!isHwOrProj) {
+    if (task.room) {
+      roomBadgeHtml = `
+        <button type="button" class="room-pill-btn" data-task-id="${task.id}" title="Click to change room">
+          <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
+          <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
+        </button>
+      `;
+    } else {
+      roomBadgeHtml = `
+        <button type="button" class="room-pill-btn" data-task-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
+          <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
+          <span class="room-edit-hint">${getSvgIcon('plus')}</span>
+        </button>
+      `;
+    }
   }
 
   // Weight badge
@@ -4466,15 +4483,36 @@ function initModals() {
     }
   });
 
+  // Type change listeners to dynamically toggle room visibility in Add and Edit modals
+  document.getElementById('edit-type')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const isHw = val === 'assignment' || val === 'hw' || val === 'project';
+    const roomInput = document.getElementById('edit-room');
+    const group = roomInput ? roomInput.closest('.form-group') : null;
+    if (group) group.style.display = isHw ? 'none' : '';
+    if (isHw && roomInput) roomInput.value = '';
+  });
+
+  document.getElementById('add-type')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const isHw = val === 'assignment' || val === 'hw' || val === 'project';
+    const roomInput = document.getElementById('add-room');
+    const group = roomInput ? roomInput.closest('.form-group') : null;
+    if (group) group.style.display = isHw ? 'none' : '';
+    if (isHw && roomInput) roomInput.value = '';
+  });
+
   // Auto-suggest default room and meeting time when entering course in Add Modal
   const addCourseInput = document.getElementById('add-course');
   const addRoomInput = document.getElementById('add-room');
   const addTimeInput = document.getElementById('add-time');
   addCourseInput?.addEventListener('input', () => {
     const courseVal = addCourseInput.value;
+    const addTypeVal = document.getElementById('add-type')?.value;
+    const isHwOrProj = addTypeVal === 'assignment' || addTypeVal === 'hw' || addTypeVal === 'project';
     for (const s of STUDENT_CLASS_SCHEDULE) {
       if (s.matcher.test(courseVal)) {
-        if (addRoomInput && !addRoomInput.value) {
+        if (!isHwOrProj && addRoomInput && !addRoomInput.value) {
           addRoomInput.value = s.room;
         }
         if (addTimeInput && (!addTimeInput.value || addTimeInput.value === '23:59')) {
@@ -4676,7 +4714,8 @@ function initModals() {
       task.dueDate = defaultDate.toISOString();
       task.hasSpecificTime = appliedSched;
     }
-    task.room = roomVal || undefined;
+    const isHwOrProj = type === 'assignment' || type === 'hw' || type === 'project';
+    task.room = isHwOrProj ? undefined : (roomVal || undefined);
     task.type = type;
     task.priority = priority;
     task.status = status;
@@ -4794,13 +4833,15 @@ function initModals() {
       hasSpecificTime = appliedSched;
     }
 
-    const room = manualRoom || resolveTaskRoom({
+    const isHwOrProj = type === 'assignment' || type === 'hw' || type === 'project';
+    const room = isHwOrProj ? undefined : (manualRoom || resolveTaskRoom({
       title,
       courseName: course,
       courseCode: 'UOS',
+      type,
       sourceSnippet: notes,
       description: notes
-    }) || undefined;
+    }) || undefined);
 
     const resolvedWeight = resolveTaskWeight(course, title, type, notes);
     const finalWeight = !isNaN(weightVal) && weightVal > 0 ? weightVal : resolvedWeight.weight;
@@ -4865,11 +4906,17 @@ function openEditTaskModal(task) {
     }
   }
 
-  document.getElementById('edit-type').value = task.type || 'assignment';
+  const selectedType = task.type || 'assignment';
+  document.getElementById('edit-type').value = selectedType;
   document.getElementById('edit-priority').value = task.priority || 'medium';
   document.getElementById('edit-status').value = task.status || 'pending';
+  const isHwOrProj = selectedType === 'assignment' || selectedType === 'hw' || selectedType === 'project';
   const editRoom = document.getElementById('edit-room');
-  if (editRoom) editRoom.value = task.room || '';
+  const editRoomGroup = editRoom ? editRoom.closest('.form-group') : null;
+  if (editRoomGroup) {
+    editRoomGroup.style.display = isHwOrProj ? 'none' : '';
+  }
+  if (editRoom) editRoom.value = isHwOrProj ? '' : (task.room || '');
   document.getElementById('edit-weight').value = task.weight || '';
 
   const editWeightHint = document.getElementById('edit-weight-hint');
@@ -4912,7 +4959,14 @@ function openAddTaskModal(prefilledDate = null) {
     dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
 
+  const addType = document.getElementById('add-type');
+  const addTypeValue = addType ? addType.value : 'assignment';
+  const isHwOrProj = addTypeValue === 'assignment' || addTypeValue === 'hw' || addTypeValue === 'project';
   const addRoom = document.getElementById('add-room');
+  const addRoomGroup = addRoom ? addRoom.closest('.form-group') : null;
+  if (addRoomGroup) {
+    addRoomGroup.style.display = isHwOrProj ? 'none' : '';
+  }
   if (addRoom) addRoom.value = '';
 
   const addWeight = document.getElementById('add-weight');
@@ -5012,6 +5066,8 @@ function openReadingSheet(task) {
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
 
+  const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
+
   badgeGroup.innerHTML = `
     <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};">
       <span class="course-color-dot" style="background: ${courseTheme.hex};"></span>
@@ -5033,10 +5089,12 @@ function openReadingSheet(task) {
           ? `${getSvgIcon('check', 'mr-1')} ${escapeHtml(countdown.label)}`
           : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
       </span>
+      ${!isHwOrProj ? `
       <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${task.id}">
         <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room || 'No room set')}</span>
         <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
       </button>
+      ` : ''}
       ${task.weightDisplay || task.weight ? `<span class="task-weight-pill weight-major">${getSvgIcon('scale', 'mr-1')} ${escapeHtml(task.weightDisplay || `${task.weight}%`)}</span>` : ''}
     </div>
 

@@ -604,7 +604,8 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     const roomInfo = resolveTaskRoom({
       courseNameOrCode: announcement.courseName || announcement.courseCode,
       announcementText: cleanContent || sentence,
-      title
+      title,
+      type: effectiveType
     });
 
     tasks.push({

@@ -299,8 +299,16 @@ export function resolveTaskRoom(params: {
   announcementText?: string;
   title?: string;
   existingRoom?: string;
+  type?: string;
 }): { room: string; isCustom: boolean } {
-  const { courseNameOrCode, announcementText = '', title = '', existingRoom } = params;
+  const { courseNameOrCode, announcementText = '', title = '', existingRoom, type = '' } = params;
+  const cleanType = (type || '').toLowerCase();
+
+  // Assignments/Homework and Projects do not take place in a physical classroom
+  if (cleanType === 'assignment' || cleanType === 'hw' || cleanType === 'project') {
+    return { room: '', isCustom: false };
+  }
+
   const combinedText = `${title} ${announcementText}`.trim();
 
   // 1. Check if professor posted an explicit room number in the announcement.

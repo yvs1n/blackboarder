@@ -152,15 +152,21 @@ export async function processAnnouncementsBatch(
         task.syllabusNote = wInfo.syllabusNote;
       }
 
-      // Ensure room is resolved from the announcement text
+      // Ensure room is resolved from the announcement text (bypasses hw and project)
       const resolvedRoom = resolveTaskRoom({
         courseNameOrCode: task.courseName || task.courseCode,
         announcementText: task.description || task.sourceSnippet,
         title: task.title,
-        existingRoom: task.room
+        existingRoom: task.room,
+        type: task.type
       });
       if (resolvedRoom.room) {
         task.room = resolvedRoom.room;
+      } else {
+        const cleanT = (task.type || '').toLowerCase();
+        if (cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project') {
+          task.room = undefined;
+        }
       }
 
       const key = normalizeTaskKey(task);
@@ -185,11 +191,18 @@ export async function processAnnouncementsBatch(
           courseNameOrCode: existing.courseName || existing.courseCode,
           announcementText: existing.description || existing.sourceSnippet || incomingDesc,
           title: existing.title,
-          existingRoom: existing.room
+          existingRoom: existing.room,
+          type: existing.type || task.type
         });
         if (newRoomRes.room && newRoomRes.room !== existing.room) {
           existing.room = newRoomRes.room;
           changed = true;
+        } else {
+          const cleanExT = (existing.type || task.type || '').toLowerCase();
+          if ((cleanExT === 'assignment' || cleanExT === 'hw' || cleanExT === 'project') && existing.room) {
+            existing.room = undefined;
+            changed = true;
+          }
         }
 
         // 3. Weight & Syllabus Note if previously missing

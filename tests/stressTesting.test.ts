@@ -331,7 +331,7 @@ describe('🚀 Maximum Stress Test Suite', () => {
           id: 'announce_huge_50kb',
           courseCode: '1440133',
           courseName: 'Calculus I for Engineering',
-          title: 'Assignment 1 Submission',
+          title: 'Quiz 1 Announcement',
           contentText: repetitivePadded,
           postedAt: '2026-10-01T08:00:00.000Z',
           sourceUrl: 'https://blackboard.sharjah.ac.ae',
@@ -342,7 +342,7 @@ describe('🚀 Maximum Stress Test Suite', () => {
       const elapsed = performance.now() - startTime;
       expect(elapsed).toBeLessThan(250);
       expect(tasks.length).toBeGreaterThan(0);
-      expect(tasks[0].type).toBe('assignment');
+      expect(tasks[0].type).toBe('quiz');
       expect(tasks[0].room).toBe('A8-103');
     });
 
