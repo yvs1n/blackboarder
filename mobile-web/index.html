@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=13">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -267,7 +267,7 @@
 
     <!-- Sync status banner -->
     <div class="sync-banner">
-      <span id="sync-banner-text">Checking for updates...</span>
+      <span id="sync-banner-text">Loading cached deadlines...</span>
     </div>
 
     <!-- Navigation Tabs: 4-tab segmented control on mobile, transforms to 2 primary tabs on desktop/tablet -->
@@ -303,7 +303,7 @@
       <div class="calendar-controls">
         <div class="month-title-group">
           <button id="btn-prev-month" class="cal-nav-btn" aria-label="Previous Month"><svg class="ui-icon"><use href="#icon-chevron-left"></use></svg></button>
-          <h2 id="cal-month-heading" class="month-heading">September 2026</h2>
+          <h2 id="cal-month-heading" class="month-heading"></h2>
           <button id="btn-next-month" class="cal-nav-btn" aria-label="Next Month"><svg class="ui-icon"><use href="#icon-chevron-right"></use></svg></button>
         </div>
         <button id="btn-today" class="btn-today">Today</button>
@@ -1159,6 +1159,6 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./app.js?v=12"></script>
+  <script src="./app.js?v=13"></script>
 </body>
 </html>

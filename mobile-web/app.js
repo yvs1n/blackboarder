@@ -125,6 +125,102 @@ function resolveTaskRoom(task) {
   return '';
 }
 
+/**
+ * Strips UI artifacts, timestamps, and redundant course headers from the text
+ * of an announcement, leaving only the professor's actual announcement text.
+ */
+function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '', title = '') {
+  if (!rawText || !rawText.trim()) return '';
+
+  let text = rawText.trim();
+
+  const timestampPrefixPatterns = [
+    /^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b\s*/i,
+    /^\s*(?:\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?)\s+ago|just now)\b\s*/i,
+    /^\s*(?:Today|Yesterday)(?:\s+at)?\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\b\s*/i,
+    /^\s*(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?,?\s*(?:\d{1,2}\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:\d{1,2})?(?:,?\s*\d{4})?(?:,?\s*at\s*|,?\s+)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:منذ\s+\d+\s+(?:دقائق|دقيقة|ساعات|ساعة|أيام|يوم)|اليوم|أمس)(?:\s+الساعة)?\s*(?:\d{1,2}:\d{2}\s*(?:صباحاً|صباحا|مساءً|مساء)?)?\s*/
+  ];
+
+  const knownCoursePatterns = [
+    /^\s*(?:Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?|مقدمة\s+في\s+هندسة\s+الحاسوب)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:مقدمة\s+في\s+هندسة\s+الحاسوب|Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Calculus\s+I\s+(?:for\s+Engineering)?|حسبان\s*1(?:\s*للمهندسين)?)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:حسبان\s*1(?:\s*للمهندسين)?|Calculus\s+I\s+(?:for\s+Engineering)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Physics\s*1\s*Lab|مختبر\s*فيزياء\s*1|فيزياء\s*1\s*عملي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Physics\s*1|General\s*Physics\s*1|فيزياء\s*1|فيزياء\s*عامة\s*1)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:English\s+for\s+Academic\s+Purposes|EAP|إنجليزي|انجليزي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Islamic\s+Culture|ثقافة\s*إسلامية|ثقافة\s*اسلامية)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i
+  ];
+
+  const dynamicCoursePatterns = [];
+  if (courseName && courseName !== 'General Course') {
+    const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    dynamicCoursePatterns.push(new RegExp(`^\\s*${escaped}\\s*[-–—:]*\\s*(?:\\b\\d{1,2}[A-Z]?\\b)?\\s*[-–—:]*`, 'i'));
+  }
+  if (courseCode && courseCode !== 'UOS') {
+    const escapedCode = courseCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    dynamicCoursePatterns.push(new RegExp(`^\\s*${escapedCode}\\s*[-–—:]*`, 'i'));
+  }
+
+  let changed = true;
+  let passes = 0;
+  while (changed && passes < 5) {
+    changed = false;
+    passes++;
+
+    for (const pat of timestampPrefixPatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    for (const pat of dynamicCoursePatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    for (const pat of knownCoursePatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    const sectionMatch = text.match(/^[-–—:]*\s*\b(?:\d{1,2}[A-Z]?|ALL)\b\s*[-–—:]*\s*/i);
+    if (sectionMatch && sectionMatch[0]) {
+      const next = text.slice(sectionMatch[0].length).trim();
+      if (next.length >= 5) {
+        text = next;
+        changed = true;
+      }
+    }
+  }
+
+  if (title && title.length > 5) {
+    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titlePat = new RegExp(`^\\s*${escapedTitle}(?:\\s*[-–—:]+\\s*|\\s*\\r?\\n|\\s*$)`, 'i');
+    if (titlePat.test(text)) {
+      const remainder = text.replace(titlePat, '').trim();
+      if (remainder.length >= 5) {
+        text = remainder;
+      }
+    }
+  }
+
+  return text.trim();
+}
+
 // Syllabus Database
 const SYLLABUS_INFO = [
   { courseCode: '1440 133 02', courseName: 'Calculus I for Engineering', breakdown: 'Midterm 30% (Paper), Quizzes 20% (Best 2 of 3), HWs 10% (Best 3 of 4 Online), Final 40% (Paper)' },
@@ -1826,7 +1922,7 @@ function initQuickLinksModal() {
 // ==========================================================================
 // Initialization
 // ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   initTheme();
   initServiceWorker();
   initTabs();
@@ -1842,13 +1938,27 @@ document.addEventListener('DOMContentLoaded', () => {
   initGradeTracker();
   initQuickLinksModal();
 
-  // Load cached tasks & quick links from localStorage immediately
-  loadCachedTasks();
+  // 1. Immediately & synchronously load cached quick links & tasks (<2ms)
   loadCachedQuickLinks();
+  loadCachedTasks();
 
-  // Fetch freshest tasks from server
-  fetchTasksFromServer();
-});
+  // 2. Render all views immediately so the dashboard appears instantly populated like on the extension
+  updateAllViews();
+  updateSyncBanner();
+
+  // 3. Proactively refresh data in the background non-blockingly without layout jumps
+  refreshDataInBackground();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+async function refreshDataInBackground() {
+  await fetchTasksFromServer(false);
+}
 
 // Register Service Worker
 function initServiceWorker() {
@@ -2199,7 +2309,7 @@ function loadCachedTasks() {
       state.tasks.sort(compareTasksByTime);
       state.lastSync = cachedSync;
 
-      // Auto-backfill rooms and syllabus weights if missing
+      // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
       state.tasks.forEach(t => {
         if (t.courseCode === 'UOS') t.courseCode = '';
         const resolved = resolveCourseInfo(t);
@@ -2213,6 +2323,12 @@ function loadCachedTasks() {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
         }
+        if (t.description) {
+          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
+        }
+        if (t.sourceSnippet) {
+          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
+        }
         if (t.weight === undefined || t.weight === null) {
           const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
           if (wInfo.weight !== undefined) {
@@ -2223,7 +2339,6 @@ function loadCachedTasks() {
         }
       });
 
-      updateAllViews();
       syncTasksToServiceWorker();
       checkUpcomingDeadlines(false);
     }
@@ -2266,13 +2381,18 @@ async function fetchTasksFromServer(isManual = false) {
   _isFetchingFromServer = true;
   const refreshBtn = document.getElementById('btn-refresh');
   const syncBanner = document.getElementById('sync-banner-text');
-  refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
-  if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+
+  // Only show spinning indicator and override banner text during manual user sync
+  if (isManual) {
+    refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
+    if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+  }
 
   try {
     let tasksLoaded = false;
     let fetchedTasks = [];
     let fetchedSync = null;
+    let fetchedQuickLinks = null;
 
     // 1. Fetch directly from Firebase Realtime Database (24/7 online even if laptop is off)
     try {
@@ -2285,8 +2405,7 @@ async function fetchTasksFromServer(isManual = false) {
           fetchedSync = fbData.lastSync || new Date().toISOString();
           tasksLoaded = true;
           if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
-            state.quickLinks = fbData.quickLinks;
-            localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+            fetchedQuickLinks = fbData.quickLinks;
           }
           if (!localStorage.getItem('bbs_sync_key') && fbData.syncKey) {
             localStorage.setItem('bbs_sync_key', fbData.syncKey);
@@ -2321,8 +2440,7 @@ async function fetchTasksFromServer(isManual = false) {
           fetchedSync = data.lastSync || new Date().toISOString();
           tasksLoaded = true;
           if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
-            state.quickLinks = data.quickLinks;
-            localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+            fetchedQuickLinks = data.quickLinks;
           }
           if (!localStorage.getItem('bbs_sync_key') && data.syncKey) {
             localStorage.setItem('bbs_sync_key', data.syncKey);
@@ -2390,12 +2508,11 @@ async function fetchTasksFromServer(isManual = false) {
         }
       }
 
-      state.tasks = mergedTasks.filter(isValidTask);
-      state.tasks.sort(compareTasksByTime);
-      state.lastSync = fetchedSync;
+      const validatedTasks = mergedTasks.filter(isValidTask);
+      validatedTasks.sort(compareTasksByTime);
 
-      // Auto-backfill rooms and syllabus weights if missing
-      state.tasks.forEach(t => {
+      // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
+      validatedTasks.forEach(t => {
         if (t.courseCode === 'UOS') t.courseCode = '';
         const resolved = resolveCourseInfo(t);
         if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
@@ -2408,6 +2525,12 @@ async function fetchTasksFromServer(isManual = false) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
         }
+        if (t.description) {
+          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
+        }
+        if (t.sourceSnippet) {
+          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
+        }
         if (t.weight === undefined || t.weight === null) {
           const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
           if (wInfo.weight !== undefined) {
@@ -2418,11 +2541,36 @@ async function fetchTasksFromServer(isManual = false) {
         }
       });
 
-      // Cache locally for instant offline access
-      localStorage.setItem('bbs_mobile_tasks', JSON.stringify(state.tasks));
-      localStorage.setItem('bbs_mobile_last_sync', state.lastSync);
+      // Diff check: only re-render the DOM if tasks or quick links actually changed!
+      const prevTasksJson = JSON.stringify(state.tasks);
+      const prevLinksJson = JSON.stringify(state.quickLinks);
+      const tasksChanged = JSON.stringify(validatedTasks) !== prevTasksJson;
+      const linksChanged = Boolean(fetchedQuickLinks && Array.isArray(fetchedQuickLinks) && fetchedQuickLinks.length > 0 && JSON.stringify(fetchedQuickLinks) !== prevLinksJson);
 
-      updateAllViews();
+      let viewsNeedUpdate = false;
+
+      if (tasksChanged) {
+        state.tasks = validatedTasks;
+        localStorage.setItem('bbs_mobile_tasks', JSON.stringify(state.tasks));
+        viewsNeedUpdate = true;
+      }
+
+      if (linksChanged && fetchedQuickLinks) {
+        state.quickLinks = fetchedQuickLinks;
+        localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+        renderQuickLinksBar();
+        renderQuickLinksSchedule();
+        renderQuickLinksManager();
+      }
+
+      if (fetchedSync && fetchedSync !== state.lastSync) {
+        state.lastSync = fetchedSync;
+        localStorage.setItem('bbs_mobile_last_sync', state.lastSync);
+      }
+
+      if (viewsNeedUpdate) {
+        updateAllViews();
+      }
       updateSyncBanner();
 
       // Check for newly announced upcoming deadlines
@@ -2469,17 +2617,16 @@ async function fetchTasksFromServer(isManual = false) {
     }
   } catch (err) {
     console.warn('Could not connect to sync cloud, using offline cache:', err);
-    if (syncBanner) {
+    if (isManual) {
+      showToast('Could not connect to cloud. Showing cached data.');
+    } else if (!navigator.onLine && syncBanner) {
       syncBanner.textContent = state.tasks.length > 0 
         ? `Offline Mode: Showing ${state.tasks.length} cached deadlines` 
         : 'Offline: Waiting for connection...';
     }
-    if (isManual) {
-      showToast('Could not connect to cloud. Showing cached data.');
-    }
   } finally {
     _isFetchingFromServer = false;
-    if (refreshBtn) {
+    if (isManual && refreshBtn) {
       setTimeout(() => {
         refreshBtn.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
       }, 400);
@@ -2496,15 +2643,18 @@ async function fetchTasksFromServer(isManual = false) {
 async function syncBidirectionally(isManual = false) {
   const refreshBtn = document.getElementById('btn-refresh');
   const syncBanner = document.getElementById('sync-banner-text');
-  refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
-  if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+
+  if (isManual) {
+    refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
+    if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+  }
 
   try {
     // 1. Flush any pending offline mutations first
     await flushOfflineMutations();
 
-    // 2. Fetch latest tasks from cloud & reconcile
-    await fetchTasksFromServer(false);
+    // 2. Fetch latest tasks from cloud & reconcile (passing isManual flag)
+    await fetchTasksFromServer(isManual);
 
     // 3. Push full reconciled state to cloud so both laptop and phone are in lockstep
     await syncToCloudAndLocal();
@@ -2518,7 +2668,9 @@ async function syncBidirectionally(isManual = false) {
       showToast('Sync error: ' + (err.message || 'offline'));
     }
   } finally {
-    refreshBtn?.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
+    if (isManual && refreshBtn) {
+      refreshBtn.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
+    }
     updateSyncBanner();
   }
 }
