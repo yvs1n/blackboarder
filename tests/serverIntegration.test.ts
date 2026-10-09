@@ -115,13 +115,17 @@ describe('Live HTTP Server & Sync Bridge Integration', () => {
     expect(updated.status).toBe('completed');
   });
 
-  it('GET /feed.ics serves valid text/calendar RFC 5545 feed', async () => {
+  it('GET /feed.ics serves valid text/calendar RFC 5545 feed reflecting completed and pending tasks', async () => {
     const res = await fetch(`${baseUrl}/feed.ics`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/calendar');
     const text = await res.text();
     expect(text).toContain('BEGIN:VCALENDAR');
-    expect(text).toContain('SUMMARY:[1440131] Calculus Midterm Exam');
+    // Completed task int-task-1 reflects completion with checkmark and Done suffix
+    expect(text).toContain('SUMMARY:✓ [1440131] Calculus Midterm Exam (Done)');
+    expect(text).toContain('STATUS:COMPLETED');
+    // Pending task int-task-2 retains alarms and standard title
+    expect(text).toContain('SUMMARY:[0401102] Computer Eng Quiz 3');
     expect(text).toContain('TRIGGER:-P1D');
     expect(text).toContain('TRIGGER:-PT2H');
     expect(text).toContain('END:VCALENDAR');

@@ -2717,6 +2717,18 @@ function updateAllViews() {
   updateBadgeCounts();
   populateCourseFilter();
   renderGradeTracker();
+
+  // If day sheet drawer is currently open, refresh its items to reflect status changes immediately
+  const drawer = document.getElementById('day-sheet-drawer');
+  if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
+    const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(state.selectedDate));
+    const itemsContainer = document.getElementById('day-sheet-items');
+    if (itemsContainer) {
+      const sorted = dayTasks.slice().sort(compareTasksByTime);
+      itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
+      bindTaskCardEvents(itemsContainer);
+    }
+  }
 }
 
 // Wi-Fi Connection State Listeners
@@ -2945,8 +2957,8 @@ function renderCalendar() {
         const color = getCourseColor(courseCode, courseName, task.title);
         const isDone = task.status === 'completed';
         const safeTitle = escapeHtml(task.title);
-        const tooltip = escapeHtml(`[${courseName}] ${task.title}`);
-        const iconSvg = getTaskTypeIcon(task.type, 'chip-svg-icon');
+        const tooltip = escapeHtml(`${isDone ? '[Completed] ' : ''}[${courseName}] ${task.title}`);
+        const iconSvg = isDone ? getSvgIcon('check', 'chip-svg-icon') : getTaskTypeIcon(task.type, 'chip-svg-icon');
         chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" style="background-color: ${color};" title="${tooltip}">` +
           `<span class="chip-icon">${iconSvg}</span>` +
           `<span class="chip-text">${safeTitle}</span>` +

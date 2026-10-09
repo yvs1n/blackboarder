@@ -33,12 +33,15 @@ export function createGoogleCalendarUrl(task: DeadlineTask): string {
   const courseTag = task.courseName
     ? `${task.courseName}${task.courseCode && task.courseCode !== task.courseName ? ` (${task.courseCode})` : ''}`
     : (task.courseCode || 'UOS');
-  const title = `[${courseTag}] ${task.title}`;
+  const isDone = task.status === 'completed';
+  const baseTitle = `[${courseTag}] ${task.title}`;
+  const title = isDone ? `✓ ${baseTitle} (Done)` : baseTitle;
   
   const details = [
     `Course: ${task.courseName || 'General Course'} (${task.courseCode || 'UOS'})`,
     task.room ? `Room: ${task.room}` : '',
     `Type: ${task.type.toUpperCase()}`,
+    isDone ? 'Status: Completed (Done)' : 'Status: Pending',
     task.notes ? `Student Notes: ${task.notes}` : '',
     (task.description || task.sourceSnippet) ? `Doctor's Announcement:\n"${task.description || task.sourceSnippet}"` : '',
     '',
@@ -66,6 +69,7 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
     const startDate = new Date(task.dueDate);
     const endDate = new Date(startDate.getTime() + (task.hasSpecificTime ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
     const isAllDay = !task.hasSpecificTime;
+    const isTaskDone = task.status === 'completed';
 
     const dtStart = isAllDay
       ? `DTSTART;VALUE=DATE:${formatGCalDate(startDate, true)}`
@@ -77,9 +81,11 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
     const courseTag = task.courseName
       ? `${task.courseName}${task.courseCode && task.courseCode !== task.courseName ? ` (${task.courseCode})` : ''}`
       : (task.courseCode || 'UOS');
-    const title = `[${courseTag}] ${task.title.replace(/[,;]/g, ' ')}`;
+    const baseSummary = `[${courseTag}] ${task.title.replace(/[,;]/g, ' ')}`;
+    const eventSummary = isTaskDone ? `✓ ${baseSummary} (Done)` : baseSummary;
     const cleanDesc = [
       task.room ? `Room: ${task.room}` : '',
+      isTaskDone ? 'Status: Completed (Done)' : 'Status: Pending',
       task.notes ? `Student Notes: ${task.notes}` : '',
       task.description || task.sourceSnippet
     ].filter(Boolean).join('\\n').replace(/[\r\n]+/g, '\\n').replace(/[,;]/g, ' ');
@@ -90,7 +96,7 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
       `DTSTAMP:${nowUtc}`,
       dtStart,
       dtEnd,
-      `SUMMARY:${title}`,
+      `SUMMARY:${eventSummary}`,
       task.room ? `LOCATION:${task.room.replace(/[,;]/g, ' ')}` : null,
       `DESCRIPTION:${cleanDesc}`,
       `CATEGORIES:${task.type.toUpperCase()}`,

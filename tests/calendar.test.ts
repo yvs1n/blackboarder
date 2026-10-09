@@ -31,6 +31,14 @@ describe('Calendar Utilities', () => {
     expect(parsed.searchParams.get('dates')).toBe('20261015T140000Z/20261015T150000Z');
   });
 
+  it('reflects completed status with checkmark and Done suffix in Google Calendar URL', () => {
+    const completedTask: DeadlineTask = { ...sampleTask, status: 'completed' };
+    const url = createGoogleCalendarUrl(completedTask);
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('text')).toBe('✓ [Computer Programming (0401201)] Quiz 2: Arrays & Functions (Done)');
+    expect(parsed.searchParams.get('details')).toContain('Status: Completed (Done)');
+  });
+
   it('generates a valid RFC 5545 iCalendar content format', () => {
     const ics = generateIcsContent([sampleTask]);
     expect(ics).toContain('BEGIN:VCALENDAR');
@@ -38,8 +46,17 @@ describe('Calendar Utilities', () => {
     expect(ics).toContain('BEGIN:VEVENT');
     expect(ics).toContain('SUMMARY:[Computer Programming (0401201)] Quiz 2: Arrays & Functions');
     expect(ics).toContain('CATEGORIES:QUIZ');
+    expect(ics).toContain('STATUS:CONFIRMED');
     expect(ics).toContain('END:VEVENT');
     expect(ics).toContain('END:VCALENDAR');
+  });
+
+  it('reflects completed status with checkmark and Done suffix in RFC 5545 iCalendar content', () => {
+    const completedTask: DeadlineTask = { ...sampleTask, status: 'completed' };
+    const ics = generateIcsContent([completedTask]);
+    expect(ics).toContain('SUMMARY:✓ [Computer Programming (0401201)] Quiz 2: Arrays & Functions (Done)');
+    expect(ics).toContain('STATUS:COMPLETED');
+    expect(ics).toContain('Status: Completed (Done)');
   });
 
   it('formats task time for specific time tasks', () => {

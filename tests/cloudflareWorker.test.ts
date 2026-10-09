@@ -118,4 +118,17 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(data.ok).toBe(true);
     expect(data.task.status).toBe('completed');
   });
+
+  it('GET /feed.ics reflects completed task with checkmark, Done suffix, and alarm suppression', async () => {
+    const feedReq = new Request('https://sidekick.workers.dev/feed.ics', { method: 'GET' });
+    const feedRes = await worker.fetch(feedReq, mockEnv, {} as any);
+
+    expect(feedRes.status).toBe(200);
+    const text = await feedRes.text();
+    expect(text).toContain('SUMMARY:✓ [1430115] Physics Quiz 1 (Done)');
+    expect(text).toContain('STATUS:COMPLETED');
+    expect(text).toContain('Status: Completed (Done)');
+    // Finished task alarms must be suppressed
+    expect(text).not.toContain('BEGIN:VALARM');
+  });
 });

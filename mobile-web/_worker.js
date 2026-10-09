@@ -84,7 +84,9 @@ function generateIcsFeed(tasks = [], options = {}) {
       else if (/free\s*fall/i.test(rawName)) taskTitle = 'Free Fall Exp. - Lab Report';
     }
 
-    const summary = courseLabel ? `[${courseLabel}] ${taskTitle}` : taskTitle;
+    const isCompleted = task.status === 'completed';
+    const baseSummary = courseLabel ? `[${courseLabel}] ${taskTitle}` : taskTitle;
+    const summary = isCompleted ? `✓ ${baseSummary} (Done)` : baseSummary;
 
     const descParts = [];
     if (task.courseName) {
@@ -99,8 +101,8 @@ function generateIcsFeed(tasks = [], options = {}) {
     if (task.room) {
       descParts.push(`Room: ${task.room}`);
     }
-    if (task.status === 'completed') {
-      descParts.push('Status: Completed');
+    if (isCompleted) {
+      descParts.push('Status: Completed (Done)');
     } else {
       descParts.push('Status: Pending');
     }
@@ -137,7 +139,7 @@ function generateIcsFeed(tasks = [], options = {}) {
     }
     lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
     
-    if (task.status === 'completed') {
+    if (isCompleted) {
       lines.push('STATUS:COMPLETED');
     } else {
       lines.push('STATUS:CONFIRMED');
@@ -154,17 +156,20 @@ function generateIcsFeed(tasks = [], options = {}) {
       lines.push('PRIORITY:5');
     }
 
-    lines.push('BEGIN:VALARM');
-    lines.push('ACTION:DISPLAY');
-    lines.push(`DESCRIPTION:${escapeIcsText(`Upcoming: ${summary}`)}`);
-    lines.push('TRIGGER:-P1D');
-    lines.push('END:VALARM');
+    // Alarms (VALARM): 24 hours before and 2 hours before - suppressed if completed
+    if (!isCompleted) {
+      lines.push('BEGIN:VALARM');
+      lines.push('ACTION:DISPLAY');
+      lines.push(`DESCRIPTION:${escapeIcsText(`Upcoming: ${summary}`)}`);
+      lines.push('TRIGGER:-P1D');
+      lines.push('END:VALARM');
 
-    lines.push('BEGIN:VALARM');
-    lines.push('ACTION:DISPLAY');
-    lines.push(`DESCRIPTION:${escapeIcsText(`Due in 2 hours: ${summary}`)}`);
-    lines.push('TRIGGER:-PT2H');
-    lines.push('END:VALARM');
+      lines.push('BEGIN:VALARM');
+      lines.push('ACTION:DISPLAY');
+      lines.push(`DESCRIPTION:${escapeIcsText(`Due in 2 hours: ${summary}`)}`);
+      lines.push('TRIGGER:-PT2H');
+      lines.push('END:VALARM');
+    }
 
     lines.push('END:VEVENT');
   }

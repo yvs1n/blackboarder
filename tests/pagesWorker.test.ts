@@ -78,6 +78,29 @@ describe('Cloudflare Pages _worker.js Handler', () => {
     const text = await res.text();
     expect(text).toContain('BEGIN:VCALENDAR');
     expect(text).toContain('SUMMARY:[1440131] Calculus Quiz 1');
+    expect(text).toContain('STATUS:CONFIRMED');
+    expect(text).toContain('BEGIN:VALARM');
+  });
+
+  it('GET /feed.ics reflects completed task with checkmark, Done suffix, and alarm suppression', async () => {
+    // Update task to completed
+    const statusReq = new Request('https://yassinr-uossidekick.pages.dev/api/task-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: 'pages-task-1', status: 'completed' })
+    });
+    const statusRes = await pagesWorker.fetch(statusReq, mockEnv, {} as any);
+    expect(statusRes.status).toBe(200);
+
+    const req = new Request('https://yassinr-uossidekick.pages.dev/feed.ics', { method: 'GET' });
+    const res = await pagesWorker.fetch(req, mockEnv, {} as any);
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('SUMMARY:✓ [1440131] Calculus Quiz 1 (Done)');
+    expect(text).toContain('STATUS:COMPLETED');
+    expect(text).toContain('Status: Completed (Done)');
+    expect(text).not.toContain('BEGIN:VALARM');
   });
 
   it('passes static assets to env.ASSETS.fetch', async () => {

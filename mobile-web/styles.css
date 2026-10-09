@@ -1269,6 +1269,13 @@ body {
   box-shadow: none;
 }
 
+[data-theme="dark"] .cal-event-chip.is-completed {
+  background-color: #334155 !important;
+  color: #94a3b8 !important;
+  border-left-color: #475569 !important;
+  opacity: 0.75;
+}
+
 .cal-event-more {
   font-size: 8.5px;
   font-weight: 700;

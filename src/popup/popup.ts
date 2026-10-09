@@ -381,7 +381,7 @@ function createDayCell(
       chip.classList.add('is-completed');
       chip.style.backgroundColor = '#94a3b8';
       chip.style.setProperty('background-color', '#94a3b8', 'important');
-      chip.innerHTML = `${getTaskTypeIcon(task.type)} <span>${escapeHtml(task.title)}</span>`;
+      chip.innerHTML = `${getSvgIcon('check')} <span>${escapeHtml(task.title)}</span>`;
       chip.title = `[Completed] ${resolved.courseName}: ${task.title} - Click to expand day view`;
     } else {
       chip.style.backgroundColor = courseHex;
