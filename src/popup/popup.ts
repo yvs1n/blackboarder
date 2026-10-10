@@ -379,13 +379,14 @@ function createDayCell(
     // 3. Gray out and completed styling if completed.
     if (isCompleted) {
       chip.classList.add('is-completed');
-      chip.style.backgroundColor = '#94a3b8';
-      chip.style.setProperty('background-color', '#94a3b8', 'important');
+      chip.style.removeProperty('background-color');
+      chip.style.borderLeftColor = courseHex;
       chip.innerHTML = `${getSvgIcon('check')} <span>${escapeHtml(task.title)}</span>`;
       chip.title = `[Completed] ${resolved.courseName}: ${task.title} - Click to expand day view`;
     } else {
       chip.style.backgroundColor = courseHex;
       chip.style.setProperty('background-color', courseHex, 'important');
+      chip.style.borderLeftColor = 'rgba(0, 0, 0, 0.25)';
       chip.innerHTML = `${getTaskTypeIcon(task.type)} <span>${escapeHtml(task.title)}</span>`;
       chip.title = `${resolved.courseName}: ${task.title} ${task.weightDisplay ? `(${task.weightDisplay})` : ''} - ${timeStr} - Click to expand day view`;
     }

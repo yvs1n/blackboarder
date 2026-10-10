@@ -2963,7 +2963,8 @@ function renderCalendar() {
         const safeTitle = escapeHtml(task.title);
         const tooltip = escapeHtml(`${isDone ? '[Completed] ' : ''}[${courseName}] ${task.title}`);
         const iconSvg = isDone ? getSvgIcon('check', 'chip-svg-icon') : getTaskTypeIcon(task.type, 'chip-svg-icon');
-        chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" style="background-color: ${color};" title="${tooltip}">` +
+        const styleAttr = isDone ? `style="border-left-color: ${color};"` : `style="background-color: ${color};"`;
+        chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" ${styleAttr} title="${tooltip}">` +
           `<span class="chip-icon">${iconSvg}</span>` +
           `<span class="chip-text">${safeTitle}</span>` +
         `</span>`;

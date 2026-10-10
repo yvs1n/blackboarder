@@ -1261,19 +1261,43 @@ body {
 }
 
 .cal-event-chip.is-completed {
-  background-color: #94a3b8 !important;
-  color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border-left-width: 2.5px;
+  border-left-style: solid;
   text-decoration: line-through;
-  opacity: 0.65;
-  border-left-color: #64748b !important;
+  opacity: 0.88;
   box-shadow: none;
 }
 
+.cal-event-chip.is-completed .chip-icon,
+.cal-event-chip.is-completed .chip-svg-icon,
+.cal-event-chip.is-completed .ui-icon {
+  stroke: #10b981 !important;
+  color: #10b981 !important;
+}
+
+.cal-event-chip.is-completed .chip-text {
+  color: #334155 !important;
+}
+
 [data-theme="dark"] .cal-event-chip.is-completed {
-  background-color: #334155 !important;
-  color: #94a3b8 !important;
-  border-left-color: #475569 !important;
-  opacity: 0.75;
+  background-color: #242c38 !important;
+  color: #f1f5f9 !important;
+  border-left-width: 2.5px;
+  border-left-style: solid;
+  opacity: 0.88;
+}
+
+[data-theme="dark"] .cal-event-chip.is-completed .chip-icon,
+[data-theme="dark"] .cal-event-chip.is-completed .chip-svg-icon,
+[data-theme="dark"] .cal-event-chip.is-completed .ui-icon {
+  stroke: #34d399 !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .cal-event-chip.is-completed .chip-text {
+  color: #f1f5f9 !important;
 }
 
 .cal-event-more {
