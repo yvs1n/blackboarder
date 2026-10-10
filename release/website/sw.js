@@ -1,33 +1,35 @@
-const CACHE_NAME = 'sidekick-mobile-v9';
+const CACHE_NAME = 'sidekick-mobile-v13';
 const STATIC_ASSETS = [
-  './index.html',
   './',
+  './index.html',
   './styles.css',
-  './styles.css?v=9',
+  './styles.css?v=13',
   './app.js',
-  './app.js?v=9',
+  './app.js?v=13',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
 
 /**
- * Strips redirected flag for WebKit/iOS Safari compliance.
- * Safari throws "Response served by the service worker has redirections"
- * if a navigation response has .redirected === true.
+ * Strips redirected flag and compression headers for WebKit/iOS Safari & Chromium compliance.
+ * When a response body is decompressed into a Blob or reconstructed, keeping 'content-encoding: br/gzip'
+ * causes browsers to fail with ERR_CONTENT_DECODING_FAILED when served offline.
  */
 function cleanResponse(response) {
   if (!response) return response;
-  if (!response.redirected) return response;
+  const headers = new Headers(response.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
 
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers
+    headers
   });
 }
 
-// Install: Cache core app shell with clean unredirected responses
+// Install: Cache core app shell with clean uncompressed, unredirected responses
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
@@ -37,24 +39,29 @@ self.addEventListener('install', event => {
           const res = await fetch(asset, { redirect: 'follow' });
           if (res.ok) {
             const bodyBlob = await res.blob();
-            // Store pristine unredirected response
-            const unredirected = new Response(bodyBlob, {
-              headers: res.headers,
-              status: res.status,
-              statusText: res.statusText
-            });
-            await cache.put(asset, unredirected);
+            const headers = new Headers(res.headers);
+            // Crucial: remove compression headers because bodyBlob is uncompressed raw bytes
+            headers.delete('content-encoding');
+            headers.delete('content-length');
 
-            // Also map root and ./ to index.html
-            if (asset === './index.html') {
-              const clone1 = new Response(bodyBlob, { headers: res.headers, status: res.status });
-              const clone2 = new Response(bodyBlob, { headers: res.headers, status: res.status });
-              await cache.put('./', clone1);
-              await cache.put('/', clone2);
+            // Store pristine uncompressed response
+            const unredirected = new Response(bodyBlob, {
+              headers,
+              status: 200,
+              statusText: 'OK'
+            });
+            await cache.put(asset, unredirected.clone());
+
+            // Map root navigation paths directly to the primary shell
+            if (asset === './index.html' || asset === './') {
+              await cache.put('./', unredirected.clone());
+              await cache.put('/', unredirected.clone());
+              await cache.put('./index.html', unredirected.clone());
+              await cache.put('/index.html', unredirected.clone());
             }
           }
         } catch (err) {
-          console.warn('Failed caching asset during install:', asset, err);
+          console.warn('[SW] Failed caching asset during install:', asset, err);
         }
       }
     })
@@ -82,25 +89,28 @@ self.addEventListener('fetch', event => {
       (async () => {
         // Fast network-first with quick 2s timeout for instantaneous updates and offline fallback
         try {
-          const networkPromise = fetch(event.request).then(res => cleanResponse(res));
+          const networkPromise = fetch(event.request);
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Network timeout')), 2000)
           );
           const netRes = await Promise.race([networkPromise, timeoutPromise]);
-          if (netRes && (netRes.ok || netRes.status === 304)) {
+          if (netRes && netRes.ok) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(event.request, netRes.clone());
-            return netRes;
+            return cleanResponse(netRes);
           }
         } catch (err) {
-          // Network failed or timed out, fall back to cached index.html
+          // Network failed or timed out: fall back to cached index.html
         }
 
         const cache = await caches.open(CACHE_NAME);
-        const cached = (await cache.match('./index.html', { ignoreSearch: true })) ||
-                       (await cache.match('/index.html', { ignoreSearch: true })) ||
-                       (await cache.match('./', { ignoreSearch: true })) ||
-                       (await cache.match('/', { ignoreSearch: true }));
+        let cached = await cache.match(event.request, { ignoreSearch: true });
+        if (!cached) {
+          cached = (await cache.match('./', { ignoreSearch: true })) ||
+                   (await cache.match('/', { ignoreSearch: true })) ||
+                   (await cache.match('./index.html', { ignoreSearch: true })) ||
+                   (await cache.match('/index.html', { ignoreSearch: true }));
+        }
         if (cached) {
           return cleanResponse(cached);
         }
@@ -113,8 +123,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 2. Tasks API: Network-first with cache fallback
-  if (url.pathname.startsWith('/api/tasks')) {
+  // 2. Tasks API: Network-first with cache fallback (same origin only)
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/tasks')) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
@@ -122,13 +132,14 @@ self.addEventListener('fetch', event => {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
-          return cleanResponse(response);
+          return response;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request, { ignoreSearch: true });
-          if (cached) return cleanResponse(cached);
-          return new Response(JSON.stringify({ ok: true, tasks: [], offline: true }), {
-            status: 200,
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(event.request, { ignoreSearch: true });
+          if (cached) return cached;
+          return new Response(JSON.stringify({ ok: false, error: 'Offline and not cached', offline: true }), {
+            status: 503,
             headers: { 'Content-Type': 'application/json' }
           });
         })
@@ -137,7 +148,7 @@ self.addEventListener('fetch', event => {
   }
 
   // 3. Application Code (app.js, styles.css): Network-first with fast 2s timeout & offline cache fallback
-  if (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css')) {
+  if (url.origin === self.location.origin && (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css'))) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE_NAME);
@@ -147,7 +158,7 @@ self.addEventListener('fetch', event => {
             setTimeout(() => reject(new Error('Network timeout')), 2000)
           );
           const netRes = await Promise.race([netPromise, timeoutPromise]);
-          if (netRes && (netRes.ok || netRes.status === 304)) {
+          if (netRes && netRes.ok) {
             cache.put(event.request, netRes.clone());
             return cleanResponse(netRes);
           }
@@ -161,53 +172,47 @@ self.addEventListener('fetch', event => {
                        (await cache.match('.' + url.pathname, { ignoreSearch: true }));
         if (cached) return cleanResponse(cached);
 
-        return new Response('', { status: 408, statusText: 'Offline Asset Unavailable' });
+        return new Response('', { status: 503, statusText: 'Offline Asset Unavailable' });
       })()
     );
     return;
   }
 
-  // 4. Static media assets (icons, manifest): Cache-first with network fallback
-  event.respondWith(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      // Try exact request match first
-      let cached = await cache.match(event.request);
-      if (!cached) {
-        // Match ignoring query string (e.g. ?v=5)
-        cached = await cache.match(event.request, { ignoreSearch: true });
-      }
-      if (!cached) {
-        // Match by relative or clean path
-        const strippedUrl = url.origin + url.pathname;
-        cached = (await cache.match(strippedUrl, { ignoreSearch: true })) ||
-                 (await cache.match(url.pathname, { ignoreSearch: true })) ||
-                 (await cache.match('.' + url.pathname, { ignoreSearch: true }));
-      }
-
-      if (cached) {
-        return cleanResponse(cached);
-      }
-
-      // If not cached, attempt network fetch
-      try {
-        const netRes = await fetch(event.request);
-        if (netRes && netRes.ok) {
-          const clone = netRes.clone();
-          cache.put(event.request, clone);
+  // 4. Static media assets (icons, manifest): Same-origin only
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        let cached = await cache.match(event.request, { ignoreSearch: true });
+        if (!cached) {
+          const strippedUrl = url.origin + url.pathname;
+          cached = (await cache.match(strippedUrl, { ignoreSearch: true })) ||
+                   (await cache.match(url.pathname, { ignoreSearch: true })) ||
+                   (await cache.match('.' + url.pathname, { ignoreSearch: true }));
         }
-        return cleanResponse(netRes);
-      } catch (netErr) {
-        // Safe offline catch: return fallback by file name or empty 408 response without crashing
-        const baseName = url.pathname.split('/').pop();
-        if (baseName) {
-          const fallback = await cache.match(baseName, { ignoreSearch: true });
-          if (fallback) return cleanResponse(fallback);
+
+        if (cached) {
+          return cleanResponse(cached);
         }
-        return new Response('', { status: 408, statusText: 'Offline Asset Unavailable' });
-      }
-    })()
-  );
+
+        try {
+          const netRes = await fetch(event.request);
+          if (netRes && netRes.ok) {
+            cache.put(event.request, netRes.clone());
+          }
+          return cleanResponse(netRes);
+        } catch (netErr) {
+          const baseName = url.pathname.split('/').pop();
+          if (baseName) {
+            const fallback = await cache.match(baseName, { ignoreSearch: true });
+            if (fallback) return cleanResponse(fallback);
+          }
+          return new Response('', { status: 503, statusText: 'Offline Asset Unavailable' });
+        }
+      })()
+    );
+    return;
+  }
 });
 
 // ============================================================================

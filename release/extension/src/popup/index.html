@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-DEyD9T5B.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-JcRoQhOD.css">
+  <script type="module" crossorigin src="../../assets/popup-BuomhbdQ.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-C_Dpll3v.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -518,13 +518,13 @@
       </div>
 
       <!-- Jev System One Classifier -->
-      <div class="form-group" style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--surface-border); border-radius: 8px;">
+      <div class="form-group settings-panel-box" style="margin-top: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b; display: inline-flex; align-items: center; gap: 5px;">
+          <label class="form-label" style="margin-bottom: 0; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
             <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-bolt"></use></svg>
             <span>Jev Fast Classifier (TypeSafe AI)</span>
           </label>
-          <span style="font-size: 10px; font-weight: 600; color: #1e40af; background: #dbeafe; padding: 2px 7px; border-radius: 9999px;">~100ms Gatekeeper</span>
+          <span class="settings-pill pill-blue">~100ms Gatekeeper</span>
         </div>
         <input type="password" id="setting-jev-key" class="form-input" placeholder="apikey_...">
         <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Instantly weeds out non-deadlines and locks category (Quiz, Exam, Homework) before invoking Generative AI.</span>
@@ -585,7 +585,7 @@
             <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-smartphone"></use></svg>
             <span>Mobile Phone & Live Calendar Feed</span>
           </h4>
-          <span style="font-size: 10px; font-weight: 600; color: #065f46; background: #d1fae5; padding: 1px 6px; border-radius: 9999px;">Live Sync</span>
+          <span class="settings-pill pill-green">Live Sync</span>
         </div>
         <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
           Access your deadlines on your phone via Mobile Web App (PWA) and subscribe natively in Apple Calendar (iOS) or Google Calendar.
@@ -611,7 +611,7 @@
           </label>
         </div>
 
-        <div class="form-group" style="padding: 10px; background: #f8fafc; border: 1px solid var(--surface-border); border-radius: 6px; margin-top: 8px;">
+        <div class="form-group settings-panel-box" style="margin-top: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <label class="form-label" style="font-weight: 700; margin-bottom: 0;">Personal Sync Pairing Key</label>
             <button type="button" id="btn-copy-sync-key" style="font-size: 11px; color: #2563eb; background: none; border: none; cursor: pointer; font-weight: 600;">Copy Key</button>
@@ -648,12 +648,12 @@
             <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
             <span>Copy WebCal Feed Link (Apple/Google Cal)</span>
           </button>
-          <div id="firebase-status-badge" style="display: flex; align-items: center; justify-content: space-between; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 6px 10px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #166534; font-weight: 600;">
-              <svg class="ui-icon" style="color: #ea580c;"><use href="#icon-flame"></use></svg>
+          <div id="firebase-status-badge" class="firebase-status-badge">
+            <div class="fb-status-main">
+              <svg class="ui-icon fb-status-icon"><use href="#icon-flame"></use></svg>
               <span>Firebase Cloud DB: Connected</span>
             </div>
-            <span style="font-size: 10px; color: #15803d; font-weight: 500;">24/7 Always Online</span>
+            <span class="fb-status-sub">24/7 Always Online</span>
           </div>
           <div id="sync-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 2px;"></div>
         </div>
@@ -666,7 +666,7 @@
             <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-book"></use></svg>
             <span>Syllabi & Grade Distributions</span>
           </h4>
-          <span style="font-size: 10px; font-weight: 600; color: #1e40af; background: #dbeafe; padding: 1px 6px; border-radius: 9999px;">Syllabus Database</span>
+          <span class="settings-pill pill-blue">Syllabus Database</span>
         </div>
         <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
           Percentages extracted from course syllabi in <code>syllabus/</code>. Used to automatically calculate the weight of every assignment.
@@ -683,7 +683,7 @@
             <svg class="ui-icon" style="color: #059669;"><use href="#icon-schedule"></use></svg>
             <span>Weekly Class Schedule & Meeting Times</span>
           </h4>
-          <span style="font-size: 10px; font-weight: 600; color: #065f46; background: #d1fae5; padding: 1px 6px; border-radius: 9999px;">schedule.pdf</span>
+          <span class="settings-pill pill-green">schedule.pdf</span>
         </div>
         <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
           Your official UOS lecture meeting times. Deadlines are automatically scheduled at these exact class times unless the instructor specifies a home task.
@@ -700,7 +700,7 @@
             <svg class="ui-icon" style="color: #d97706;"><use href="#icon-bolt"></use></svg>
             <span>Scanner Maintenance & Full Re-scan</span>
           </h4>
-          <span style="font-size: 10px; font-weight: 600; color: #7c2d12; background: #ffedd5; padding: 1px 6px; border-radius: 9999px;">Non-Destructive</span>
+          <span class="settings-pill pill-orange">Non-Destructive</span>
         </div>
         <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
           Need to fetch full announcement text or updated doctor room numbers? Full Re-scan updates all your tasks in place without resetting your completed deadlines or notes.

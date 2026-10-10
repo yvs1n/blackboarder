@@ -843,9 +843,23 @@ body {
   color: white;
   border-left: 2px solid rgba(0, 0, 0, 0.25);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 3px;
   cursor: pointer;
   transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.cal-event-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-event-chip .ui-icon {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
 }
 
 .cal-event-chip:hover {

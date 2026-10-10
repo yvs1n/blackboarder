@@ -108,7 +108,11 @@ function extractRoomFromText(text) {
  * Resolves room for a task: prioritizes professor's announced room, then schedule default.
  */
 function resolveTaskRoom(task) {
-  const combined = `${task.title || ''} ${task.sourceSnippet || ''} ${task.description || ''}`.trim();
+  const type = (task?.type || '').toLowerCase();
+  if (type === 'assignment' || type === 'hw' || type === 'project') {
+    return '';
+  }
+  const combined = `${task?.title || ''} ${task?.sourceSnippet || ''} ${task?.description || ''}`.trim();
   const announced = extractRoomFromText(combined);
   if (announced) return announced;
 
@@ -123,6 +127,102 @@ function resolveTaskRoom(task) {
     }
   }
   return '';
+}
+
+/**
+ * Strips UI artifacts, timestamps, and redundant course headers from the text
+ * of an announcement, leaving only the professor's actual announcement text.
+ */
+function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '', title = '') {
+  if (!rawText || !rawText.trim()) return '';
+
+  let text = rawText.trim();
+
+  const timestampPrefixPatterns = [
+    /^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b\s*/i,
+    /^\s*(?:\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?)\s+ago|just now)\b\s*/i,
+    /^\s*(?:Today|Yesterday)(?:\s+at)?\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\b\s*/i,
+    /^\s*(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?,?\s*(?:\d{1,2}\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:\d{1,2})?(?:,?\s*\d{4})?(?:,?\s*at\s*|,?\s+)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:منذ\s+\d+\s+(?:دقائق|دقيقة|ساعات|ساعة|أيام|يوم)|اليوم|أمس)(?:\s+الساعة)?\s*(?:\d{1,2}:\d{2}\s*(?:صباحاً|صباحا|مساءً|مساء)?)?\s*/
+  ];
+
+  const knownCoursePatterns = [
+    /^\s*(?:Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?|مقدمة\s+في\s+هندسة\s+الحاسوب)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:مقدمة\s+في\s+هندسة\s+الحاسوب|Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Calculus\s+I\s+(?:for\s+Engineering)?|حسبان\s*1(?:\s*للمهندسين)?)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:حسبان\s*1(?:\s*للمهندسين)?|Calculus\s+I\s+(?:for\s+Engineering)?)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Physics\s*1\s*Lab|مختبر\s*فيزياء\s*1|فيزياء\s*1\s*عملي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Physics\s*1|General\s*Physics\s*1|فيزياء\s*1|فيزياء\s*عامة\s*1)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:English\s+for\s+Academic\s+Purposes|EAP|إنجليزي|انجليزي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
+    /^\s*(?:Islamic\s+Culture|ثقافة\s*إسلامية|ثقافة\s*اسلامية)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i
+  ];
+
+  const dynamicCoursePatterns = [];
+  if (courseName && courseName !== 'General Course') {
+    const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    dynamicCoursePatterns.push(new RegExp(`^\\s*${escaped}\\s*[-–—:]*\\s*(?:\\b\\d{1,2}[A-Z]?\\b)?\\s*[-–—:]*`, 'i'));
+  }
+  if (courseCode && courseCode !== 'UOS') {
+    const escapedCode = courseCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    dynamicCoursePatterns.push(new RegExp(`^\\s*${escapedCode}\\s*[-–—:]*`, 'i'));
+  }
+
+  let changed = true;
+  let passes = 0;
+  while (changed && passes < 5) {
+    changed = false;
+    passes++;
+
+    for (const pat of timestampPrefixPatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    for (const pat of dynamicCoursePatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    for (const pat of knownCoursePatterns) {
+      if (pat.test(text)) {
+        const next = text.replace(pat, '').trim();
+        if (next.length >= 5) {
+          text = next;
+          changed = true;
+        }
+      }
+    }
+
+    const sectionMatch = text.match(/^[-–—:]*\s*\b(?:\d{1,2}[A-Z]?|ALL)\b\s*[-–—:]*\s*/i);
+    if (sectionMatch && sectionMatch[0]) {
+      const next = text.slice(sectionMatch[0].length).trim();
+      if (next.length >= 5) {
+        text = next;
+        changed = true;
+      }
+    }
+  }
+
+  if (title && title.length > 5) {
+    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titlePat = new RegExp(`^\\s*${escapedTitle}(?:\\s*[-–—:]+\\s*|\\s*\\r?\\n|\\s*$)`, 'i');
+    if (titlePat.test(text)) {
+      const remainder = text.replace(titlePat, '').trim();
+      if (remainder.length >= 5) {
+        text = remainder;
+      }
+    }
+  }
+
+  return text.trim();
 }
 
 // Syllabus Database
@@ -1826,7 +1926,7 @@ function initQuickLinksModal() {
 // ==========================================================================
 // Initialization
 // ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   initTheme();
   initServiceWorker();
   initTabs();
@@ -1842,17 +1942,42 @@ document.addEventListener('DOMContentLoaded', () => {
   initGradeTracker();
   initQuickLinksModal();
 
-  // Load cached tasks & quick links from localStorage immediately
-  loadCachedTasks();
+  // 1. Immediately & synchronously load cached quick links & tasks (<2ms)
   loadCachedQuickLinks();
+  loadCachedTasks();
 
-  // Fetch freshest tasks from server
-  fetchTasksFromServer();
-});
+  // 2. Render all views immediately so the dashboard appears instantly populated like on the extension
+  updateAllViews();
+  updateSyncBanner();
+
+  // 3. Proactively refresh data in the background non-blockingly without layout jumps
+  refreshDataInBackground();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+async function refreshDataInBackground() {
+  await fetchTasksFromServer(false);
+}
 
 // Register Service Worker
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
+    let refreshing = false;
+
+    // When the new service worker activates and claims the client
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('[SW] New service worker activated, reloading page...');
+        window.location.reload();
+      }
+    });
+
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('[SW] Registered successfully:', reg.scope);
@@ -1867,11 +1992,16 @@ function initServiceWorker() {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[SW] New version detected and installed. Reloading...');
-                showToast('Website updated to latest version! Reloading...', 2000);
-                setTimeout(() => {
-                  window.location.reload();
-                }, 1000);
+                console.log('[SW] New version detected and installed.');
+                if (!refreshing) {
+                  showToast('Website updated to latest version! Reloading...', 2000);
+                  setTimeout(() => {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload();
+                    }
+                  }, 1200);
+                }
               }
             });
           }
@@ -1883,16 +2013,6 @@ function initServiceWorker() {
       .catch(err => {
         console.warn('[SW] Registration failed:', err);
       });
-
-    // When the new service worker activates and claims the client
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        console.log('[SW] New service worker activated, reloading page...');
-        window.location.reload();
-      }
-    });
 
     // Handle clicks from Service Worker notifications
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -1990,7 +2110,11 @@ async function registerPeriodicSync() {
 
 function isValidTask(task) {
   if (!task || !task.title || !task.title.trim()) return false;
+  if (task.userEdited || task.extractedBy === 'manual') return true;
   const titleLower = task.title.trim().toLowerCase();
+  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(titleLower)) {
+    return false;
+  }
   const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
   const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
   const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
@@ -2193,7 +2317,7 @@ function loadCachedTasks() {
       state.tasks.sort(compareTasksByTime);
       state.lastSync = cachedSync;
 
-      // Auto-backfill rooms and syllabus weights if missing
+      // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
       state.tasks.forEach(t => {
         if (t.courseCode === 'UOS') t.courseCode = '';
         const resolved = resolveCourseInfo(t);
@@ -2203,9 +2327,19 @@ function loadCachedTasks() {
         if (resolved.courseCode && !t.courseCode) {
           t.courseCode = resolved.courseCode;
         }
-        if (!t.room) {
+        const cleanT = (t.type || '').toLowerCase();
+        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
+        if (isHwOrProj) {
+          t.room = undefined;
+        } else if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
+        }
+        if (t.description) {
+          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
+        }
+        if (t.sourceSnippet) {
+          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
         }
         if (t.weight === undefined || t.weight === null) {
           const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
@@ -2217,7 +2351,6 @@ function loadCachedTasks() {
         }
       });
 
-      updateAllViews();
       syncTasksToServiceWorker();
       checkUpcomingDeadlines(false);
     }
@@ -2260,13 +2393,18 @@ async function fetchTasksFromServer(isManual = false) {
   _isFetchingFromServer = true;
   const refreshBtn = document.getElementById('btn-refresh');
   const syncBanner = document.getElementById('sync-banner-text');
-  refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
-  if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+
+  // Only show spinning indicator and override banner text during manual user sync
+  if (isManual) {
+    refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
+    if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+  }
 
   try {
     let tasksLoaded = false;
     let fetchedTasks = [];
     let fetchedSync = null;
+    let fetchedQuickLinks = null;
 
     // 1. Fetch directly from Firebase Realtime Database (24/7 online even if laptop is off)
     try {
@@ -2279,8 +2417,7 @@ async function fetchTasksFromServer(isManual = false) {
           fetchedSync = fbData.lastSync || new Date().toISOString();
           tasksLoaded = true;
           if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
-            state.quickLinks = fbData.quickLinks;
-            localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+            fetchedQuickLinks = fbData.quickLinks;
           }
           if (!localStorage.getItem('bbs_sync_key') && fbData.syncKey) {
             localStorage.setItem('bbs_sync_key', fbData.syncKey);
@@ -2315,8 +2452,7 @@ async function fetchTasksFromServer(isManual = false) {
           fetchedSync = data.lastSync || new Date().toISOString();
           tasksLoaded = true;
           if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
-            state.quickLinks = data.quickLinks;
-            localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+            fetchedQuickLinks = data.quickLinks;
           }
           if (!localStorage.getItem('bbs_sync_key') && data.syncKey) {
             localStorage.setItem('bbs_sync_key', data.syncKey);
@@ -2384,12 +2520,11 @@ async function fetchTasksFromServer(isManual = false) {
         }
       }
 
-      state.tasks = mergedTasks.filter(isValidTask);
-      state.tasks.sort(compareTasksByTime);
-      state.lastSync = fetchedSync;
+      const validatedTasks = mergedTasks.filter(isValidTask);
+      validatedTasks.sort(compareTasksByTime);
 
-      // Auto-backfill rooms and syllabus weights if missing
-      state.tasks.forEach(t => {
+      // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
+      validatedTasks.forEach(t => {
         if (t.courseCode === 'UOS') t.courseCode = '';
         const resolved = resolveCourseInfo(t);
         if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
@@ -2398,9 +2533,19 @@ async function fetchTasksFromServer(isManual = false) {
         if (resolved.courseCode && !t.courseCode) {
           t.courseCode = resolved.courseCode;
         }
-        if (!t.room) {
+        const cleanT = (t.type || '').toLowerCase();
+        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
+        if (isHwOrProj) {
+          t.room = undefined;
+        } else if (!t.room) {
           const r = resolveTaskRoom(t);
           if (r) t.room = r;
+        }
+        if (t.description) {
+          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
+        }
+        if (t.sourceSnippet) {
+          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
         }
         if (t.weight === undefined || t.weight === null) {
           const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
@@ -2412,11 +2557,36 @@ async function fetchTasksFromServer(isManual = false) {
         }
       });
 
-      // Cache locally for instant offline access
-      localStorage.setItem('bbs_mobile_tasks', JSON.stringify(state.tasks));
-      localStorage.setItem('bbs_mobile_last_sync', state.lastSync);
+      // Diff check: only re-render the DOM if tasks or quick links actually changed!
+      const prevTasksJson = JSON.stringify(state.tasks);
+      const prevLinksJson = JSON.stringify(state.quickLinks);
+      const tasksChanged = JSON.stringify(validatedTasks) !== prevTasksJson;
+      const linksChanged = Boolean(fetchedQuickLinks && Array.isArray(fetchedQuickLinks) && fetchedQuickLinks.length > 0 && JSON.stringify(fetchedQuickLinks) !== prevLinksJson);
 
-      updateAllViews();
+      let viewsNeedUpdate = false;
+
+      if (tasksChanged) {
+        state.tasks = validatedTasks;
+        localStorage.setItem('bbs_mobile_tasks', JSON.stringify(state.tasks));
+        viewsNeedUpdate = true;
+      }
+
+      if (linksChanged && fetchedQuickLinks) {
+        state.quickLinks = fetchedQuickLinks;
+        localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
+        renderQuickLinksBar();
+        renderQuickLinksSchedule();
+        renderQuickLinksManager();
+      }
+
+      if (fetchedSync && fetchedSync !== state.lastSync) {
+        state.lastSync = fetchedSync;
+        localStorage.setItem('bbs_mobile_last_sync', state.lastSync);
+      }
+
+      if (viewsNeedUpdate) {
+        updateAllViews();
+      }
       updateSyncBanner();
 
       // Check for newly announced upcoming deadlines
@@ -2463,17 +2633,16 @@ async function fetchTasksFromServer(isManual = false) {
     }
   } catch (err) {
     console.warn('Could not connect to sync cloud, using offline cache:', err);
-    if (syncBanner) {
+    if (isManual) {
+      showToast('Could not connect to cloud. Showing cached data.');
+    } else if (!navigator.onLine && syncBanner) {
       syncBanner.textContent = state.tasks.length > 0 
         ? `Offline Mode: Showing ${state.tasks.length} cached deadlines` 
         : 'Offline: Waiting for connection...';
     }
-    if (isManual) {
-      showToast('Could not connect to cloud. Showing cached data.');
-    }
   } finally {
     _isFetchingFromServer = false;
-    if (refreshBtn) {
+    if (isManual && refreshBtn) {
       setTimeout(() => {
         refreshBtn.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
       }, 400);
@@ -2490,15 +2659,18 @@ async function fetchTasksFromServer(isManual = false) {
 async function syncBidirectionally(isManual = false) {
   const refreshBtn = document.getElementById('btn-refresh');
   const syncBanner = document.getElementById('sync-banner-text');
-  refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
-  if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+
+  if (isManual) {
+    refreshBtn?.querySelector('.refresh-icon')?.classList.add('refresh-spinning');
+    if (syncBanner) syncBanner.textContent = 'Syncing deadlines with Firebase Cloud...';
+  }
 
   try {
     // 1. Flush any pending offline mutations first
     await flushOfflineMutations();
 
-    // 2. Fetch latest tasks from cloud & reconcile
-    await fetchTasksFromServer(false);
+    // 2. Fetch latest tasks from cloud & reconcile (passing isManual flag)
+    await fetchTasksFromServer(isManual);
 
     // 3. Push full reconciled state to cloud so both laptop and phone are in lockstep
     await syncToCloudAndLocal();
@@ -2512,7 +2684,9 @@ async function syncBidirectionally(isManual = false) {
       showToast('Sync error: ' + (err.message || 'offline'));
     }
   } finally {
-    refreshBtn?.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
+    if (isManual && refreshBtn) {
+      refreshBtn.querySelector('.refresh-icon')?.classList.remove('refresh-spinning');
+    }
     updateSyncBanner();
   }
 }
@@ -2547,6 +2721,18 @@ function updateAllViews() {
   updateBadgeCounts();
   populateCourseFilter();
   renderGradeTracker();
+
+  // If day sheet drawer is currently open, refresh its items to reflect status changes immediately
+  const drawer = document.getElementById('day-sheet-drawer');
+  if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
+    const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(state.selectedDate));
+    const itemsContainer = document.getElementById('day-sheet-items');
+    if (itemsContainer) {
+      const sorted = dayTasks.slice().sort(compareTasksByTime);
+      itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
+      bindTaskCardEvents(itemsContainer);
+    }
+  }
 }
 
 // Wi-Fi Connection State Listeners
@@ -2775,8 +2961,8 @@ function renderCalendar() {
         const color = getCourseColor(courseCode, courseName, task.title);
         const isDone = task.status === 'completed';
         const safeTitle = escapeHtml(task.title);
-        const tooltip = escapeHtml(`[${courseName}] ${task.title}`);
-        const iconSvg = getTaskTypeIcon(task.type, 'chip-svg-icon');
+        const tooltip = escapeHtml(`${isDone ? '[Completed] ' : ''}[${courseName}] ${task.title}`);
+        const iconSvg = isDone ? getSvgIcon('check', 'chip-svg-icon') : getTaskTypeIcon(task.type, 'chip-svg-icon');
         chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" style="background-color: ${color};" title="${tooltip}">` +
           `<span class="chip-icon">${iconSvg}</span>` +
           `<span class="chip-text">${safeTitle}</span>` +
@@ -2974,8 +3160,11 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
 
     const item = document.createElement('div');
     item.className = `selected-day-item ${isCompleted ? 'status-completed' : ''}`;
-    item.style.borderLeftColor = color;
+    item.style.borderLeft = `4px solid ${color}`;
+    item.style.setProperty('border-left-color', color, 'important');
     item.setAttribute('data-id', task.id);
+
+    const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
 
     item.innerHTML = `
       <div class="selected-day-info">
@@ -2983,7 +3172,7 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
         <div class="selected-day-item-title">${escapeHtml(task.title)}</div>
         <div class="selected-day-meta-row">
           <span class="selected-day-time">${getSvgIcon('clock', 'mr-1')} ${escapeHtml(timeDisplay)}</span>
-          ${task.room ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
+          ${(!isHwOrProj && task.room) ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
           ${weightHtml}
         </div>
       </div>
@@ -3197,22 +3386,25 @@ function renderTaskCardHtml(task, isCompact = false) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
 
-  // Room pill button (1-click room changer)
+  // Room pill button (1-click room changer - only if not hw or project)
+  const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
   let roomBadgeHtml = '';
-  if (task.room) {
-    roomBadgeHtml = `
-      <button type="button" class="room-pill-btn" data-task-id="${task.id}" title="Click to change room">
-        <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
-        <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
-      </button>
-    `;
-  } else {
-    roomBadgeHtml = `
-      <button type="button" class="room-pill-btn" data-task-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
-        <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
-        <span class="room-edit-hint">${getSvgIcon('plus')}</span>
-      </button>
-    `;
+  if (!isHwOrProj) {
+    if (task.room) {
+      roomBadgeHtml = `
+        <button type="button" class="room-pill-btn" data-task-id="${task.id}" title="Click to change room">
+          <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
+          <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
+        </button>
+      `;
+    } else {
+      roomBadgeHtml = `
+        <button type="button" class="room-pill-btn" data-task-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
+          <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
+          <span class="room-edit-hint">${getSvgIcon('plus')}</span>
+        </button>
+      `;
+    }
   }
 
   // Weight badge
@@ -3277,7 +3469,7 @@ function renderTaskCardHtml(task, isCompact = false) {
   const isSelected = state.selectedTaskId === task.id;
 
   return `
-    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex};">
+    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex} !important;">
       <!-- Course Banner with Permanent Subject Color -->
       <div class="task-course-banner">
         <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};" title="${escapeHtml(courseName)}${courseCode && courseCode.toLowerCase() !== 'uos' ? ` (${escapeHtml(courseCode)})` : ''}">
@@ -3729,7 +3921,7 @@ function renderGradeTracker() {
     ? Math.min(100, Math.round((totalTrackedCompleted / totalTrackedWeight) * 100))
     : 0;
 
-  badge.textContent = `${overallPct}% Done (${Math.round(totalTrackedCompleted)}% completed)`;
+  badge.textContent = `${overallPct}% Done (${Math.round(totalTrackedCompleted)} pts tracked)`;
 
   breakdown.innerHTML = courseStats.map(stat => {
     const course = stat.course;
@@ -4120,52 +4312,14 @@ function clearOfflineMutations() {
 let isFlushingMutations = false;
 async function flushOfflineMutations() {
   if (isFlushingMutations || !navigator.onLine) return;
-  const queue = getOfflineMutations();
-  if (queue.length === 0) return;
+  if (getOfflineMutations().length === 0) return;
 
   isFlushingMutations = true;
   try {
-    for (const item of queue) {
-      if (item.type === 'status') {
-        try {
-          await fetch('/api/task-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId: item.taskId, status: item.status })
-          });
-        } catch (e) {}
-      } else if (item.type === 'delete') {
-        try {
-          await fetch('/api/task-delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId: item.taskId })
-          });
-          const activeKey = getSyncKey();
-          const rootPath = activeKey ? `${FIREBASE_DB_URL}/users/${activeKey}` : FIREBASE_DB_URL;
-          await fetch(`${rootPath}/tombstones/${item.taskId}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deletedAt: item.timestamp, taskId: item.taskId })
-          });
-        } catch (e) {}
-      } else if (item.type === 'edit' || item.type === 'add') {
-        try {
-          if (item.task && item.task.id) {
-            const activeKey = getSyncKey();
-            const rootPath = activeKey ? `${FIREBASE_DB_URL}/users/${activeKey}` : FIREBASE_DB_URL;
-            await fetch(`${rootPath}/tasks/${item.task.id}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(item.task)
-            });
-          }
-        } catch (e) {}
-      }
-    }
-
-    clearOfflineMutations();
-    await syncToCloudAndLocal(false);
+    // Every queued mutation is already applied to state.tasks, so one full-state push replaces them.
+    // Per-key writes such as /tasks/<id>.json must not be used: they turn the Firebase tasks
+    // array into an object, which every client then reads as "no tasks".
+    await syncToCloudAndLocal();
   } catch (err) {
     console.warn('Failed to flush offline mutations:', err);
   } finally {
@@ -4345,15 +4499,36 @@ function initModals() {
     }
   });
 
+  // Type change listeners to dynamically toggle room visibility in Add and Edit modals
+  document.getElementById('edit-type')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const isHw = val === 'assignment' || val === 'hw' || val === 'project';
+    const roomInput = document.getElementById('edit-room');
+    const group = roomInput ? roomInput.closest('.form-group') : null;
+    if (group) group.style.display = isHw ? 'none' : '';
+    if (isHw && roomInput) roomInput.value = '';
+  });
+
+  document.getElementById('add-type')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const isHw = val === 'assignment' || val === 'hw' || val === 'project';
+    const roomInput = document.getElementById('add-room');
+    const group = roomInput ? roomInput.closest('.form-group') : null;
+    if (group) group.style.display = isHw ? 'none' : '';
+    if (isHw && roomInput) roomInput.value = '';
+  });
+
   // Auto-suggest default room and meeting time when entering course in Add Modal
   const addCourseInput = document.getElementById('add-course');
   const addRoomInput = document.getElementById('add-room');
   const addTimeInput = document.getElementById('add-time');
   addCourseInput?.addEventListener('input', () => {
     const courseVal = addCourseInput.value;
+    const addTypeVal = document.getElementById('add-type')?.value;
+    const isHwOrProj = addTypeVal === 'assignment' || addTypeVal === 'hw' || addTypeVal === 'project';
     for (const s of STUDENT_CLASS_SCHEDULE) {
       if (s.matcher.test(courseVal)) {
-        if (addRoomInput && !addRoomInput.value) {
+        if (!isHwOrProj && addRoomInput && !addRoomInput.value) {
           addRoomInput.value = s.room;
         }
         if (addTimeInput && (!addTimeInput.value || addTimeInput.value === '23:59')) {
@@ -4555,7 +4730,8 @@ function initModals() {
       task.dueDate = defaultDate.toISOString();
       task.hasSpecificTime = appliedSched;
     }
-    task.room = roomVal || undefined;
+    const isHwOrProj = type === 'assignment' || type === 'hw' || type === 'project';
+    task.room = isHwOrProj ? undefined : (roomVal || undefined);
     task.type = type;
     task.priority = priority;
     task.status = status;
@@ -4572,6 +4748,7 @@ function initModals() {
     task.description = descVal;
     task.sourceSnippet = descVal;
     task.notes = notesVal;
+    task.userEdited = true;
     task.updatedAt = new Date().toISOString();
 
     // Re-sort state.tasks by dueDate ascending (earliest first)
@@ -4673,13 +4850,15 @@ function initModals() {
       hasSpecificTime = appliedSched;
     }
 
-    const room = manualRoom || resolveTaskRoom({
+    const isHwOrProj = type === 'assignment' || type === 'hw' || type === 'project';
+    const room = isHwOrProj ? undefined : (manualRoom || resolveTaskRoom({
       title,
       courseName: course,
       courseCode: 'UOS',
+      type,
       sourceSnippet: notes,
       description: notes
-    }) || undefined;
+    }) || undefined);
 
     const resolvedWeight = resolveTaskWeight(course, title, type, notes);
     const finalWeight = !isNaN(weightVal) && weightVal > 0 ? weightVal : resolvedWeight.weight;
@@ -4703,6 +4882,7 @@ function initModals() {
       description: notes,
       sourceSnippet: notes,
       extractedBy: 'manual',
+      userEdited: true,
       confidence: 1.0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -4744,11 +4924,17 @@ function openEditTaskModal(task) {
     }
   }
 
-  document.getElementById('edit-type').value = task.type || 'assignment';
+  const selectedType = task.type || 'assignment';
+  document.getElementById('edit-type').value = selectedType;
   document.getElementById('edit-priority').value = task.priority || 'medium';
   document.getElementById('edit-status').value = task.status || 'pending';
+  const isHwOrProj = selectedType === 'assignment' || selectedType === 'hw' || selectedType === 'project';
   const editRoom = document.getElementById('edit-room');
-  if (editRoom) editRoom.value = task.room || '';
+  const editRoomGroup = editRoom ? editRoom.closest('.form-group') : null;
+  if (editRoomGroup) {
+    editRoomGroup.style.display = isHwOrProj ? 'none' : '';
+  }
+  if (editRoom) editRoom.value = isHwOrProj ? '' : (task.room || '');
   document.getElementById('edit-weight').value = task.weight || '';
 
   const editWeightHint = document.getElementById('edit-weight-hint');
@@ -4791,7 +4977,14 @@ function openAddTaskModal(prefilledDate = null) {
     dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
 
+  const addType = document.getElementById('add-type');
+  const addTypeValue = addType ? addType.value : 'assignment';
+  const isHwOrProj = addTypeValue === 'assignment' || addTypeValue === 'hw' || addTypeValue === 'project';
   const addRoom = document.getElementById('add-room');
+  const addRoomGroup = addRoom ? addRoom.closest('.form-group') : null;
+  if (addRoomGroup) {
+    addRoomGroup.style.display = isHwOrProj ? 'none' : '';
+  }
   if (addRoom) addRoom.value = '';
 
   const addWeight = document.getElementById('add-weight');
@@ -4891,6 +5084,8 @@ function openReadingSheet(task) {
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
 
+  const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
+
   badgeGroup.innerHTML = `
     <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};">
       <span class="course-color-dot" style="background: ${courseTheme.hex};"></span>
@@ -4912,10 +5107,12 @@ function openReadingSheet(task) {
           ? `${getSvgIcon('check', 'mr-1')} ${escapeHtml(countdown.label)}`
           : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
       </span>
+      ${!isHwOrProj ? `
       <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${task.id}">
         <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room || 'No room set')}</span>
         <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
       </button>
+      ` : ''}
       ${task.weightDisplay || task.weight ? `<span class="task-weight-pill weight-major">${getSvgIcon('scale', 'mr-1')} ${escapeHtml(task.weightDisplay || `${task.weight}%`)}</span>` : ''}
     </div>
 
@@ -5051,13 +5248,15 @@ async function syncToCloudAndLocal() {
     tombstones: Object.keys(tombstones).length > 0 ? tombstones : undefined
   };
 
+  let cloudOk = false;
   try {
     const fbUrl = getFirebaseDataUrl();
-    await fetch(fbUrl, {
+    const fbRes = await fetch(fbUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    cloudOk = fbRes.ok;
 
     const activeKey = getSyncKey();
     if (activeKey && fbUrl !== `${FIREBASE_DB_URL}/data.json`) {
@@ -5086,5 +5285,8 @@ async function syncToCloudAndLocal() {
     syncChannel.postMessage({ type: 'TASKS_UPDATED', timestamp: Date.now() });
     syncChannel.close();
   } catch (err) {}
+
+  if (cloudOk) clearOfflineMutations();
+  return cloudOk;
 }
 

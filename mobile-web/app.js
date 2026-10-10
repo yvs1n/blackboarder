@@ -2110,7 +2110,11 @@ async function registerPeriodicSync() {
 
 function isValidTask(task) {
   if (!task || !task.title || !task.title.trim()) return false;
+  if (task.userEdited || task.extractedBy === 'manual') return true;
   const titleLower = task.title.trim().toLowerCase();
+  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(titleLower)) {
+    return false;
+  }
   const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
   const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
   const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
@@ -4744,6 +4748,7 @@ function initModals() {
     task.description = descVal;
     task.sourceSnippet = descVal;
     task.notes = notesVal;
+    task.userEdited = true;
     task.updatedAt = new Date().toISOString();
 
     // Re-sort state.tasks by dueDate ascending (earliest first)
@@ -4877,6 +4882,7 @@ function initModals() {
       description: notes,
       sourceSnippet: notes,
       extractedBy: 'manual',
+      userEdited: true,
       confidence: 1.0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

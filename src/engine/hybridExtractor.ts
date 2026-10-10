@@ -122,14 +122,22 @@ export async function processAnnouncementsBatch(
   settings: UserSettings,
   knownProcessedAnnIds?: Set<string>
 ): Promise<{ newTasks: DeadlineTask[]; allTasks: DeadlineTask[]; updatedTasks: DeadlineTask[] }> {
-  // Index existing tasks by normalized key and by announcement ID
+  // Index existing tasks by normalized key, announcement ID, ID, and title+course
   const existingKeyMap = new Map<string, DeadlineTask>();
   const existingAnnIdMap = new Map<string, DeadlineTask>();
+  const existingIdMap = new Map<string, DeadlineTask>();
+  const existingTitleCourseMap = new Map<string, DeadlineTask>();
 
   for (const t of existingTasks) {
     existingKeyMap.set(normalizeTaskKey(t), t);
+    existingIdMap.set(t.id, t);
     if (t.announcementId) {
       existingAnnIdMap.set(t.announcementId, t);
+    }
+    const cleanT = (t.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+    const cleanC = (t.courseCode || t.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+    if (cleanT) {
+      existingTitleCourseMap.set(`${cleanC}_${cleanT}`, t);
     }
   }
 
@@ -170,7 +178,14 @@ export async function processAnnouncementsBatch(
       }
 
       const key = normalizeTaskKey(task);
-      const existing = existingKeyMap.get(key) || (task.announcementId ? existingAnnIdMap.get(task.announcementId) : undefined);
+      const cleanT = (task.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      const cleanC = (task.courseCode || task.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      const titleCourseKey = `${cleanC}_${cleanT}`;
+
+      const existing = (task.announcementId ? existingAnnIdMap.get(task.announcementId) : undefined)
+        || existingIdMap.get(task.id)
+        || existingKeyMap.get(key)
+        || existingTitleCourseMap.get(titleCourseKey);
 
       if (existing) {
         let changed = false;
@@ -186,38 +201,41 @@ export async function processAnnouncementsBatch(
           changed = true;
         }
 
-        // 2. Room: re-resolve room with the latest announcement text. An announced room ALWAYS overrides the default!
-        const newRoomRes = resolveTaskRoom({
-          courseNameOrCode: existing.courseName || existing.courseCode,
-          announcementText: existing.description || existing.sourceSnippet || incomingDesc,
-          title: existing.title,
-          existingRoom: existing.room,
-          type: existing.type || task.type
-        });
-        if (newRoomRes.room && newRoomRes.room !== existing.room) {
-          existing.room = newRoomRes.room;
-          changed = true;
-        } else {
-          const cleanExT = (existing.type || task.type || '').toLowerCase();
-          if ((cleanExT === 'assignment' || cleanExT === 'hw' || cleanExT === 'project') && existing.room) {
-            existing.room = undefined;
+        // 2. If existing task was edited or created manually by the student, DO NOT override student changes!
+        if (!existing.userEdited && existing.extractedBy !== 'manual') {
+          // Room: re-resolve room with the latest announcement text. An announced room ALWAYS overrides the default!
+          const newRoomRes = resolveTaskRoom({
+            courseNameOrCode: existing.courseName || existing.courseCode,
+            announcementText: existing.description || existing.sourceSnippet || incomingDesc,
+            title: existing.title,
+            existingRoom: existing.room,
+            type: existing.type || task.type
+          });
+          if (newRoomRes.room && newRoomRes.room !== existing.room) {
+            existing.room = newRoomRes.room;
+            changed = true;
+          } else {
+            const cleanExT = (existing.type || task.type || '').toLowerCase();
+            if ((cleanExT === 'assignment' || cleanExT === 'hw' || cleanExT === 'project') && existing.room) {
+              existing.room = undefined;
+              changed = true;
+            }
+          }
+
+          // 3. Weight & Syllabus Note if previously missing
+          if ((existing.weight === undefined || existing.weight === null) && task.weight !== undefined) {
+            existing.weight = task.weight;
+            existing.weightDisplay = task.weightDisplay;
+            existing.syllabusNote = task.syllabusNote;
             changed = true;
           }
-        }
 
-        // 3. Weight & Syllabus Note if previously missing
-        if ((existing.weight === undefined || existing.weight === null) && task.weight !== undefined) {
-          existing.weight = task.weight;
-          existing.weightDisplay = task.weightDisplay;
-          existing.syllabusNote = task.syllabusNote;
-          changed = true;
-        }
-
-        // 4. Specific class time: if existing did not have specific time, but new does
-        if (!existing.hasSpecificTime && task.hasSpecificTime) {
-          existing.dueDate = task.dueDate;
-          existing.hasSpecificTime = true;
-          changed = true;
+          // 4. Specific class time: if existing did not have specific time, but new does
+          if (!existing.hasSpecificTime && task.hasSpecificTime) {
+            existing.dueDate = task.dueDate;
+            existing.hasSpecificTime = true;
+            changed = true;
+          }
         }
 
         // 5. If announcementId was not linked before, link it
@@ -233,6 +251,8 @@ export async function processAnnouncementsBatch(
         }
       } else {
         existingKeyMap.set(key, task);
+        existingIdMap.set(task.id, task);
+        if (cleanT) existingTitleCourseMap.set(titleCourseKey, task);
         if (task.announcementId) {
           existingAnnIdMap.set(task.announcementId, task);
         }

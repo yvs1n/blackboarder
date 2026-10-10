@@ -942,15 +942,52 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       fullRescan ? undefined : knownAnnIds
     );
 
-    // Merge direct stream tasks with deduplication
-    const existingKeySet = new Set(mergedAnnTasks.map(t => `${t.courseCode}_${t.title}_${new Date(t.dueDate).toISOString().slice(0, 10)}`));
+    // Merge direct stream tasks with deduplication against existing stored tasks
+    const existingIdMap = new Map<string, DeadlineTask>();
+    const existingTitleCourseMap = new Map<string, DeadlineTask>();
+    const existingDateKeySet = new Set<string>();
+
+    for (const t of mergedAnnTasks) {
+      existingIdMap.set(t.id, t);
+      const cleanT = (t.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      const cleanC = (t.courseCode || t.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      if (cleanT) {
+        existingTitleCourseMap.set(`${cleanC}_${cleanT}`, t);
+      }
+      try {
+        existingDateKeySet.add(`${t.courseCode}_${t.title}_${new Date(t.dueDate).toISOString().slice(0, 10)}`);
+      } catch {}
+    }
+
     const newlyAddedDirect: DeadlineTask[] = [];
 
     for (const dt of directStreamTasks) {
-      const key = `${dt.courseCode}_${dt.title}_${new Date(dt.dueDate).toISOString().slice(0, 10)}`;
-      if (!existingKeySet.has(key)) {
-        existingKeySet.add(key);
+      const cleanT = (dt.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      const cleanC = (dt.courseCode || dt.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+      const titleCourseKey = `${cleanC}_${cleanT}`;
+      let dateKey = '';
+      try {
+        dateKey = `${dt.courseCode}_${dt.title}_${new Date(dt.dueDate).toISOString().slice(0, 10)}`;
+      } catch {}
+
+      const matched = existingIdMap.get(dt.id)
+        || (cleanT ? existingTitleCourseMap.get(titleCourseKey) : undefined)
+        || (dateKey && existingDateKeySet.has(dateKey) ? true : undefined);
+
+      if (matched && typeof matched === 'object') {
+        // Matched an existing task! If user edited it, never overwrite user changes.
+        if (!matched.userEdited && matched.extractedBy !== 'manual') {
+          if (!matched.hasSpecificTime && dt.hasSpecificTime) {
+            matched.dueDate = dt.dueDate;
+            matched.hasSpecificTime = dt.hasSpecificTime;
+            matched.updatedAt = new Date().toISOString();
+          }
+        }
+      } else if (!matched) {
         newlyAddedDirect.push(dt);
+        existingIdMap.set(dt.id, dt);
+        if (cleanT) existingTitleCourseMap.set(titleCourseKey, dt);
+        if (dateKey) existingDateKeySet.add(dateKey);
       }
     }
 

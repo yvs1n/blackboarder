@@ -715,9 +715,15 @@
 }
 
 /* Horizontal sliding bars (Course legend & Quick links) */
+.legend-items::-webkit-scrollbar,
 .course-legend-bar::-webkit-scrollbar,
 .quick-links-chips-row::-webkit-scrollbar {
   height: 4px;
+}
+
+/* Inline icon margin spacing utility */
+.mr-1 {
+  margin-right: 5px;
 }
 
 body {
@@ -1263,6 +1269,13 @@ body {
   box-shadow: none;
 }
 
+[data-theme="dark"] .cal-event-chip.is-completed {
+  background-color: #334155 !important;
+  color: #94a3b8 !important;
+  border-left-color: #475569 !important;
+  opacity: 0.75;
+}
+
 .cal-event-more {
   font-size: 8.5px;
   font-weight: 700;
@@ -1489,6 +1502,10 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .selected-day-course {
+  color: #f8fafc !important;
 }
 
 .selected-day-item-title {
@@ -1779,7 +1796,9 @@ body {
 
 .task-card.is-active-reading {
   background: var(--primary-light);
-  border-color: var(--primary) !important;
+  border-top-color: var(--primary);
+  border-right-color: var(--primary);
+  border-bottom-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary-light), var(--shadow-sm);
 }
 
@@ -2825,6 +2844,18 @@ input:checked + .slider:before {
   color: #0f172a;
 }
 
+[data-theme="dark"] .btn-card-action.btn-card-edit {
+  color: var(--text-main);
+  background: var(--surface-hover);
+  border-color: var(--surface-border);
+}
+
+[data-theme="dark"] .btn-card-action.btn-card-edit:hover {
+  background: #2c2c34;
+  color: #ffffff;
+  border-color: var(--surface-border-strong);
+}
+
 /* Modals */
 .modal-backdrop {
   position: fixed;
@@ -2982,6 +3013,15 @@ input:checked + .slider:before {
 
 .btn-save-action:hover {
   background: var(--primary-hover);
+}
+
+[data-theme="dark"] .btn-save-action {
+  background: #f4f4f6;
+  color: #111114 !important;
+}
+
+[data-theme="dark"] .btn-save-action:hover {
+  background: #ffffff;
 }
 
 .btn-secondary-action {
@@ -3652,6 +3692,15 @@ input:checked + .slider:before {
 
 .btn-ql-open:hover {
   background: var(--primary-hover);
+}
+
+[data-theme="dark"] .btn-ql-open {
+  background: #f4f4f6;
+  color: #111114 !important;
+}
+
+[data-theme="dark"] .btn-ql-open:hover {
+  background: #ffffff;
 }
 
 .btn-ql-action {

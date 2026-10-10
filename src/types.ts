@@ -44,6 +44,7 @@ export interface DeadlineTask {
   room?: string; // Classroom, lab, or hall (e.g. "A8-103", "W8-Lab 3")
   notes?: string; // Student custom notes and instructions
   calendarSynced?: boolean;
+  userEdited?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -98,4 +98,54 @@ describe('Batch Rescan & In-Place Task Updating Engine', () => {
     expect(customRes.room).toBe('A8-204');
     expect(customRes.isCustom).toBe(true);
   });
+
+  it('preserves user-edited due date across rescans without reverting or creating duplicates', async () => {
+    // Student manually edited this task's due date from Oct 12 to Oct 15
+    const userEditedTask: DeadlineTask = {
+      id: 'task_1789205760583_5hhhx',
+      announcementId: 'ann_full_midterm_123',
+      title: 'Midterm',
+      courseName: 'Introduction to Computer Eng.',
+      courseCode: '1502 101',
+      dueDate: '2026-10-15T10:00:00.000Z', // User edited date!
+      hasSpecificTime: true,
+      userEdited: true, // Marked as userEdited
+      type: 'exam',
+      priority: 'high',
+      status: 'pending',
+      confidence: 1,
+      extractedBy: 'local',
+      description: 'Midterm exam originally Oct 12',
+      sourceSnippet: 'Midterm exam originally Oct 12',
+      room: 'A8-103',
+      createdAt: '2026-09-12T09:36:00.583Z',
+      updatedAt: '2026-10-10T08:00:00.000Z'
+    };
+
+    // The announcement on Blackboard still has the original Oct 12 date
+    const blackboardAnnouncement: Announcement = {
+      id: 'ann_full_midterm_123',
+      courseCode: '1502 101',
+      courseName: 'Introduction to Computer Eng.',
+      title: 'Midterm',
+      postedAt: '2026-09-12T09:36:00.000Z',
+      contentText: 'Midterm exam Monday 12 October 2026 from 12:30 pm to 13:30 pm',
+      sourceUrl: '',
+      scannedAt: '2026-10-10T12:00:00.000Z'
+    };
+
+    const { newTasks, allTasks, updatedTasks } = await processAnnouncementsBatch(
+      [blackboardAnnouncement],
+      [userEditedTask],
+      defaultSettings
+    );
+
+    // ZERO duplicate tasks created!
+    expect(newTasks.length).toBe(0);
+    expect(allTasks.length).toBe(1);
+
+    // The student's edited due date is 100% PRESERVED!
+    expect(allTasks[0].dueDate).toBe('2026-10-15T10:00:00.000Z');
+    expect(allTasks[0].userEdited).toBe(true);
+  });
 });

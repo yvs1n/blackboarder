@@ -288,9 +288,23 @@ export function resolveCourseInfo(task: {
  * Filters out empty or ghost tasks that lack a valid title or are meaningless artifacts
  * from stream submission receipts, notifications, or generic reminder text.
  */
-export function isValidTask(task: { title?: string; courseName?: string; courseCode?: string }): boolean {
+export function isValidTask(task: {
+  title?: string;
+  courseName?: string;
+  courseCode?: string;
+  userEdited?: boolean;
+  extractedBy?: string;
+}): boolean {
   if (!task || !task.title || !task.title.trim()) return false;
+  // User-created or user-edited tasks are ALWAYS valid and must never be pruned
+  if (task.userEdited || task.extractedBy === 'manual') return true;
+
   const titleLower = task.title.trim().toLowerCase();
+  // Explicitly drop stream submission receipts or confirmation cards
+  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(titleLower)) {
+    return false;
+  }
+
   const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
   const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
   const isGenericCode = !task.courseCode || task.courseCode === 'UOS';

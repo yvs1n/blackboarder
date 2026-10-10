@@ -974,6 +974,15 @@ function updateStats(tasks: DeadlineTask[]) {
   statWeekCount.textContent = String(thisWeek);
   statTotalCount.textContent = String(pendingTasks.length);
   navBadgeCount.textContent = String(pendingTasks.length);
+
+  const completedCount = tasks.filter(t => t.status === 'completed').length;
+  const allCount = tasks.length;
+  const btnPending = document.querySelector('.filter-chip[data-status="pending"]');
+  const btnAll = document.querySelector('.filter-chip[data-status="all"]');
+  const btnCompleted = document.querySelector('.filter-chip[data-status="completed"]');
+  if (btnPending) btnPending.textContent = `Pending (${pendingTasks.length})`;
+  if (btnAll) btnAll.textContent = `All (${allCount})`;
+  if (btnCompleted) btnCompleted.textContent = `Completed (${completedCount})`;
 }
 
 function updateCourseFilterOptions(tasks: DeadlineTask[]) {
@@ -1472,7 +1481,7 @@ function closeRoomPicker() {
 
 async function applyRoomChange(taskId: string, newRoom: string) {
   const cleanedRoom = (newRoom || '').trim();
-  currentTasks = await updateTask(taskId, { room: cleanedRoom || undefined });
+  currentTasks = await updateTask(taskId, { room: cleanedRoom || undefined, userEdited: true });
   refreshAllViews();
   syncTasksToCloud(currentTasks, 'Room Change');
   showToast(`Room updated to "${cleanedRoom || 'None'}"`);
@@ -2184,6 +2193,7 @@ function setupEvents() {
       notes: notes,
       confidence: 1.0,
       extractedBy: 'manual',
+      userEdited: true,
       weight,
       weightDisplay,
       syllabusNote,
@@ -2302,6 +2312,7 @@ function setupEvents() {
       weight,
       weightDisplay,
       syllabusNote,
+      userEdited: true,
       updatedAt: new Date().toISOString()
     };
 
@@ -3166,6 +3177,11 @@ async function refreshDataInBackground() {
     // 4. Retroactively refresh syllabus weights, sanitize doctor quotes, and repair assessment times
     let updatedAny = false;
     currentTasks = currentTasks.map(task => {
+      // User-created or user-edited tasks must NEVER have their dates, times, rooms, or course names overridden!
+      if (task.userEdited || task.extractedBy === 'manual') {
+        return task;
+      }
+
       let taskUpdated = false;
       let description = task.description || '';
       let sourceSnippet = task.sourceSnippet || '';
@@ -3262,14 +3278,12 @@ async function refreshDataInBackground() {
         const bestDate = new Date(best.dueDate);
         const curDate = new Date(task.dueDate);
 
-        // If best has explicit time (e.g. 12:30 pm) and current time differs, update it!
-        if (best.hasSpecificTime) {
-          if (curDate.getHours() !== bestDate.getHours() || curDate.getMinutes() !== bestDate.getMinutes()) {
-            curDate.setHours(bestDate.getHours(), bestDate.getMinutes(), 0, 0);
-            dueDate = curDate.toISOString();
-            hasSpecificTime = true;
-            taskUpdated = true;
-          }
+        // Only adopt if task currently lacks a specific time and best has an explicit time!
+        if (!hasSpecificTime && best.hasSpecificTime) {
+          curDate.setHours(bestDate.getHours(), bestDate.getMinutes(), 0, 0);
+          dueDate = curDate.toISOString();
+          hasSpecificTime = true;
+          taskUpdated = true;
         }
       }
 

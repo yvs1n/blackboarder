@@ -48,6 +48,9 @@ function adoptCloud(local: DeadlineTask, cloud: DeadlineTask): DeadlineTask {
     status: cloud.status || local.status,
     updatedAt: cloud.updatedAt || local.updatedAt
   };
+  if (cloud.userEdited || local.userEdited) {
+    merged.userEdited = true;
+  }
   for (const field of OPTIONAL_FIELDS) {
     if ((cloud as any)[field] === undefined) merged[field] = undefined;
   }
@@ -56,6 +59,9 @@ function adoptCloud(local: DeadlineTask, cloud: DeadlineTask): DeadlineTask {
 
 function fillGaps(local: DeadlineTask, cloud: DeadlineTask, sameTime: boolean): DeadlineTask {
   const merged: any = { ...local };
+  if (local.userEdited || cloud.userEdited) {
+    merged.userEdited = true;
+  }
   for (const field of GAP_FILL_FIELDS) {
     const localVal = (local as any)[field];
     const cloudVal = (cloud as any)[field];

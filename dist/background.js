@@ -207,11 +207,13 @@ function f(e, t) {
 		status: t.status || e.status,
 		updatedAt: t.updatedAt || e.updatedAt
 	};
+	(t.userEdited || e.userEdited) && (n.userEdited = !0);
 	for (let e of u) t[e] === void 0 && (n[e] = void 0);
 	return n;
 }
 function p(e, t, n) {
 	let r = { ...e };
+	(e.userEdited || t.userEdited) && (r.userEdited = !0);
 	for (let n of d) {
 		let i = e[n], a = t[n];
 		(i == null || i === "") && a != null && a !== "" && (r[n] = a);
