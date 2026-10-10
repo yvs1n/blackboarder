@@ -19,6 +19,7 @@ coverage/
 
 # Knowledge graph and temporary agent outputs
 graphify-out/
+scratch/
 
 # OS and Editor metadata
 .DS_Store

@@ -86,6 +86,13 @@ async function runPackaging() {
     fs.copyFileSync(hostingGuideSrc, path.join(RELEASE_WEB_DIR, 'HOSTING_GUIDE.md'));
   }
 
+  // Copy widgets folder to release
+  const widgetsSrc = path.join(ROOT_DIR, 'widgets');
+  const releaseWidgetsDir = path.join(RELEASE_DIR, 'widgets');
+  if (fs.existsSync(widgetsSrc)) {
+    fs.cpSync(widgetsSrc, releaseWidgetsDir, { recursive: true });
+  }
+
   // Step 5: Create compressed zips
   console.log('\n🗜️ Step 5: Compressing release archives...');
 
@@ -101,6 +108,9 @@ async function runPackaging() {
   fs.mkdirSync(tempFullDir, { recursive: true });
   fs.cpSync(RELEASE_EXT_DIR, path.join(tempFullDir, 'extension'), { recursive: true });
   fs.cpSync(RELEASE_WEB_DIR, path.join(tempFullDir, 'website'), { recursive: true });
+  if (fs.existsSync(widgetsSrc)) {
+    fs.cpSync(widgetsSrc, path.join(tempFullDir, 'widgets'), { recursive: true });
+  }
 
   if (fs.existsSync(installGuideSrc)) {
     fs.copyFileSync(installGuideSrc, path.join(tempFullDir, 'INSTALL_EXTENSION.md'));

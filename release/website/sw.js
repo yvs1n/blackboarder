@@ -1,11 +1,12 @@
-const CACHE_NAME = 'sidekick-mobile-v13';
+const CACHE_NAME = 'sidekick-mobile-v14';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=13',
+  './styles.css?v=14',
   './app.js',
-  './app.js?v=13',
+  './app.js?v=14',
+  './widget.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

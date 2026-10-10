@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=13">
+  <link rel="stylesheet" href="./styles.css?v=14">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -673,6 +673,46 @@
         </details>
       </div>
 
+      <!-- iOS Home & Lock Screen Widgets (Scriptable) Card -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <div class="settings-icon-title">
+            <span class="card-icon"><svg class="ui-icon"><use href="#icon-schedule"></use></svg></span>
+            <div>
+              <h3 class="settings-card-title">iOS Home &amp; Lock Screen Widgets</h3>
+              <p class="settings-card-subtitle">Offline-ready widgets with automatic disk caching</p>
+            </div>
+          </div>
+          <span class="info-badge green">Offline Ready</span>
+        </div>
+
+        <p class="settings-card-desc">
+          Add live interactive widgets to your iPhone Lock Screen and Home Screen (Small &amp; Medium) using the free <strong>Scriptable</strong> iOS app. Works offline by automatically caching your deadlines to local storage whenever connected!
+        </p>
+
+        <div class="calendar-action-buttons">
+          <button id="btn-copy-widget-code" class="btn-primary-action" type="button">
+            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-clipboard"></use></svg>
+            <span id="btn-copy-widget-text">Copy Widget Script</span>
+          </button>
+        </div>
+
+        <!-- Instructions Accordion / Help -->
+        <details class="instructions-details">
+          <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-settings"></use></svg>How to setup on iPhone (Scriptable)</summary>
+          <div class="instructions-content">
+            <ol class="steps-list">
+              <li>Download <strong>Scriptable</strong> from the App Store (free).</li>
+              <li>Tap <strong>Copy Widget Script</strong> above (your Sync Key is automatically included).</li>
+              <li>Open Scriptable, tap <strong>+</strong> to create a new script.</li>
+              <li>Paste the code, rename the script to <strong>Blackboarder</strong>, and tap <strong>Done</strong>.</li>
+              <li>On your iPhone Home Screen or Lock Screen, long-press to enter edit mode, tap <strong>+</strong>, search for <strong>Scriptable</strong>, and add a widget.</li>
+              <li>Tap the widget to edit: select <strong>Blackboarder</strong> as the script. All deadlines, courses, rooms, and pending counters will display seamlessly even when offline without Wi-Fi!</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
       <!-- Wi-Fi & Automated Laptop Sync Card -->
       <div class="settings-card">
         <div class="settings-card-header">
@@ -1159,6 +1199,6 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./app.js?v=13"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>
