@@ -55,7 +55,8 @@ try {
 // ----------------------------------------------------------------------------
 // Data Processing & Sorting
 // ----------------------------------------------------------------------------
-const allTasks = (res && Array.isArray(res.tasks) ? res.tasks : []).filter(
+const rawTasks = res && Array.isArray(res.tasks) ? res.tasks : [];
+const allTasks = rawTasks.filter(
   t => t.status !== "completed" && t.status !== "dismissed"
 );
 const tasks = allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
@@ -64,6 +65,40 @@ const nextTask = tasks[0];
 // ----------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
+function normalizeAssessmentType(type) {
+  const clean = (type || "").toLowerCase().trim();
+  if (clean === "hw" || clean === "assignment") return "assignment";
+  if (clean === "quiz") return "quiz";
+  if (clean === "exam" || clean === "midterm" || clean === "final") return "exam";
+  if (clean === "project") return "project";
+  if (clean === "lab") return "lab";
+  return clean || "assignment";
+}
+
+function getTaskSeriesTag(t, taskList) {
+  if (!t || !taskList || taskList.length === 0) return "";
+  const cleanCourse = getCleanCourse(t).toLowerCase();
+  const cleanType = normalizeAssessmentType(t.type);
+
+  const siblings = taskList.filter(item => {
+    if (item.status === "dismissed") return false;
+    return getCleanCourse(item).toLowerCase() === cleanCourse && normalizeAssessmentType(item.type) === cleanType;
+  });
+
+  if (siblings.length <= 1) return "";
+
+  siblings.sort((a, b) => {
+    const timeA = new Date(a.dueDate).getTime();
+    const timeB = new Date(b.dueDate).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+
+  const idx = siblings.findIndex(s => s.id === t.id);
+  if (idx === -1) return "";
+
+  return `${idx + 1} of ${siblings.length}`;
+}
 function getCleanCourse(t) {
   let name = (t.courseName || t.courseCode || "Course").trim();
   name = name.replace(/\s*\(\d+[\s\d]*\)/g, "").trim();
@@ -154,8 +189,9 @@ if (config.runsInAccessoryWidget) {
     line1.lineLimit = 1;
     line1.minimumScaleFactor = 0.65;
 
-    // Line 2: What the due date is (title)
-    const line2 = widget.addText(nextTask.title);
+    // Line 2: What the due date is (title with series tag)
+    const seriesTag = getTaskSeriesTag(nextTask, rawTasks);
+    const line2 = widget.addText(seriesTag ? `${nextTask.title} (${seriesTag})` : nextTask.title);
     line2.font = Font.systemFont(12);
     line2.lineLimit = 1;
     line2.minimumScaleFactor = 0.75;
@@ -251,7 +287,9 @@ if (config.runsInAccessoryWidget) {
       courseText.lineLimit = 1;
       courseText.minimumScaleFactor = 0.8;
 
-      const subStr = loc ? `${t.title} • ${loc}` : t.title;
+      const seriesTag = getTaskSeriesTag(t, rawTasks);
+      const titleWithSeries = seriesTag ? `${t.title} (${seriesTag})` : t.title;
+      const subStr = loc ? `${titleWithSeries} • ${loc}` : titleWithSeries;
       const subText = colLeft.addText(subStr);
       subText.font = Font.systemFont(10);
       subText.textColor = new Color("#94a3b8");

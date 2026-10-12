@@ -9,7 +9,7 @@ import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
 import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase, FIREBASE_DB_URL } from '../utils/firebaseSync';
-import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
+import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from '../utils/taskMerge';
 
 // State
 let currentTasks: DeadlineTask[] = [];
@@ -369,6 +369,8 @@ function createDayCell(
     const resolved = resolveCourseInfo(task);
     const courseHex = getCourseHex(resolved.courseName, resolved.courseCode, task.title);
     const timeStr = formatTaskTime(task);
+    const seriesInfo = getTaskSeriesInfo(task, currentTasks);
+    const seriesTag = seriesInfo ? ` (${seriesInfo.label})` : '';
 
     const chip = document.createElement('div');
     chip.className = 'cal-event-chip';
@@ -381,14 +383,14 @@ function createDayCell(
       chip.classList.add('is-completed');
       chip.style.removeProperty('background-color');
       chip.style.borderLeftColor = courseHex;
-      chip.innerHTML = `${getSvgIcon('check')} <span>${escapeHtml(task.title)}</span>`;
-      chip.title = `[Completed] ${resolved.courseName}: ${task.title} - Click to expand day view`;
+      chip.innerHTML = `${getSvgIcon('check')} <span>${escapeHtml(task.title)}${seriesTag ? ` <small class="cal-series-tag">${seriesTag}</small>` : ''}</span>`;
+      chip.title = `[Completed] ${resolved.courseName}: ${task.title}${seriesTag} - Click to expand day view`;
     } else {
       chip.style.backgroundColor = courseHex;
       chip.style.setProperty('background-color', courseHex, 'important');
       chip.style.borderLeftColor = 'rgba(0, 0, 0, 0.25)';
-      chip.innerHTML = `${getTaskTypeIcon(task.type)} <span>${escapeHtml(task.title)}</span>`;
-      chip.title = `${resolved.courseName}: ${task.title} ${task.weightDisplay ? `(${task.weightDisplay})` : ''} - ${timeStr} - Click to expand day view`;
+      chip.innerHTML = `${getTaskTypeIcon(task.type)} <span>${escapeHtml(task.title)}${seriesTag ? ` <small class="cal-series-tag">${seriesTag}</small>` : ''}</span>`;
+      chip.title = `${resolved.courseName}: ${task.title}${seriesTag} ${task.weightDisplay ? `(${task.weightDisplay})` : ''} - ${timeStr} - Click to expand day view`;
     }
 
     // Clicking directly on chip expands the view of this day
@@ -523,6 +525,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
   const timeDisplay = formatTaskTime(task);
 
   const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
+  const seriesInfo = getTaskSeriesInfo(task, currentTasks);
 
   const card = document.createElement('div');
   card.className = `day-summary-card ${isCompleted ? 'is-completed' : ''}`;
@@ -541,6 +544,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
           ${getTaskTypeIcon(task.type)}
           <span>${task.type}</span>
         </span>
+        ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
         <span class="day-card-status-badge ${isCompleted ? 'status-done' : countdown.urgency}">
           ${isCompleted ? `${getSvgIcon('check', 'mr-1')} Completed` : countdown.label}
         </span>
@@ -549,7 +553,7 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
 
     <div class="day-card-title-row">
       <div class="day-card-title ${isCompleted ? 'title-completed' : ''}">
-        ${escapeHtml(task.title)}
+        ${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}
       </div>
     </div>
 
@@ -1078,6 +1082,7 @@ function renderTasks() {
     const resolved = resolveCourseInfo(task);
     const courseTheme = getCourseColorTheme(resolved.courseName, resolved.courseCode, task.title);
     const gcalUrl = createGoogleCalendarUrl(task);
+    const seriesInfo = getTaskSeriesInfo(task, currentTasks);
 
     // Room pill button (1-click room changer - only if not hw or project)
     const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
@@ -1177,6 +1182,7 @@ function renderTasks() {
             ${getTaskTypeIcon(task.type)}
             <span>${(task.type || 'assignment').toUpperCase()}</span>
           </span>
+          ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
         </div>
       </div>
 
@@ -1185,7 +1191,7 @@ function renderTasks() {
         <button type="button" class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-id="${task.id}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
           ${isCompleted ? '✓' : ''}
         </button>
-        <div class="task-title-text">${escapeHtml(task.title)}</div>
+        <div class="task-title-text">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</div>
       </div>
 
       <div class="task-due-row">
@@ -1312,6 +1318,7 @@ function openReadingSheet(task: DeadlineTask) {
   const isHwOrProject = task.type === 'assignment' || (task.type as string) === 'hw' || task.type === 'project';
   const countdown = formatCountdown(task.dueDate, task.hasSpecificTime, task.status);
   const gcalUrl = createGoogleCalendarUrl(task);
+  const seriesInfo = getTaskSeriesInfo(task, currentTasks);
 
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
@@ -1322,14 +1329,17 @@ function openReadingSheet(task: DeadlineTask) {
       <span class="course-name-text">${escapeHtml(resolved.courseName)}</span>
       ${resolved.courseCode && resolved.courseCode !== 'UOS' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
     </div>
-    <span class="type-pill type-${task.type || 'assignment'}">
-      <span>${getTaskTypeIcon(task.type)}</span>
-      <span>${(task.type || 'assignment').toUpperCase()}</span>
-    </span>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <span class="type-pill type-${task.type || 'assignment'}">
+        <span>${getTaskTypeIcon(task.type)}</span>
+        <span>${(task.type || 'assignment').toUpperCase()}</span>
+      </span>
+      ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
+    </div>
   `;
 
   content.innerHTML = `
-    <h2 class="reading-pane-title">${escapeHtml(task.title)}</h2>
+    <h2 class="reading-pane-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</h2>
 
     <div class="reading-meta-section">
       <span class="urgency-badge ${countdown.urgency}">
@@ -2202,7 +2212,7 @@ function setupEvents() {
       updatedAt: new Date().toISOString()
     };
 
-    currentTasks = await addTask(newTask);
+    currentTasks = deduplicateTaskList(await addTask(newTask));
     currentTasks.sort(compareTasksByTime);
     await saveTasks(currentTasks);
 
@@ -3173,7 +3183,7 @@ async function refreshDataInBackground() {
 
     // 3. Proactively pull freshest updates from Firebase Cloud BEFORE performing retroactive upgrades
     await pullTasksFromFirebaseIfNewer();
-    currentTasks = currentTasks.filter(isValidTask);
+    currentTasks = deduplicateTaskList(currentTasks.filter(isValidTask));
 
     // 4. Retroactively refresh syllabus weights, sanitize doctor quotes, and repair assessment times
     let updatedAny = false;
@@ -3346,6 +3356,7 @@ async function refreshDataInBackground() {
       return task;
     });
 
+    currentTasks = deduplicateTaskList(currentTasks);
     currentTasks.sort(compareTasksByTime);
     if (updatedAny) {
       await saveTasks(currentTasks);
@@ -3379,7 +3390,7 @@ function initApp() {
   initQuickLinksModal();
 
   // Load and render deadlines synchronously from cache (<5ms)
-  currentTasks = getCachedTasksSync();
+  currentTasks = deduplicateTaskList(getCachedTasksSync());
   currentTasks.sort(compareTasksByTime);
 
   // Render all views immediately so the popup appears instantly populated like on mobile

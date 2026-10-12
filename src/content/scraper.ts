@@ -3,6 +3,7 @@ import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid } from '../utils/storage';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
 import { parseDirectStreamCard } from '../utils/streamParser';
+import { deduplicateTaskList } from '../utils/taskMerge';
 
 /**
  * Known University of Sharjah Blackboard Course IDs mapped to courses.
@@ -991,9 +992,7 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       }
     }
 
-    const finalTasks = [...newlyAddedDirect, ...mergedAnnTasks].sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    );
+    const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]);
 
     await saveTasks(finalTasks);
 

@@ -1340,6 +1340,221 @@ function compareTasksByTime(a, b) {
   return (a.title || '').localeCompare(b.title || '');
 }
 
+/**
+ * Normalizes assessment type into standard canonical categories.
+ */
+function normalizeAssessmentType(type) {
+  const clean = (type || '').toLowerCase().trim();
+  if (clean === 'hw' || clean === 'assignment') return 'assignment';
+  if (clean === 'quiz') return 'quiz';
+  if (clean === 'exam' || clean === 'midterm' || clean === 'final') return 'exam';
+  if (clean === 'project') return 'project';
+  if (clean === 'lab') return 'lab';
+  return clean || 'assignment';
+}
+
+/**
+ * Calculates series numbering (e.g. "1 of 2", "2 of 2", "1 of 3") for tasks
+ * belonging to the same course and assessment type.
+ */
+function getTaskSeriesInfo(task, allTasks) {
+  if (!task || !allTasks || allTasks.length === 0) return null;
+
+  const resolved = resolveCourseInfo(task);
+  const taskCourseKey = (resolved.courseCode || resolved.courseName || '').toLowerCase().trim();
+  const taskType = normalizeAssessmentType(task.type);
+
+  // Consider all non-dismissed tasks for this course and assessment type
+  const siblings = allTasks.filter(t => {
+    if (t.status === 'dismissed') return false;
+    const r = resolveCourseInfo(t);
+    const cKey = (r.courseCode || r.courseName || '').toLowerCase().trim();
+    const tType = normalizeAssessmentType(t.type);
+    return cKey === taskCourseKey && tType === taskType;
+  });
+
+  if (siblings.length <= 1) {
+    return null; // Standalone assessment, no series label needed
+  }
+
+  // Sort siblings chronologically ascending
+  siblings.sort((a, b) => {
+    const timeA = new Date(a.dueDate).getTime();
+    const timeB = new Date(b.dueDate).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+    return (a.title || '').localeCompare(b.title || '');
+  });
+
+  const index = siblings.findIndex(s => s.id === task.id);
+  if (index === -1) {
+    return null;
+  }
+
+  const currentNumber = index + 1;
+  const totalNumber = siblings.length;
+
+  return {
+    index: currentNumber,
+    total: totalNumber,
+    label: `${currentNumber} of ${totalNumber}`
+  };
+}
+
+/**
+ * Checks if two tasks are duplicates representing the same real-world assessment.
+ */
+function areTasksDuplicates(a, b) {
+  if (!a || !b) return false;
+  if (a.id === b.id) return true;
+
+  if (a.announcementId && b.announcementId && a.announcementId === b.announcementId) {
+    return true;
+  }
+
+  const resA = resolveCourseInfo(a);
+  const resB = resolveCourseInfo(b);
+  const sameCourse =
+    (resA.courseCode && resB.courseCode && resA.courseCode === resB.courseCode) ||
+    (resA.courseName && resB.courseName && resA.courseName.toLowerCase() === resB.courseName.toLowerCase());
+
+  const cleanTitleA = (a.title || '').toLowerCase().trim().replace(/[_\W]+/g, ' ');
+  const cleanTitleB = (b.title || '').toLowerCase().trim().replace(/[_\W]+/g, ' ');
+
+  const dateA = new Date(a.dueDate);
+  const dateB = new Date(b.dueDate);
+  const hasValidDates = !isNaN(dateA.getTime()) && !isNaN(dateB.getTime());
+
+  if (hasValidDates) {
+    const dateStrA = dateA.toISOString().split('T')[0];
+    const dateStrB = dateB.toISOString().split('T')[0];
+    const timeDiffMs = Math.abs(dateA.getTime() - dateB.getTime());
+
+    // Case 1: Exact or near-identical time (within 5 minutes)
+    if (timeDiffMs <= 5 * 60 * 1000) {
+      if (sameCourse) return true;
+
+      const isGenericA = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(cleanTitleA);
+      const isGenericB = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(cleanTitleB);
+      if (isGenericA || isGenericB) {
+        const rawSnippetOrCourseA = ((a.courseName || '') + ' ' + (a.description || '')).toLowerCase();
+        const rawSnippetOrCourseB = ((b.courseName || '') + ' ' + (b.description || '')).toLowerCase();
+        if (
+          rawSnippetOrCourseA.includes(cleanTitleB) ||
+          rawSnippetOrCourseB.includes(cleanTitleA) ||
+          (resA.courseName && rawSnippetOrCourseB.includes(resA.courseName.toLowerCase())) ||
+          (resB.courseName && rawSnippetOrCourseA.includes(resB.courseName.toLowerCase()))
+        ) {
+          return true;
+        }
+      }
+
+      if (cleanTitleA && cleanTitleB && (cleanTitleA === cleanTitleB || cleanTitleA.includes(cleanTitleB) || cleanTitleB.includes(cleanTitleA))) {
+        return true;
+      }
+    }
+
+    // Case 2: Same calendar date with matching course and title
+    if (dateStrA === dateStrB && sameCourse) {
+      if (cleanTitleA === cleanTitleB) return true;
+      const shorter = cleanTitleA.length < cleanTitleB.length ? cleanTitleA : cleanTitleB;
+      const longer = cleanTitleA.length >= cleanTitleB.length ? cleanTitleA : cleanTitleB;
+      if (shorter.length >= 4 && longer.includes(shorter)) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Merges two duplicate tasks cleanly, preserving user edits and most specific details.
+ */
+function mergeDuplicatePair(existing, incoming) {
+  const isUserEdited = Boolean(existing.userEdited || incoming.userEdited);
+
+  const isExistingGeneric = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(existing.title.trim());
+  const isIncomingGeneric = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(incoming.title.trim());
+  let title = existing.title;
+  if (isExistingGeneric && !isIncomingGeneric) {
+    title = incoming.title;
+  } else if (!isExistingGeneric && !isIncomingGeneric) {
+    title = existing.title.length >= incoming.title.length ? existing.title : incoming.title;
+  }
+
+  let dueDate = existing.dueDate;
+  let hasSpecificTime = existing.hasSpecificTime;
+  if (!existing.hasSpecificTime && incoming.hasSpecificTime) {
+    dueDate = incoming.dueDate;
+    hasSpecificTime = true;
+  }
+
+  const status = (existing.status === 'completed' || incoming.status === 'completed')
+    ? 'completed'
+    : (existing.status === 'dismissed' ? 'dismissed' : incoming.status);
+
+  const desc = (existing.description || '').length >= (incoming.description || '').length
+    ? existing.description
+    : incoming.description;
+  const snippet = (existing.sourceSnippet || '').length >= (incoming.sourceSnippet || '').length
+    ? existing.sourceSnippet
+    : incoming.sourceSnippet;
+
+  const notes = existing.notes || incoming.notes || '';
+  const room = existing.room || incoming.room;
+  const weight = existing.weight !== undefined ? existing.weight : incoming.weight;
+  const weightDisplay = existing.weightDisplay || incoming.weightDisplay;
+  const syllabusNote = existing.syllabusNote || incoming.syllabusNote;
+
+  let id = existing.id;
+  if (existing.id.startsWith('stream_UOS_Assignment_') && !incoming.id.startsWith('stream_UOS_Assignment_')) {
+    id = incoming.id;
+  }
+
+  return {
+    ...existing,
+    ...incoming,
+    id,
+    title,
+    dueDate,
+    hasSpecificTime,
+    status,
+    description: desc,
+    sourceSnippet: snippet,
+    notes,
+    room,
+    weight,
+    weightDisplay,
+    syllabusNote,
+    userEdited: isUserEdited,
+    updatedAt: new Date(Math.max(
+      new Date(existing.updatedAt || existing.createdAt || 0).getTime(),
+      new Date(incoming.updatedAt || incoming.createdAt || 0).getTime(),
+      Date.now()
+    )).toISOString()
+  };
+}
+
+/**
+ * Deduplicates a list of tasks, merging duplicates and preserving chronological order.
+ */
+function deduplicateTaskList(tasks) {
+  if (!tasks || tasks.length <= 1) return tasks || [];
+
+  const result = [];
+
+  for (const incoming of tasks) {
+    if (!incoming || !incoming.title) continue;
+
+    const existingIndex = result.findIndex(existing => areTasksDuplicates(existing, incoming));
+    if (existingIndex === -1) {
+      result.push({ ...incoming });
+    } else {
+      result[existingIndex] = mergeDuplicatePair(result[existingIndex], incoming);
+    }
+  }
+
+  return result.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+}
+
 // Academic Quick Links Defaults
 const DEFAULT_QUICK_LINKS = [
   {
@@ -2520,7 +2735,7 @@ async function fetchTasksFromServer(isManual = false) {
         }
       }
 
-      const validatedTasks = mergedTasks.filter(isValidTask);
+      let validatedTasks = deduplicateTaskList(mergedTasks.filter(isValidTask));
       validatedTasks.sort(compareTasksByTime);
 
       // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
@@ -2556,6 +2771,9 @@ async function fetchTasksFromServer(isManual = false) {
           }
         }
       });
+
+      validatedTasks = deduplicateTaskList(validatedTasks);
+      validatedTasks.sort(compareTasksByTime);
 
       // Diff check: only re-render the DOM if tasks or quick links actually changed!
       const prevTasksJson = JSON.stringify(state.tasks);
@@ -3166,11 +3384,12 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     item.setAttribute('data-id', task.id);
 
     const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
+    const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
     item.innerHTML = `
       <div class="selected-day-info">
         <div class="selected-day-course" style="color: ${color};">${escapeHtml(courseName)}</div>
-        <div class="selected-day-item-title">${escapeHtml(task.title)}</div>
+        <div class="selected-day-item-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</div>
         <div class="selected-day-meta-row">
           <span class="selected-day-time">${getSvgIcon('clock', 'mr-1')} ${escapeHtml(timeDisplay)}</span>
           ${(!isHwOrProj && task.room) ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
@@ -3468,6 +3687,7 @@ function renderTaskCardHtml(task, isCompact = false) {
 
   const gcalUrl = createGoogleCalendarUrl(task);
   const isSelected = state.selectedTaskId === task.id;
+  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   return `
     <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex} !important;">
@@ -3478,11 +3698,12 @@ function renderTaskCardHtml(task, isCompact = false) {
           <span class="course-name-text">${escapeHtml(courseName)}</span>
           ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
-        <div class="task-header-right">
+        <div class="task-header-right" style="display: flex; align-items: center; gap: 6px;">
           <span class="type-pill type-${task.type || 'assignment'}">
             <span>${typeIcon}</span>
             <span>${typeLabel}</span>
           </span>
+          ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
         </div>
       </div>
 
@@ -3491,7 +3712,7 @@ function renderTaskCardHtml(task, isCompact = false) {
         <button class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-task-id="${task.id}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
           ${isCompleted ? '✓' : ''}
         </button>
-        <div class="task-title-text">${escapeHtml(task.title)}</div>
+        <div class="task-title-text">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</div>
       </div>
 
       <!-- Urgency Countdown & Weight Pills -->
@@ -3681,6 +3902,7 @@ function renderReadingPane(task) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
   const gcalUrl = createGoogleCalendarUrl(task);
+  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
@@ -3702,14 +3924,17 @@ function renderReadingPane(task) {
           <span class="course-name-text">${escapeHtml(courseName)}</span>
           ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
-        <span class="type-pill type-${task.type || 'assignment'}">
-          <span>${typeIcon}</span>
-          <span>${typeLabel}</span>
-        </span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="type-pill type-${task.type || 'assignment'}">
+            <span>${typeIcon}</span>
+            <span>${typeLabel}</span>
+          </span>
+          ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
+        </div>
       </div>
 
       <!-- Task Title -->
-      <h2 class="reading-pane-title">${escapeHtml(task.title)}</h2>
+      <h2 class="reading-pane-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</h2>
 
       <!-- Due Date & Meta Strip -->
       <div class="reading-meta-section">
@@ -4929,6 +5154,7 @@ function initModals() {
 
     state.selectedDate = dueDateIso.split('T')[0];
     state.tasks.push(newTask);
+    state.tasks = deduplicateTaskList(state.tasks);
     state.tasks.sort(compareTasksByTime);
     addForm.reset();
     closeAddModal();
@@ -5119,6 +5345,7 @@ function openReadingSheet(task) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
   const gcalUrl = createGoogleCalendarUrl(task);
+  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
@@ -5131,14 +5358,17 @@ function openReadingSheet(task) {
       <span class="course-name-text">${escapeHtml(courseName)}</span>
       ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark};">${escapeHtml(courseCode)}</span>` : ''}
     </div>
-    <span class="type-pill type-${task.type || 'assignment'}">
-      <span>${typeIcon}</span>
-      <span>${typeLabel}</span>
-    </span>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <span class="type-pill type-${task.type || 'assignment'}">
+        <span>${typeIcon}</span>
+        <span>${typeLabel}</span>
+      </span>
+      ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
+    </div>
   `;
 
   content.innerHTML = `
-    <h2 class="reading-pane-title">${escapeHtml(task.title)}</h2>
+    <h2 class="reading-pane-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</h2>
 
     <div class="reading-meta-section">
       <span class="urgency-badge ${countdown.urgency}">

@@ -1,5 +1,6 @@
 import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS } from '../types';
 import { isValidTask } from './courseHelper';
+import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './taskMerge';
 
 const STORAGE_KEYS = {
   TASKS: 'bbs_tasks',
@@ -249,7 +250,15 @@ export async function saveTasks(tasks: DeadlineTask[]): Promise<void> {
 
 export async function addTask(task: DeadlineTask): Promise<DeadlineTask[]> {
   const existing = await getTasks();
-  const updated = [task, ...existing];
+  const matchIdx = existing.findIndex(e => areTasksDuplicates(e, task));
+  let updated: DeadlineTask[];
+  if (matchIdx !== -1) {
+    existing[matchIdx] = mergeDuplicatePair(existing[matchIdx], task);
+    updated = existing;
+  } else {
+    updated = [task, ...existing];
+  }
+  updated = deduplicateTaskList(updated);
   await saveTasks(updated);
   return updated;
 }
