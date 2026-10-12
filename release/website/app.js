@@ -334,7 +334,45 @@ function extractExplicitPoints(text) {
   return null;
 }
 
-function resolveTaskWeight(courseNameOrCode = '', title = '', type = 'assignment', notes = '') {
+/**
+ * Extracts assessment sequence number from title or context (e.g. "Quiz 2" -> 2, "HW 1" -> 1).
+ */
+function extractAssessmentNumber(title, context) {
+  const combined = `${title || ''} ${context || ''}`;
+
+  // 1. Explicit numbering like "Quiz 2", "Quiz #2", "Quiz (2)", "Quiz [2]", "Quiz - 2", "HW2", "Assignment 2", "Lab 2"
+  const m = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*#?\s*\(?\s*(\d+)\s*\)?/i);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    if (!isNaN(num) && num > 0) return num;
+  }
+
+  // 2. Roman numerals: "Quiz I", "Quiz II", "Quiz (II)", "Quiz III", "Quiz IV", "Quiz V"
+  const romanMatch = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*\(?\s*(I|II|III|IV|V)\b\s*\)?/i);
+  if (romanMatch) {
+    const map = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
+    const roman = romanMatch[1].toUpperCase();
+    if (map[roman]) return map[roman];
+  }
+
+  // 3. Ordinal words: "First Quiz", "Second Quiz", "1st Quiz", "2nd Quiz"
+  const ordMatch = combined.match(/\b(1st|2nd|3rd|4th|5th|first|second|third|fourth|fifth)\s+(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)/i);
+  if (ordMatch) {
+    const ord = ordMatch[1].toLowerCase();
+    const map = {
+      '1st': 1, 'first': 1,
+      '2nd': 2, 'second': 2,
+      '3rd': 3, 'third': 3,
+      '4th': 4, 'fourth': 4,
+      '5th': 5, 'fifth': 5
+    };
+    if (map[ord]) return map[ord];
+  }
+
+  return null;
+}
+
+function resolveTaskWeight(courseNameOrCode = '', title = '', type = 'assignment', notes = '', seriesIndex = null) {
   const combinedContext = `${title} ${notes}`.trim();
   const explicitPts = extractExplicitPoints(combinedContext);
   if (explicitPts !== null) {
@@ -351,9 +389,22 @@ function resolveTaskWeight(courseNameOrCode = '', title = '', type = 'assignment
       for (const comp of s.components) {
         if (comp.matcher.test(combinedContext) || (comp.type === type && comp.matcher.test(title))) {
           const w = comp.unitWeight || comp.totalWeight;
+          let display = `${w}% of Grade`;
+          if (comp.name.toLowerCase().includes('midterm')) {
+            display = `${w}% (Midterm Exam)`;
+          } else if (comp.name.toLowerCase().includes('final')) {
+            display = `${w}% (Final Exam)`;
+          } else if (comp.count && comp.count > 1) {
+            const explicitNum = extractAssessmentNumber(title, combinedContext);
+            const itemIndex = explicitNum || (seriesIndex && seriesIndex > 0 ? seriesIndex : 1);
+            const totalCount = Math.max(comp.count, itemIndex);
+            display = `${w}% (${comp.name} ${itemIndex} of ${totalCount})`;
+          } else {
+            display = `${w}% (${comp.name})`;
+          }
           return {
             weight: w,
-            weightDisplay: `${w}% of Grade`,
+            weightDisplay: display,
             syllabusNote: comp.note || `${comp.name} from ${s.courseName} syllabus`,
             componentName: comp.name
           };
@@ -2762,13 +2813,18 @@ async function fetchTasksFromServer(isManual = false) {
         if (t.sourceSnippet) {
           t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
         }
-        if (t.weight === undefined || t.weight === null) {
-          const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
-          if (wInfo.weight !== undefined) {
-            t.weight = wInfo.weight;
-            t.weightDisplay = wInfo.weightDisplay;
-            t.syllabusNote = wInfo.syllabusNote;
-          }
+        const seriesInfo = getTaskSeriesInfo(t, validatedTasks);
+        const wInfo = resolveTaskWeight(
+          t.courseName || t.courseCode,
+          t.title,
+          t.type,
+          t.sourceSnippet || t.description || t.notes || '',
+          seriesInfo?.index
+        );
+        if (wInfo.weight !== undefined) {
+          t.weight = wInfo.weight;
+          t.weightDisplay = wInfo.weightDisplay;
+          t.syllabusNote = wInfo.syllabusNote;
         }
       });
 
@@ -3384,12 +3440,11 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     item.setAttribute('data-id', task.id);
 
     const isHwOrProj = task.type === 'assignment' || task.type === 'hw' || task.type === 'project';
-    const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
     item.innerHTML = `
       <div class="selected-day-info">
         <div class="selected-day-course" style="color: ${color};">${escapeHtml(courseName)}</div>
-        <div class="selected-day-item-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</div>
+        <div class="selected-day-item-title">${escapeHtml(task.title)}</div>
         <div class="selected-day-meta-row">
           <span class="selected-day-time">${getSvgIcon('clock', 'mr-1')} ${escapeHtml(timeDisplay)}</span>
           ${(!isHwOrProj && task.room) ? `<span class="selected-day-room">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
@@ -3687,7 +3742,6 @@ function renderTaskCardHtml(task, isCompact = false) {
 
   const gcalUrl = createGoogleCalendarUrl(task);
   const isSelected = state.selectedTaskId === task.id;
-  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   return `
     <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex} !important;">
@@ -3703,7 +3757,6 @@ function renderTaskCardHtml(task, isCompact = false) {
             <span>${typeIcon}</span>
             <span>${typeLabel}</span>
           </span>
-          ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
         </div>
       </div>
 
@@ -3712,7 +3765,7 @@ function renderTaskCardHtml(task, isCompact = false) {
         <button class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-task-id="${task.id}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
           ${isCompleted ? '✓' : ''}
         </button>
-        <div class="task-title-text">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</div>
+        <div class="task-title-text">${escapeHtml(task.title)}</div>
       </div>
 
       <!-- Urgency Countdown & Weight Pills -->
@@ -3902,7 +3955,6 @@ function renderReadingPane(task) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
   const gcalUrl = createGoogleCalendarUrl(task);
-  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
@@ -3929,12 +3981,11 @@ function renderReadingPane(task) {
             <span>${typeIcon}</span>
             <span>${typeLabel}</span>
           </span>
-          ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
         </div>
       </div>
 
       <!-- Task Title -->
-      <h2 class="reading-pane-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</h2>
+      <h2 class="reading-pane-title">${escapeHtml(task.title)}</h2>
 
       <!-- Due Date & Meta Strip -->
       <div class="reading-meta-section">
@@ -5345,7 +5396,6 @@ function openReadingSheet(task) {
   const typeIcon = getTaskTypeIcon(task.type);
   const typeLabel = (task.type || 'assignment').toUpperCase();
   const gcalUrl = createGoogleCalendarUrl(task);
-  const seriesInfo = getTaskSeriesInfo(task, state.tasks);
 
   const fullAnnouncement = (task.description || task.sourceSnippet || '').trim();
   const hasAnnouncement = fullAnnouncement && !fullAnnouncement.startsWith('Blackboard Ultra Stream item');
@@ -5363,12 +5413,11 @@ function openReadingSheet(task) {
         <span>${typeIcon}</span>
         <span>${typeLabel}</span>
       </span>
-      ${seriesInfo ? `<span class="task-series-badge">${seriesInfo.label}</span>` : ''}
     </div>
   `;
 
   content.innerHTML = `
-    <h2 class="reading-pane-title">${escapeHtml(task.title)}${seriesInfo ? ` <span class="task-series-tag">(${seriesInfo.label})</span>` : ''}</h2>
+    <h2 class="reading-pane-title">${escapeHtml(task.title)}</h2>
 
     <div class="reading-meta-section">
       <span class="urgency-badge ${countdown.urgency}">

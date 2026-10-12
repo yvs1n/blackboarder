@@ -16,8 +16,8 @@
       "sourceSnippet": "Midterm exam is on October 20 at 12:30 PM.",
       "confidence": 1,
       "extractedBy": "ai",
-      "createdAt": "2026-10-12T15:00:41.857Z",
-      "updatedAt": "2026-10-12T15:00:41.897Z"
+      "createdAt": "2026-10-12T15:21:25.244Z",
+      "updatedAt": "2026-10-12T15:21:25.329Z"
     },
     {
       "id": "int-task-2",
@@ -35,11 +35,11 @@
       "sourceSnippet": "Quiz 3 will be held on Oct 22 during class.",
       "confidence": 0.95,
       "extractedBy": "local",
-      "createdAt": "2026-10-12T15:00:41.857Z",
-      "updatedAt": "2026-10-12T15:00:41.857Z"
+      "createdAt": "2026-10-12T15:21:25.244Z",
+      "updatedAt": "2026-10-12T15:21:25.245Z"
     }
   ],
-  "lastSync": "2026-10-12T15:00:41.875Z",
+  "lastSync": "2026-10-12T15:21:25.264Z",
   "device": "Vitest Runner",
   "count": 2,
   "quickLinks": [

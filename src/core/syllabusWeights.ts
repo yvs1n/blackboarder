@@ -357,6 +357,44 @@ export function findCourseSyllabus(courseName: string = '', courseCode: string =
  * Resolves the syllabus weight for a given task based on course and title.
  * Supports passing a task object OR (course, title, type, notes) parameters.
  */
+/**
+ * Extracts assessment sequence number from title or context (e.g. "Quiz 2" -> 2, "HW 1" -> 1).
+ */
+export function extractAssessmentNumber(title: string, context?: string): number | null {
+  const combined = `${title || ''} ${context || ''}`;
+
+  // 1. Explicit numbering like "Quiz 2", "Quiz #2", "Quiz (2)", "Quiz [2]", "Quiz - 2", "HW2", "Assignment 2", "Lab 2"
+  const m = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*#?\s*\(?\s*(\d+)\s*\)?/i);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    if (!isNaN(num) && num > 0) return num;
+  }
+
+  // 2. Roman numerals: "Quiz I", "Quiz II", "Quiz (II)", "Quiz III", "Quiz IV", "Quiz V"
+  const romanMatch = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*\(?\s*(I|II|III|IV|V)\b\s*\)?/i);
+  if (romanMatch) {
+    const map: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
+    const roman = romanMatch[1].toUpperCase();
+    if (map[roman]) return map[roman];
+  }
+
+  // 3. Ordinal words: "First Quiz", "Second Quiz", "1st Quiz", "2nd Quiz"
+  const ordMatch = combined.match(/\b(1st|2nd|3rd|4th|5th|first|second|third|fourth|fifth)\s+(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)/i);
+  if (ordMatch) {
+    const ord = ordMatch[1].toLowerCase();
+    const map: Record<string, number> = {
+      '1st': 1, 'first': 1,
+      '2nd': 2, 'second': 2,
+      '3rd': 3, 'third': 3,
+      '4th': 4, 'fourth': 4,
+      '5th': 5, 'fifth': 5
+    };
+    if (map[ord]) return map[ord];
+  }
+
+  return null;
+}
+
 export function resolveTaskWeight(
   taskOrCourse: {
     title?: string;
@@ -368,7 +406,8 @@ export function resolveTaskWeight(
   } | string,
   titleOrFallback?: string,
   taskType?: TaskType,
-  notesOrSnippet?: string
+  notesOrSnippet?: string,
+  seriesIndex?: number
 ): ResolvedWeight {
   let task: {
     title?: string;
@@ -457,7 +496,10 @@ export function resolveTaskWeight(
     } else if (matchedComp.name.toLowerCase().includes('final')) {
       display = `${weightVal}% (Final Exam)`;
     } else if (matchedComp.count && matchedComp.count > 1) {
-      display = `${weightVal}% (${matchedComp.name} 1 of ${matchedComp.count})`;
+      const explicitNum = extractAssessmentNumber(title, searchString);
+      const itemIndex = explicitNum || (seriesIndex && seriesIndex > 0 ? seriesIndex : 1);
+      const totalCount = Math.max(matchedComp.count, itemIndex);
+      display = `${weightVal}% (${matchedComp.name} ${itemIndex} of ${totalCount})`;
     } else {
       display = `${weightVal}% (${matchedComp.name})`;
     }

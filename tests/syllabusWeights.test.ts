@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTaskWeight, findCourseSyllabus, DEFAULT_SYLLABUS_DATABASE } from '../src/utils/syllabusWeights';
+import { resolveTaskWeight, findCourseSyllabus, DEFAULT_SYLLABUS_DATABASE, extractAssessmentNumber } from '../src/utils/syllabusWeights';
 
 describe('Syllabus Weights Database & Resolution', () => {
   it('contains all 6 configured courses with totalWeight of 100%', () => {
@@ -235,6 +235,87 @@ describe('Syllabus Weights Database & Resolution', () => {
       });
       expect(res.weight).toBe(10);
       expect(res.weightDisplay).toBe('10% of Grade');
+    });
+  });
+
+  describe('extractAssessmentNumber', () => {
+    it('extracts numbers from explicit titles', () => {
+      expect(extractAssessmentNumber('Quiz 1')).toBe(1);
+      expect(extractAssessmentNumber('Quiz 2')).toBe(2);
+      expect(extractAssessmentNumber('Quiz (1): Chapters 1+2')).toBe(1);
+      expect(extractAssessmentNumber('Quiz (2): Chapters 3+4')).toBe(2);
+      expect(extractAssessmentNumber('Review Quiz 1')).toBe(1);
+      expect(extractAssessmentNumber('Quiz #2')).toBe(2);
+      expect(extractAssessmentNumber('HW2')).toBe(2);
+      expect(extractAssessmentNumber('Assignment 3')).toBe(3);
+      expect(extractAssessmentNumber('Lab 2')).toBe(2);
+      expect(extractAssessmentNumber('Quiz II')).toBe(2);
+      expect(extractAssessmentNumber('Quiz (II)')).toBe(2);
+      expect(extractAssessmentNumber('First Quiz')).toBe(1);
+      expect(extractAssessmentNumber('Second Quiz')).toBe(2);
+    });
+
+    it('returns null when no number is specified', () => {
+      expect(extractAssessmentNumber('General Quiz')).toBeNull();
+      expect(extractAssessmentNumber('Midterm Exam')).toBeNull();
+    });
+  });
+
+  describe('Sequential Assessment Weight Display (X of Y inside weight box)', () => {
+    it('correctly labels Quiz 1 as "1 of 2" and Quiz 2 as "2 of 2" in EAP', () => {
+      const quiz1 = resolveTaskWeight({
+        title: 'Quiz 1',
+        courseName: 'English for Academic Purposes',
+        type: 'quiz'
+      });
+      expect(quiz1.weight).toBe(10);
+      expect(quiz1.weightDisplay).toBe('10% (Quizzes 1 of 2)');
+
+      const quiz2 = resolveTaskWeight({
+        title: 'Quiz 2',
+        courseName: 'English for Academic Purposes',
+        type: 'quiz'
+      });
+      expect(quiz2.weight).toBe(10);
+      expect(quiz2.weightDisplay).toBe('10% (Quizzes 2 of 2)');
+    });
+
+    it('correctly labels Quiz 1 and Quiz 2 in Physics 1 Lab (1 of 3 vs 2 of 3)', () => {
+      const q1 = resolveTaskWeight({
+        title: 'Quiz 1',
+        courseName: 'Physics 1 Lab',
+        type: 'quiz'
+      });
+      expect(q1.weight).toBe(10);
+      expect(q1.weightDisplay).toBe('10% (Lab Quizzes 1 of 3)');
+
+      const q2 = resolveTaskWeight({
+        title: 'Quiz 2',
+        courseName: 'Physics 1 Lab',
+        type: 'quiz'
+      });
+      expect(q2.weight).toBe(10);
+      expect(q2.weightDisplay).toBe('10% (Lab Quizzes 2 of 3)');
+    });
+
+    it('uses seriesIndex when title has no explicit number', () => {
+      const qFirst = resolveTaskWeight(
+        'English for Academic Purposes',
+        'Pop Quiz',
+        'quiz',
+        '',
+        1
+      );
+      expect(qFirst.weightDisplay).toBe('10% (Quizzes 1 of 2)');
+
+      const qSecond = resolveTaskWeight(
+        'English for Academic Purposes',
+        'Pop Quiz',
+        'quiz',
+        '',
+        2
+      );
+      expect(qSecond.weightDisplay).toBe('10% (Quizzes 2 of 2)');
     });
   });
 });

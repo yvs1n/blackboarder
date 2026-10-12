@@ -1911,38 +1911,6 @@ body {
 .type-meeting { background: var(--surface-hover); color: var(--text-main); border: 1px solid var(--surface-border-strong); }
 .type-other { background: #f1f5f9; color: #475569; }
 
-.task-series-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2.5px 7px;
-  border-radius: 6px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #4f46e5;
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-
-[data-theme="dark"] .task-series-badge {
-  background: rgba(129, 140, 248, 0.18);
-  color: #a5b4fc;
-  border-color: rgba(129, 140, 248, 0.35);
-}
-
-.task-series-tag {
-  font-size: 12px;
-  font-weight: 700;
-  color: #6366f1;
-  margin-left: 4px;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-[data-theme="dark"] .task-series-tag {
-  color: #a5b4fc;
-}
 
 .task-title-row {
   display: flex;
