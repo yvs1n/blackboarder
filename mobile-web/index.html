@@ -298,6 +298,14 @@
     
     <!-- VIEW 1: Interactive Monthly Calendar -->
     <section id="view-calendar" class="view-section active" role="tabpanel">
+      <!-- Course Legend -->
+      <div class="course-legend-panel">
+        <div class="legend-header">Registered Courses</div>
+        <div class="legend-items" id="calendar-legend-items">
+          <!-- Rendered via JavaScript with permanent course colors -->
+        </div>
+      </div>
+
       <!-- Month Controls -->
       <div class="calendar-controls">
         <div class="month-title-group">
@@ -346,14 +354,6 @@
           <!-- Rendered dynamically via renderSelectedDay() -->
         </div>
       </section>
-
-      <!-- Course Legend -->
-      <div class="course-legend-panel">
-        <div class="legend-header">Registered Courses</div>
-        <div class="legend-items" id="calendar-legend-items">
-          <!-- Rendered via JavaScript with permanent course colors -->
-        </div>
-      </div>
 
       <!-- Academic Quick Links Bar -->
       <div class="calendar-quick-links-bar" id="calendar-quick-links-bar">
@@ -542,28 +542,38 @@
         </div>
       </div>
 
-      <!-- Appearance & Theme Card -->
+      <!-- Appearance & Help Card -->
       <div class="settings-card">
         <div class="settings-card-header">
           <div class="settings-icon-title">
             <span class="card-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
             <div>
-              <h3 class="settings-card-title">Appearance &amp; Theme</h3>
-              <p class="settings-card-subtitle">Choose your preferred visual mode</p>
+              <h3 class="settings-card-title">Appearance &amp; Help</h3>
+              <p class="settings-card-subtitle">Theme styling and instructions</p>
             </div>
           </div>
         </div>
 
-        <div style="margin-top: 10px;">
-          <label class="form-label" for="web-setting-theme" style="font-size: 12.5px; font-weight: 600; margin-bottom: 6px; display: block;">Theme Preference</label>
-          <select id="web-setting-theme" class="mobile-select" style="width: 100%;">
-            <option value="light">Light Mode (Classic Academic)</option>
-            <option value="dark">Dark Mode (Focused Night)</option>
-            <option value="system">Match System Theme</option>
-          </select>
-          <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 5px;">
-            You can also switch themes instantly anytime using the button in the top navigation bar.
-          </span>
+        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btn-settings-theme-toggle" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
+              <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-moon"></use></svg>
+              <span>Toggle Dark / Light Theme</span>
+            </button>
+            <button type="button" id="btn-settings-onboarding" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
+              <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-bolt"></use></svg>
+              <span>View Setup Guide</span>
+            </button>
+          </div>
+
+          <div>
+            <label class="form-label" for="web-setting-theme" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Theme Preference</label>
+            <select id="web-setting-theme" class="mobile-select" style="width: 100%;">
+              <option value="light">Light Mode (Classic Academic)</option>
+              <option value="dark">Dark Mode (Focused Night)</option>
+              <option value="system">Match System Theme</option>
+            </select>
+          </div>
         </div>
       </div>
 

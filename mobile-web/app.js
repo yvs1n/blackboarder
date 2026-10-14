@@ -1660,6 +1660,7 @@ const state = {
   selectedDay: null,
   selectedDate: null,
   selectedTaskId: null,
+  selectedCourseFilter: null,
   filterStatus: 'pending',
   filterCourse: 'all',
   filterType: 'all',
@@ -1726,6 +1727,9 @@ function initTheme() {
 
   const btnToggle = document.getElementById('btn-web-theme-toggle');
   btnToggle?.addEventListener('click', toggleTheme);
+
+  const btnSettingsToggle = document.getElementById('btn-settings-theme-toggle');
+  btnSettingsToggle?.addEventListener('click', toggleTheme);
 
   const selectEl = document.getElementById('web-setting-theme');
   selectEl?.addEventListener('change', () => {
@@ -3047,12 +3051,30 @@ function updateAllViews() {
   // If day sheet drawer is currently open, refresh its items to reflect status changes immediately
   const drawer = document.getElementById('day-sheet-drawer');
   if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
-    const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(state.selectedDate));
+    const dayTasks = state.tasks.filter(t => {
+      if (!t.dueDate || !t.dueDate.startsWith(state.selectedDate)) return false;
+      if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
+      return true;
+    });
     const itemsContainer = document.getElementById('day-sheet-items');
+    const count = document.getElementById('day-sheet-count');
     if (itemsContainer) {
       const sorted = dayTasks.slice().sort(compareTasksByTime);
-      itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
-      bindTaskCardEvents(itemsContainer);
+      if (count) {
+        count.textContent = sorted.length === 1 ? '1 Deadline Scheduled' : `${sorted.length} Deadlines Scheduled`;
+      }
+      if (sorted.length === 0) {
+        itemsContainer.innerHTML = `
+          <div class="state-container">
+            <div class="state-icon">${getSvgIcon('coffee')}</div>
+            <div class="state-title">No Deadlines for this Day</div>
+            <div class="state-desc">You are completely free on this date. Take time to relax or review class material!</div>
+          </div>
+        `;
+      } else {
+        itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
+        bindTaskCardEvents(itemsContainer);
+      }
     }
   }
 }
@@ -3228,15 +3250,73 @@ function initCalendarSwipe() {
   }, { passive: true });
 }
 
+function matchesSelectedCourseFilter(task, filter) {
+  if (!filter) return true;
+  const { courseName, courseCode } = resolveCourseInfo(task);
+  if (
+    task.courseName === filter ||
+    task.courseCode === filter ||
+    courseName === filter ||
+    courseCode === filter
+  ) {
+    return true;
+  }
+  const legendItem = PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
+  if (legendItem) {
+    const combined = `${task.courseName || ''} ${task.courseCode || ''} ${courseName || ''} ${courseCode || ''} ${task.title || ''}`;
+    if (legendItem.pattern.test(combined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function initLegend() {
   const container = document.getElementById('calendar-legend-items');
   if (!container) return;
-  container.innerHTML = PERMANENT_COURSE_LEGEND.map(c => `
-    <span class="legend-chip">
-      <span class="legend-color-box" style="background-color: ${c.color};"></span>
-      <span>${c.name}</span>
+
+  const isAllActive = state.selectedCourseFilter === null;
+  const hasActiveFilter = !isAllActive;
+
+  if (hasActiveFilter) {
+    container.classList.add('has-active-filter');
+  } else {
+    container.classList.remove('has-active-filter');
+  }
+
+  let html = `
+    <span class="legend-chip ${isAllActive ? 'is-active' : ''}" data-course="">
+      <span>All</span>
     </span>
-  `).join('');
+  `;
+
+  html += PERMANENT_COURSE_LEGEND.map(c => {
+    const isActive = state.selectedCourseFilter === c.name;
+    return `
+      <span class="legend-chip ${isActive ? 'is-active' : ''}" data-course="${escapeHtml(c.name)}">
+        <span class="legend-color-box" style="background-color: ${c.color};"></span>
+        <span>${escapeHtml(c.name)}</span>
+      </span>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.legend-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const course = chip.getAttribute('data-course');
+      if (!course) {
+        state.selectedCourseFilter = null;
+      } else if (state.selectedCourseFilter === course) {
+        state.selectedCourseFilter = null;
+      } else {
+        state.selectedCourseFilter = course;
+      }
+      initLegend();
+      renderCalendar();
+      renderSelectedDay();
+    });
+  });
 }
 
 function renderCalendar() {
@@ -3267,7 +3347,9 @@ function renderCalendar() {
     // Find tasks for this day
     const dayTasks = state.tasks.filter(t => {
       if (!t.dueDate) return false;
-      return t.dueDate.startsWith(dateStr);
+      if (!t.dueDate.startsWith(dateStr)) return false;
+      if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
+      return true;
     });
     dayTasks.sort(compareTasksByTime);
 
@@ -3285,7 +3367,7 @@ function renderCalendar() {
         const safeTitle = escapeHtml(task.title);
         const tooltip = escapeHtml(`${isDone ? '[Completed] ' : ''}[${courseName}] ${task.title}`);
         const iconSvg = isDone ? getSvgIcon('check', 'chip-svg-icon') : getTaskTypeIcon(task.type, 'chip-svg-icon');
-        const styleAttr = isDone ? `style="border-left-color: ${color};"` : `style="background-color: ${color};"`;
+        const styleAttr = isDone ? `style="border-color: ${color}; border-left-color: ${color};"` : `style="background-color: ${color};"`;
         chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" ${styleAttr} title="${tooltip}">` +
           `<span class="chip-icon">${iconSvg}</span>` +
           `<span class="chip-text">${safeTitle}</span>` +
@@ -3448,7 +3530,8 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     titleText.textContent = `Deadlines for ${formattedHeader}`;
   }
 
-  const tasksOnDate = dayTasks || state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(targetDate));
+  const tasksOnDate = (dayTasks || state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(targetDate)))
+    .filter(t => matchesSelectedCourseFilter(t, state.selectedCourseFilter));
   tasksOnDate.sort(compareTasksByTime);
 
   list.innerHTML = '';
@@ -5714,6 +5797,9 @@ function initOnboardingModal() {
     openOnboardingModal(1);
   });
   document.getElementById('btn-settings-open-onboarding')?.addEventListener('click', () => {
+    openOnboardingModal(1);
+  });
+  document.getElementById('btn-settings-onboarding')?.addEventListener('click', () => {
     openOnboardingModal(1);
   });
 

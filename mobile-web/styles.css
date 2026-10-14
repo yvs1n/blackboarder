@@ -719,7 +719,6 @@
 }
 
 /* Horizontal sliding bars (Course legend & Quick links) */
-.legend-items::-webkit-scrollbar,
 .course-legend-bar::-webkit-scrollbar,
 .quick-links-chips-row::-webkit-scrollbar {
   height: 4px;
@@ -1438,47 +1437,91 @@ body {
   padding-right: 2px;
 }
 
-/* On mobile / narrow screens (<640px): Only display icons; hide text unless div is big enough */
+/* On mobile / narrow screens (<640px): Status dots and mobile calendar layout */
 @media (max-width: 640px) {
+  .legend-header {
+    display: none !important;
+  }
+
+  .cal-day-cell {
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 2px;
+  }
+
   .cal-event-chips-container {
+    display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 3px;
+    justify-content: center;
     align-items: center;
-    justify-content: flex-start;
+    gap: 3.5px;
+    width: 100%;
+    padding-bottom: 2px;
   }
 
   .cal-event-chip {
-    width: 20px;
-    height: 20px;
+    width: 6.5px;
+    height: 6.5px;
+    min-width: 6.5px;
     padding: 0;
-    justify-content: center;
-    align-items: center;
-    border-left: none;
-    border-radius: 4px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    border-radius: 50%;
+    font-size: 0;
+    box-shadow: none;
+    border: none;
   }
 
+  .cal-event-chip .chip-icon,
   .cal-event-chip .chip-text {
     display: none !important;
   }
 
-  .cal-event-chip .chip-icon svg {
-    width: 11px;
-    height: 11px;
+  .cal-event-chip.is-completed {
+    background-color: transparent !important;
+    border-width: 1.75px !important;
+    border-style: solid !important;
+    border-color: inherit;
+    opacity: 0.55;
   }
 
   .cal-event-more {
-    font-size: 8px;
-    font-weight: 800;
-    color: #475569;
-    background: #e2e8f0;
-    border-radius: 3px;
-    padding: 1px 4px;
+    font-size: 8.5px;
     line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    height: 18px;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  /* Exclusively use slide-up drawer on mobile */
+  #selected-day-container {
+    display: none !important;
+  }
+
+  .calendar-tip {
+    display: none !important;
+  }
+
+  /* 2-Column Mobile Grid for Quick Links */
+  .quick-links-chips-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .ql-chip {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .ql-chip span:not(.ql-chip-dot) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
   }
 }
 
@@ -1501,7 +1544,6 @@ body {
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  overflow-x: auto;
   margin-bottom: 8px;
 }
 
@@ -1519,20 +1561,46 @@ body {
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.legend-items::-webkit-scrollbar {
+  display: none;
 }
 
 .legend-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 10px;
   font-weight: 600;
   color: var(--text-main);
   white-space: nowrap;
-  padding: 3px 7px;
-  border-radius: 5px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.legend-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+}
+
+.legend-chip.is-active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.legend-items.has-active-filter .legend-chip:not(.is-active) {
+  opacity: 0.65;
 }
 
 .legend-color-box {
