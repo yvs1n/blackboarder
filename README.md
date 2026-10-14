@@ -199,7 +199,7 @@ Blackboarder operates fully with local regex parsing out of the box. For advance
 | **OpenRouter API Key** | Powers Tier 3 generative AI fallback for unstructured announcements | Optional (`sk-or-v1-...`) |
 | **AI Model** | Model selection for extraction | `google/gemini-3.8-flash` |
 | **Jev API Key** | Low-latency (~100ms) deadline gatekeeper | Optional (`apikey_...`) |
-| **Hosted Web URL** | Cloudflare Pages or self-hosted companion URL | `https://yassinr-uossidekick.pages.dev` |
+| **Hosted Web URL** | Cloudflare Pages or self-hosted companion URL | `https://blackboarder.pages.dev` |
 | **Auto-Scan** | Automatically scans announcements on Blackboard page load | Enabled (`true`) |
 | **Theme** | Light Mode, Dark Mode, or Match System | Light / Dark / System |
 

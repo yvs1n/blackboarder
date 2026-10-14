@@ -184,7 +184,7 @@ describe('Multi-User Sync Key Isolation Suite', () => {
 
   describe('Pairing Query Parameter Parsing', () => {
     it('correctly extracts and formats pairing keys from URLs', () => {
-      const rawUrl = 'https://yassinr-uossidekick.pages.dev/?key=bbs-9a2k';
+      const rawUrl = 'https://blackboarder.pages.dev/?key=bbs-9a2k';
       const parsedUrl = new URL(rawUrl);
       const key = parsedUrl.searchParams.get('key')?.toUpperCase();
 

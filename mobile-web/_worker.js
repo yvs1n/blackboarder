@@ -1,6 +1,6 @@
 /**
  * Cloudflare Pages Function (Advanced Mode: _worker.js)
- * Automatically runs at https://yassinr-uossidekick.pages.dev
+ * Automatically runs at https://blackboarder.pages.dev
  * Handles API endpoints, live RFC 5545 calendar feed, and static assets.
  */
 
