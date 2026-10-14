@@ -525,31 +525,53 @@
 
     <!-- VIEW 4: Sync & Alerts Settings -->
     <section id="view-settings" class="view-section" role="tabpanel">
-      <!-- Cloud Sync & Device Pairing Card -->
-      <div class="settings-card">
+      <!-- Cloud Sync & Extension Linking Card -->
+      <div class="settings-card" id="card-extension-sync-key">
         <div class="settings-card-header">
           <div class="settings-icon-title">
             <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
             <div>
-              <h3 class="settings-card-title">Cloud Sync &amp; Device Pairing</h3>
-              <p class="settings-card-subtitle">Paired via Chrome Extension</p>
+              <h3 class="settings-card-title">Extension Sync Key</h3>
+              <p class="settings-card-subtitle">Pair your device with your laptop Chrome extension</p>
             </div>
           </div>
         </div>
-        <div class="form-group" style="margin-top: 10px;">
+
+        <div class="form-group" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <!-- Pairing Status Box -->
           <div id="web-sync-device-status-box" style="padding: 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span id="web-sync-status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
+                <span id="web-sync-status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block; flex-shrink: 0;"></span>
                 <span id="web-sync-key-status" style="font-size: 13px; font-weight: 600; color: var(--text-main);">Checking pairing status...</span>
               </div>
-              <button type="button" id="btn-disconnect-device" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: rgba(220, 38, 38, 0.2);">Disconnect</button>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" id="btn-copy-web-sync-key" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; align-items: center; gap: 4px;" title="Copy current sync key">
+                  <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-copy"></use></svg>
+                  <span>Copy Key</span>
+                </button>
+                <button type="button" id="btn-disconnect-device" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: rgba(220, 38, 38, 0.2);">Disconnect</button>
+              </div>
             </div>
-            <p id="web-sync-instruction-text" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
-              Keys are generated exclusively inside your Chrome extension. To pair this device, open the extension in Chrome and click <strong>Copy Phone Pairing Link</strong>.
+            <p id="web-sync-instruction-text" style="font-size: 11.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+              Keys are generated inside your Chrome extension (under Settings &gt; Personal Sync Key). Enter your code below to link your private cloud bucket, or open via your phone pairing link.
             </p>
           </div>
-          <button type="button" id="btn-settings-open-onboarding" class="btn-secondary-action" style="margin-top: 10px; font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+
+          <!-- Manual Key Input Row -->
+          <div>
+            <label class="form-label" for="web-sync-key-input" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Personal Sync Key</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="web-sync-key-input" class="mobile-input form-input" placeholder="e.g. BBS-9A2K" maxlength="24" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; flex: 1;">
+              <button type="button" id="btn-save-web-sync-key" class="btn-primary-action" style="padding: 8px 14px; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
+                <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-check"></use></svg>
+                <span>Pair Key</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Setup Guide Link -->
+          <button type="button" id="btn-settings-open-onboarding" class="btn-secondary-action" style="margin-top: 2px; font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
             <svg class="ui-icon" style="width: 14px; height: 14px;"><use href="#icon-bolt"></use></svg>
             <span>Open Setup Guide &amp; Instructions</span>
           </button>

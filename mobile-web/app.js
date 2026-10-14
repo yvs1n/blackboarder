@@ -4580,6 +4580,9 @@ function initSettings() {
   const statusIndicator = document.getElementById('web-sync-status-indicator');
   const instructionText = document.getElementById('web-sync-instruction-text');
   const btnDisconnectDevice = document.getElementById('btn-disconnect-device');
+  const inputSyncKey = document.getElementById('web-sync-key-input');
+  const btnSaveSyncKey = document.getElementById('btn-save-web-sync-key');
+  const btnCopySyncKey = document.getElementById('btn-copy-web-sync-key');
 
   function updateFeedUrls() {
     const activeSyncKey = getSyncKey();
@@ -4595,25 +4598,76 @@ function initSettings() {
 
   function updateDevicePairingCard() {
     const activeKey = getSyncKey();
+    if (inputSyncKey && !inputSyncKey.matches(':focus')) {
+      inputSyncKey.value = activeKey || '';
+    }
     if (activeKey) {
       if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
       if (statusIndicator) statusIndicator.style.background = '#10b981';
       if (instructionText) instructionText.textContent = `This device is linked to your personal cloud bucket (${activeKey}). Deadlines and calendar feeds are active.`;
       if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'inline-block';
+      if (btnCopySyncKey) btnCopySyncKey.style.display = 'inline-flex';
     } else {
       if (syncKeyStatus) syncKeyStatus.textContent = 'Not Paired';
       if (statusIndicator) statusIndicator.style.background = '#94a3b8';
-      if (instructionText) instructionText.textContent = 'Keys are generated exclusively inside your Chrome extension. In your laptop\'s Blackboarder extension, go to Settings and click "Copy Phone Pairing Link" to connect.';
+      if (instructionText) instructionText.textContent = 'Keys are generated inside your Chrome extension (under Settings > Personal Sync Key). Enter your code below to link your private cloud bucket, or open via your phone pairing link.';
       if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'none';
+      if (btnCopySyncKey) btnCopySyncKey.style.display = 'none';
     }
   }
 
   let activeFeedUrl = updateFeedUrls();
   updateDevicePairingCard();
 
+  btnSaveSyncKey?.addEventListener('click', async () => {
+    const rawVal = inputSyncKey ? inputSyncKey.value.trim().toUpperCase() : '';
+    if (!rawVal) {
+      showToast('Please enter a Sync Key from your Chrome extension.');
+      return;
+    }
+    const clean = rawVal.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!clean) {
+      showToast('Invalid key format. Please enter a valid Sync Key.');
+      return;
+    }
+
+    localStorage.setItem('bbs_sync_key', clean);
+    const url = new URL(window.location.href);
+    url.searchParams.set('key', clean);
+    window.history.replaceState({}, '', url.toString());
+
+    updateDevicePairingCard();
+    activeFeedUrl = updateFeedUrls();
+    showToast(`Device paired with key ${clean}! Fetching deadlines...`);
+    await fetchTasksFromServer(true);
+    updateAllViews();
+  });
+
+  inputSyncKey?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnSaveSyncKey?.click();
+    }
+  });
+
+  btnCopySyncKey?.addEventListener('click', async () => {
+    const activeKey = getSyncKey();
+    if (!activeKey) {
+      showToast('No active sync key to copy.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(activeKey);
+      showToast(`Copied sync key "${activeKey}" to clipboard!`);
+    } catch (err) {
+      showToast(`Sync Key: ${activeKey}`);
+    }
+  });
+
   btnDisconnectDevice?.addEventListener('click', async () => {
     if (confirm('Disconnect this device from your extension sync key?')) {
       localStorage.removeItem('bbs_sync_key');
+      if (inputSyncKey) inputSyncKey.value = '';
       const url = new URL(window.location.href);
       url.searchParams.delete('key');
       url.searchParams.delete('sync');
