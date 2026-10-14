@@ -649,13 +649,7 @@
         </div>
 
         <div class="feed-url-display">
-          <label class="feed-url-label" for="input-webcal-token" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Subscription URL:</span>
-            <span style="font-size: 10.5px; font-weight: normal; color: var(--text-muted);">Personal Feed Token (optional)</span>
-          </label>
-          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-            <input type="text" id="input-webcal-token" class="form-input" placeholder="e.g. user-private-key" style="font-family: monospace; font-size: 11.5px; padding: 6px 10px; width: 100%;" title="Personal feed token for multi-user isolation">
-          </div>
+          <label class="feed-url-label" for="feed-url-text">Subscription URL:</label>
           <div class="feed-url-code" id="feed-url-text">Loading feed link...</div>
         </div>
 
@@ -764,70 +758,7 @@
         </div>
       </div>
 
-      <!-- Jev System One & Generative AI Configuration Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Jev Classifier &amp; Generative AI</h3>
-              <p class="settings-card-subtitle">3-Tier hybrid extraction settings for announcement parsing</p>
-            </div>
-          </div>
-          <span class="info-badge green">Hybrid Engine</span>
-        </div>
 
-        <p class="settings-card-desc">
-          Configure TypeSafe AI Jev (~100ms decision classifier) and OpenRouter Gemini for extracting deadlines from pasted doctor announcements.
-        </p>
-
-        <form id="form-ai-settings" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-          <!-- Jev Settings -->
-          <div style="background: var(--bg); border: 1px solid var(--surface-border); border-radius: var(--radius-md); padding: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <label class="form-label" for="web-setting-jev-key" style="font-weight: 700; margin-bottom: 0;"><svg class="ui-icon" style="margin-right: 4px;"><use href="#icon-bolt"></use></svg>Jev API Key (TypeSafe AI)</label>
-              <span class="info-badge blue" style="font-size: 10px;">~100ms Gatekeeper</span>
-            </div>
-            <input type="password" id="web-setting-jev-key" class="form-input" placeholder="apikey_..." style="font-family: monospace; font-size: 12px;">
-            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Weeds out non-deadlines and locks category (Quiz, Exam, Homework) before calling slow Generative AI.</span>
-            <div style="margin-top: 8px;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" id="web-setting-use-jev" checked>
-                <span>Enable Jev Fast Classification Gatekeeper</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- OpenRouter Generative AI Settings -->
-          <div style="background: var(--bg); border: 1px solid var(--surface-border); border-radius: var(--radius-md); padding: 12px;">
-            <label class="form-label" for="web-setting-openrouter-key" style="font-weight: 700;">OpenRouter API Key (Generative AI)</label>
-            <input type="password" id="web-setting-openrouter-key" class="form-input" placeholder="sk-or-v1-..." style="font-family: monospace; font-size: 12px;">
-            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Deep reasoning for complex multi-line date synthesis and Arabic text.</span>
-            
-            <div style="margin-top: 10px;">
-              <label class="form-label" for="web-setting-model">AI Model</label>
-              <select id="web-setting-model" class="mobile-select" style="width: 100%;">
-                <option value="google/gemini-3.8-flash">Google Gemini 3.8 Flash (Fast &amp; Recommended)</option>
-                <option value="google/gemini-3.7-flash">Google Gemini 3.7 Flash</option>
-                <option value="google/gemini-flash-latest">Google Gemini Flash Latest</option>
-                <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
-              </select>
-            </div>
-
-            <div style="margin-top: 8px;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" id="web-setting-use-ai" checked>
-                <span>Enable Generative AI Extraction</span>
-              </label>
-            </div>
-          </div>
-
-          <button type="submit" class="btn-primary-action" id="btn-save-ai-settings" style="justify-content: center;">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-check"></use></svg>
-            <span>Save AI &amp; Jev Settings</span>
-          </button>
-        </form>
-      </div>
 
       <!-- Backup & Data Management Card -->
       <div class="settings-card">

@@ -4312,26 +4312,18 @@ function initSettings() {
   const host = window.location.host || 'localhost:3456';
   const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
 
-  // WebCal and Personal Token setup
+  // WebCal and Device Pairing setup
   const feedUrlText = document.getElementById('feed-url-text');
   const btnWebcal = document.getElementById('btn-webcal-subscribe');
   const btnCopy = document.getElementById('btn-copy-webcal');
-  const inputToken = document.getElementById('input-webcal-token');
   const syncKeyStatus = document.getElementById('web-sync-key-status');
   const statusIndicator = document.getElementById('web-sync-status-indicator');
   const instructionText = document.getElementById('web-sync-instruction-text');
   const btnDisconnectDevice = document.getElementById('btn-disconnect-device');
 
-  const savedToken = localStorage.getItem('bbs_user_token') || '';
-  if (inputToken) inputToken.value = savedToken;
-
   function updateFeedUrls() {
-    const token = (inputToken ? inputToken.value.trim() : '') || savedToken;
     const activeSyncKey = getSyncKey();
-    const queryParts = [];
-    if (token) queryParts.push(`token=${encodeURIComponent(token)}`);
-    if (activeSyncKey) queryParts.push(`key=${encodeURIComponent(activeSyncKey)}`);
-    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    const query = activeSyncKey ? `?key=${encodeURIComponent(activeSyncKey)}` : '';
 
     const currentFeedUrl = `${protocol}//${host}/feed.ics${query}`;
     const currentWebcalUrl = `webcal://${host}/feed.ics${query}`;
@@ -4375,11 +4367,6 @@ function initSettings() {
     }
   });
 
-  inputToken?.addEventListener('input', () => {
-    const val = inputToken.value.trim();
-    localStorage.setItem('bbs_user_token', val);
-    activeFeedUrl = updateFeedUrls();
-  });
 
   btnCopy?.addEventListener('click', async () => {
     try {
@@ -4532,32 +4519,6 @@ function initSettings() {
     }
   });
 
-  // AI & Jev Fast Classifier Settings
-  const aiSettings = getAiSettings();
-  const inputJevKey = document.getElementById('web-setting-jev-key');
-  const chkJev = document.getElementById('web-setting-use-jev');
-  const inputOrKey = document.getElementById('web-setting-openrouter-key');
-  const selOrModel = document.getElementById('web-setting-model');
-  const chkOr = document.getElementById('web-setting-use-ai');
-
-  if (inputJevKey) inputJevKey.value = aiSettings.jevApiKey || '';
-  if (chkJev) chkJev.checked = Boolean(aiSettings.useJevClassification);
-  if (inputOrKey) inputOrKey.value = aiSettings.openRouterApiKey || '';
-  if (selOrModel) selOrModel.value = aiSettings.openRouterModel || 'google/gemini-3.8-flash';
-  if (chkOr) chkOr.checked = Boolean(aiSettings.useAiExtraction);
-
-  const formAi = document.getElementById('form-ai-settings');
-  formAi?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveAiSettings({
-      jevApiKey: inputJevKey?.value.trim() || '',
-      useJevClassification: Boolean(chkJev?.checked),
-      openRouterApiKey: inputOrKey?.value.trim() || '',
-      openRouterModel: selOrModel?.value || 'google/gemini-3.8-flash',
-      useAiExtraction: Boolean(chkOr?.checked)
-    });
-    showToast('AI & Jev settings saved successfully!');
-  });
 
   // Backup & Data Management (JSON & ICS)
   document.getElementById('btn-web-backup-json')?.addEventListener('click', () => {
