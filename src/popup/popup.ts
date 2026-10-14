@@ -1746,7 +1746,7 @@ async function loadSettingsForm() {
   const settingSyncKey = document.getElementById('setting-sync-key') as HTMLInputElement | null;
   if (settingSyncKey) settingSyncKey.value = (settings.syncKey || '').toUpperCase();
   const settingHostedUrl = document.getElementById('setting-hosted-url') as HTMLInputElement | null;
-  if (settingHostedUrl) settingHostedUrl.value = settings.hostedWebUrl || 'https://yassinr-uossidekick.pages.dev';
+  if (settingHostedUrl) settingHostedUrl.value = settings.hostedWebUrl || 'https://blackboarder.pages.dev';
 
   const settingJevKey = document.getElementById('setting-jev-key') as HTMLInputElement | null;
   if (settingJevKey) settingJevKey.value = settings.jevApiKey || '';
@@ -2405,7 +2405,7 @@ function setupEvents() {
     const useJev = (document.getElementById('setting-use-jev') as HTMLInputElement)?.checked ?? true;
 
     const syncKey = (document.getElementById('setting-sync-key') as HTMLInputElement)?.value?.trim().toUpperCase() || '';
-    const hostedUrl = (document.getElementById('setting-hosted-url') as HTMLInputElement)?.value?.trim() || 'https://yassinr-uossidekick.pages.dev';
+    const hostedUrl = (document.getElementById('setting-hosted-url') as HTMLInputElement)?.value?.trim() || 'https://blackboarder.pages.dev';
     const selectedTheme = ((document.getElementById('setting-theme') as HTMLSelectElement)?.value || 'light') as 'light' | 'dark' | 'system';
 
     await saveSettings({
@@ -2503,7 +2503,7 @@ function setupEvents() {
   // Copy Phone Pairing Link
   btnCopyPairingLink?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://yassinr-uossidekick.pages.dev').replace(/\/+$/, '');
+    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
     const syncKey = settings.syncKey || '';
     const pairUrl = syncKey ? `${hostedBase}/?key=${encodeURIComponent(syncKey)}` : hostedBase;
     try {
@@ -2552,7 +2552,7 @@ function setupEvents() {
 
   btnOpenMobileWeb?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://yassinr-uossidekick.pages.dev').replace(/\/+$/, '');
+    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
     const syncKey = settings.syncKey || '';
     const targetUrl = syncKey ? `${hostedBase}/?key=${encodeURIComponent(syncKey)}` : hostedBase;
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -2564,7 +2564,7 @@ function setupEvents() {
 
   btnCopyWebcalLink?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://yassinr-uossidekick.pages.dev').replace(/\/+$/, '');
+    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
     const syncKey = settings.syncKey || '';
     const webcalUrl = hostedBase.replace(/^https?:/, 'webcal:') + `/feed.ics${syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''}`;
     try {

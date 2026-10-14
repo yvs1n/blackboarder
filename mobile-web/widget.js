@@ -3,7 +3,7 @@
 // Offline-Ready with Native Disk Caching
 // ============================================================================
 
-const BASE_URL = "https://yassinr-uossidekick.pages.dev/api/tasks";
+const BASE_URL = "https://blackboarder.pages.dev/api/tasks";
 
 // Enter your personal pairing key if paired (e.g. "BBS-ABC123"), or pass it
 // via the widget parameter in iOS:
@@ -143,7 +143,7 @@ function getPendingTypeSummary(taskList) {
 // Widget Construction
 // ----------------------------------------------------------------------------
 const widget = new ListWidget();
-widget.url = "https://yassinr-uossidekick.pages.dev";
+widget.url = "https://blackboarder.pages.dev";
 widget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000); // 15-min auto refresh
 
 if (config.runsInAccessoryWidget) {

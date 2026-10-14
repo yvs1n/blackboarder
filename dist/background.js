@@ -18,7 +18,7 @@ var e = {
 	autoSyncMidnight: !0,
 	autoSyncOnScan: !0,
 	syncKey: "",
-	hostedWebUrl: "https://yassinr-uossidekick.pages.dev",
+	hostedWebUrl: "https://blackboarder.pages.dev",
 	theme: "light"
 };
 //#endregion

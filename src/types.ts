@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoSyncMidnight: true,
   autoSyncOnScan: true,
   syncKey: '',
-  hostedWebUrl: 'https://yassinr-uossidekick.pages.dev',
+  hostedWebUrl: 'https://blackboarder.pages.dev',
   theme: 'light'
 };
 
