@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="stylesheet" href="./styles.css?v=17">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -244,7 +244,7 @@
           <span class="wifi-dot"></span>
           <span id="wifi-status-text">Online</span>
         </span>
-        <button id="btn-web-add" class="btn-icon header-action-desktop" aria-label="Add Deadline Manually" title="Add Deadline Manually">
+        <button id="btn-web-add" class="btn-icon btn-header-add" aria-label="Add Deadline Manually" title="Add Deadline Manually">
           <span class="action-icon"><svg class="ui-icon"><use href="#icon-plus"></use></svg></span>
         </button>
         <button id="btn-web-schedule" class="btn-icon header-action-desktop" aria-label="Class Schedule" title="Class Schedule">
@@ -444,11 +444,13 @@
       <div class="deadlines-action-bar">
         <button id="btn-ai-extract-modal" class="btn-primary-action" type="button">
           <svg class="ui-icon" style="margin-right: 4px;"><use href="#icon-bolt"></use></svg>
-          <span class="btn-responsive-label">Extract Announcement</span>
+          <span class="btn-action-text-desktop">Extract Announcement</span>
+          <span class="btn-action-text-mobile">Extract AI</span>
         </button>
         <button id="btn-add-deadline" class="btn-add-action" type="button">
           <svg class="ui-icon" style="margin-right: 4px;"><use href="#icon-plus"></use></svg>
-          <span class="btn-responsive-label">Add Custom</span>
+          <span class="btn-action-text-desktop">Add Custom</span>
+          <span class="btn-action-text-mobile">Add Task</span>
         </button>
       </div>
 
@@ -1375,6 +1377,6 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./app.js?v=16"></script>
+  <script src="./app.js?v=17"></script>
 </body>
 </html>
