@@ -242,7 +242,10 @@ async function saveStoredTasksForNotifications(data) {
     const merged = {
       tasks: data.tasks !== undefined ? data.tasks : existing.tasks,
       notifiedMap: data.notifiedMap !== undefined ? data.notifiedMap : existing.notifiedMap,
-      pushEnabled: data.pushEnabled !== undefined ? data.pushEnabled : existing.pushEnabled
+      pushEnabled: data.pushEnabled !== undefined ? data.pushEnabled : existing.pushEnabled,
+      advanceHours: data.advanceHours !== undefined ? data.advanceHours : (existing.advanceHours !== undefined ? existing.advanceHours : 24),
+      urgentHours: data.urgentHours !== undefined ? data.urgentHours : (existing.urgentHours !== undefined ? existing.urgentHours : 2),
+      dueAlertEnabled: data.dueAlertEnabled !== undefined ? data.dueAlertEnabled : (existing.dueAlertEnabled !== undefined ? existing.dueAlertEnabled : true)
     };
     await cache.put(
       new Request(NOTIF_CACHE_URL),
@@ -278,18 +281,18 @@ function formatSwNotification(task, windowType, timeRemaining) {
 
   let title = '';
   let timeDesc = '';
-  if (windowType === '24h') {
-    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
-    title = `⏰ 24h Reminder: ${task.title}`;
-    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
-  } else if (windowType === '2h') {
-    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
-    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
-    title = `🚨 Urgent (2h): ${task.title}`;
-    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
-  } else {
+  if (windowType === 'due') {
     title = `⏳ Due Now: ${task.title}`;
     timeDesc = `🕒 Due time has arrived (${dateStr} at ${timeStr})`;
+  } else if (timeRemaining <= 4 * 3600 * 1000) {
+    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+    title = `🚨 Urgent (${windowType}): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
+  } else {
+    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+    title = `⏰ Reminder (${windowType}): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
   }
 
   const body = `${courseDisplay}${weightStr}\n${timeDesc}\n${locationStr}`;
@@ -315,6 +318,9 @@ async function checkDeadlinesInServiceWorker() {
     const now = Date.now();
     const tasks = store.tasks;
     const notifiedMap = store.notifiedMap || {};
+    const advanceHours = store.advanceHours !== undefined ? Number(store.advanceHours) : 24;
+    const urgentHours = store.urgentHours !== undefined ? Number(store.urgentHours) : 2;
+    const dueAlertEnabled = store.dueAlertEnabled !== false;
     let changed = false;
 
     for (const task of tasks) {
@@ -324,48 +330,57 @@ async function checkDeadlinesInServiceWorker() {
 
       const timeRemaining = dueTime - now;
 
-      // 1. 24 Hour Advance Reminder (between 2h and 24h)
-      if (timeRemaining > 2 * 3600 * 1000 && timeRemaining <= 24 * 3600 * 1000) {
-        const key = `${task.id}_24h`;
-        const last = notifiedMap[key] || 0;
-        if (now - last > 18 * 3600 * 1000) {
-          notifiedMap[key] = now;
-          changed = true;
-          const { title, body } = formatSwNotification(task, '24h', timeRemaining);
-          await self.registration.showNotification(title, {
-            body,
-            icon: './icon-192.png',
-            badge: './icon-192.png',
-            tag: `bbs-24h-${task.id}`,
-            renotify: false,
-            vibrate: [200, 100, 200],
-            data: { url: './index.html', taskId: task.id }
-          });
+      // 1. Advance Reminder
+      if (advanceHours > 0) {
+        const advanceMs = advanceHours * 3600 * 1000;
+        const lowerBoundMs = Math.max(urgentHours * 3600 * 1000, 0);
+        if (timeRemaining > lowerBoundMs && timeRemaining <= advanceMs) {
+          const key = `${task.id}_adv_${advanceHours}h`;
+          const last = notifiedMap[key] || 0;
+          if (now - last > Math.max((advanceHours * 0.75) * 3600 * 1000, 3600 * 1000)) {
+            notifiedMap[key] = now;
+            changed = true;
+            const label = advanceHours >= 24 ? `${Math.round(advanceHours / 24)}d` : `${advanceHours}h`;
+            const { title, body } = formatSwNotification(task, label, timeRemaining);
+            await self.registration.showNotification(title, {
+              body,
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              tag: `bbs-adv-${task.id}`,
+              renotify: false,
+              vibrate: [200, 100, 200],
+              data: { url: './index.html', taskId: task.id }
+            });
+          }
         }
       }
 
-      // 2. 2 Hour Urgent Alert (between 0 and 2h)
-      if (timeRemaining > 0 && timeRemaining <= 2 * 3600 * 1000) {
-        const key = `${task.id}_2h`;
-        const last = notifiedMap[key] || 0;
-        if (now - last > 3 * 3600 * 1000) {
-          notifiedMap[key] = now;
-          changed = true;
-          const { title, body } = formatSwNotification(task, '2h', timeRemaining);
-          await self.registration.showNotification(title, {
-            body,
-            icon: './icon-192.png',
-            badge: './icon-192.png',
-            tag: `bbs-2h-${task.id}`,
-            renotify: false,
-            vibrate: [300, 150, 300],
-            data: { url: './index.html', taskId: task.id }
-          });
+      // 2. Urgent Countdown Alert
+      if (urgentHours > 0) {
+        const urgentMs = urgentHours * 3600 * 1000;
+        if (timeRemaining > 0 && timeRemaining <= urgentMs) {
+          const key = `${task.id}_urg_${urgentHours}h`;
+          const last = notifiedMap[key] || 0;
+          if (now - last > Math.max((urgentHours * 0.75) * 3600 * 1000, 30 * 60 * 1000)) {
+            notifiedMap[key] = now;
+            changed = true;
+            const label = urgentHours < 1 ? `${Math.round(urgentHours * 60)}m` : `${urgentHours}h`;
+            const { title, body } = formatSwNotification(task, label, timeRemaining);
+            await self.registration.showNotification(title, {
+              body,
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              tag: `bbs-urg-${task.id}`,
+              renotify: false,
+              vibrate: [300, 150, 300],
+              data: { url: './index.html', taskId: task.id }
+            });
+          }
         }
       }
 
       // 3. Due Now / Closing (0 to -30m)
-      if (timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+      if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
         const key = `${task.id}_due`;
         const last = notifiedMap[key] || 0;
         if (now - last > 2 * 3600 * 1000) {
@@ -382,7 +397,6 @@ async function checkDeadlinesInServiceWorker() {
             data: { url: './index.html', taskId: task.id }
           });
         }
-      }
     }
 
     if (changed) {
@@ -488,7 +502,10 @@ self.addEventListener('message', event => {
       saveStoredTasksForNotifications({
         tasks: event.data.tasks || [],
         notifiedMap: event.data.notifiedMap || {},
-        pushEnabled: event.data.enabled !== false
+        pushEnabled: event.data.enabled !== false,
+        advanceHours: event.data.advanceHours,
+        urgentHours: event.data.urgentHours,
+        dueAlertEnabled: event.data.dueAlertEnabled
       })
     );
   } else if (event.data.type === 'CHECK_DEADLINES') {

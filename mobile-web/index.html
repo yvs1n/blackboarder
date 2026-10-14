@@ -593,18 +593,65 @@
           </label>
         </div>
 
-        <div class="notification-timing-notes">
+        <!-- Configurable Notification Timings -->
+        <div class="notification-timings-panel" style="margin-top: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <label class="form-label" for="select-notif-advance" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              <svg class="ui-icon" style="color: #3b82f6;"><use href="#icon-bolt"></use></svg>
+              <span>Advance Reminder Window</span>
+            </label>
+            <select id="select-notif-advance" class="mobile-select" style="width: 100%;">
+              <option value="48">48 hours before (2 days)</option>
+              <option value="24" selected>24 hours before (1 day - Default)</option>
+              <option value="12">12 hours before</option>
+              <option value="6">6 hours before</option>
+              <option value="0">Disabled (No advance alert)</option>
+            </select>
+            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">First advance warning before submission cutoffs.</span>
+          </div>
+
+          <div>
+            <label class="form-label" for="select-notif-urgent" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              <svg class="ui-icon" style="color: #ef4444;"><use href="#icon-urgent"></use></svg>
+              <span>Urgent Countdown Alert</span>
+            </label>
+            <select id="select-notif-urgent" class="mobile-select" style="width: 100%;">
+              <option value="4">4 hours before</option>
+              <option value="2" selected>2 hours before (Default)</option>
+              <option value="1">1 hour before</option>
+              <option value="0.5">30 minutes before</option>
+              <option value="0">Disabled (No countdown alert)</option>
+            </select>
+            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">High-priority alert with vibration as deadline approaches.</span>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm); margin-top: 2px;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 12px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <svg class="ui-icon" style="color: #10b981;"><use href="#icon-clock"></use></svg>
+                <span>Due Time Alert</span>
+              </span>
+              <span style="font-size: 10.5px; color: var(--text-muted);">Notify when due time arrives (0m)</span>
+            </div>
+            <label class="switch" for="toggle-notif-due">
+              <input type="checkbox" id="toggle-notif-due" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="notification-timing-notes" id="notification-timing-summary">
           <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
-            <span><strong>24 Hours Before:</strong> Advance reminder for pending submissions.</span>
+            <span class="timing-bullet"><svg class="ui-icon" style="color: #3b82f6;"><use href="#icon-bolt"></use></svg></span>
+            <span id="timing-summary-advance"><strong>24 Hours Before:</strong> Advance reminder for pending submissions.</span>
           </div>
           <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon"><use href="#icon-urgent"></use></svg></span>
-            <span><strong>2 Hours Before:</strong> Final countdown alert for imminent deadlines.</span>
+            <span class="timing-bullet"><svg class="ui-icon" style="color: #ef4444;"><use href="#icon-urgent"></use></svg></span>
+            <span id="timing-summary-urgent"><strong>2 Hours Before:</strong> Final countdown alert for imminent deadlines.</span>
           </div>
           <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon"><use href="#icon-bell"></use></svg></span>
-            <span><strong>New Announcements:</strong> Instant notification when new dates are detected.</span>
+            <span class="timing-bullet"><svg class="ui-icon" style="color: #10b981;"><use href="#icon-clock"></use></svg></span>
+            <span id="timing-summary-due"><strong>At Due Time:</strong> Immediate alert when due window arrives.</span>
           </div>
         </div>
 

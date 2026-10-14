@@ -2354,6 +2354,21 @@ async function sendMobileNotification(title, options = {}) {
   }
 }
 
+function getNotifAdvanceHours() {
+  const v = localStorage.getItem('bbs_notif_advance_hours');
+  return v !== null ? parseFloat(v) : 24;
+}
+
+function getNotifUrgentHours() {
+  const v = localStorage.getItem('bbs_notif_urgent_hours');
+  return v !== null ? parseFloat(v) : 2;
+}
+
+function getNotifDueAlertEnabled() {
+  const v = localStorage.getItem('bbs_notif_due_alert');
+  return v !== null ? v === 'true' : true;
+}
+
 function syncTasksToServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   const pushEnabled = localStorage.getItem('bbs_push_enabled') === 'true';
@@ -2365,7 +2380,10 @@ function syncTasksToServiceWorker() {
     type: 'SYNC_TASKS_FOR_NOTIFICATIONS',
     tasks: state.tasks || [],
     notifiedMap,
-    enabled: pushEnabled
+    enabled: pushEnabled,
+    advanceHours: getNotifAdvanceHours(),
+    urgentHours: getNotifUrgentHours(),
+    dueAlertEnabled: getNotifDueAlertEnabled()
   };
 
   if (navigator.serviceWorker.controller) {
@@ -2434,18 +2452,18 @@ function formatNotificationPayload(task, windowType, timeRemaining) {
 
   let title = '';
   let timeDesc = '';
-  if (windowType === '24h') {
-    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
-    title = `⏰ 24h Reminder: ${task.title}`;
-    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
-  } else if (windowType === '2h') {
-    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
-    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
-    title = `🚨 Urgent (2h): ${task.title}`;
-    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
-  } else {
+  if (windowType === 'due') {
     title = `⏳ Due Now: ${task.title}`;
     timeDesc = `🕒 Due time has arrived (${dateStr} at ${timeStr})`;
+  } else if (timeRemaining <= 4 * 3600 * 1000) {
+    const minsLeft = Math.max(1, Math.round(timeRemaining / (60 * 1000)));
+    const countdownStr = minsLeft >= 60 ? `about ${Math.round(minsLeft / 60)} hour(s)` : `${minsLeft} minutes`;
+    title = `🚨 Urgent (${windowType}): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (in ${countdownStr})`;
+  } else {
+    const hoursLeft = Math.max(1, Math.round(timeRemaining / (3600 * 1000)));
+    title = `⏰ Reminder (${windowType}): ${task.title}`;
+    timeDesc = `🕒 Due: ${dateStr} at ${timeStr} (~${hoursLeft}h left)`;
   }
 
   const body = `${courseDisplay}${weightStr}\n${timeDesc}\n${locationStr}`;
@@ -2459,6 +2477,10 @@ async function checkUpcomingDeadlines(isInteractive = false) {
   }
   const isEnabled = localStorage.getItem('bbs_push_enabled') === 'true';
   if (!isEnabled) return;
+
+  const advanceHours = getNotifAdvanceHours();
+  const urgentHours = getNotifUrgentHours();
+  const dueAlertEnabled = getNotifDueAlertEnabled();
 
   const now = Date.now();
   const notifiedRaw = localStorage.getItem('bbs_notified_map') || '{}';
@@ -2476,46 +2498,55 @@ async function checkUpcomingDeadlines(isInteractive = false) {
 
     const timeRemaining = dueTime - now;
 
-    // 1. 24 Hour Advance Reminder (between 2h and 24h)
-    if (timeRemaining > 2 * 3600 * 1000 && timeRemaining <= 24 * 3600 * 1000) {
-      const key = `${task.id}_24h`;
-      const last = notifiedMap[key] || 0;
-      if (now - last > 18 * 3600 * 1000) {
-        notifiedMap[key] = now;
-        changed = true;
-        notificationsTriggered++;
-        const { title, body } = formatNotificationPayload(task, '24h', timeRemaining);
-        await sendMobileNotification(title, {
-          body,
-          tag: `bbs-24h-${task.id}`,
-          renotify: false,
-          vibrate: [200, 100, 200],
-          data: { url: './index.html', taskId: task.id }
-        });
+    // 1. Advance Reminder
+    if (advanceHours > 0) {
+      const advanceMs = advanceHours * 3600 * 1000;
+      const lowerBoundMs = Math.max(urgentHours * 3600 * 1000, 0);
+      if (timeRemaining > lowerBoundMs && timeRemaining <= advanceMs) {
+        const key = `${task.id}_adv_${advanceHours}h`;
+        const last = notifiedMap[key] || 0;
+        if (now - last > Math.max((advanceHours * 0.75) * 3600 * 1000, 3600 * 1000)) {
+          notifiedMap[key] = now;
+          changed = true;
+          notificationsTriggered++;
+          const label = advanceHours >= 24 ? `${Math.round(advanceHours / 24)}d` : `${advanceHours}h`;
+          const { title, body } = formatNotificationPayload(task, label, timeRemaining);
+          await sendMobileNotification(title, {
+            body,
+            tag: `bbs-adv-${task.id}`,
+            renotify: false,
+            vibrate: [200, 100, 200],
+            data: { url: './index.html', taskId: task.id }
+          });
+        }
       }
     }
 
-    // 2. 2 Hour Urgent Alert (between 0 and 2h)
-    if (timeRemaining > 0 && timeRemaining <= 2 * 3600 * 1000) {
-      const key = `${task.id}_2h`;
-      const last = notifiedMap[key] || 0;
-      if (now - last > 3 * 3600 * 1000) {
-        notifiedMap[key] = now;
-        changed = true;
-        notificationsTriggered++;
-        const { title, body } = formatNotificationPayload(task, '2h', timeRemaining);
-        await sendMobileNotification(title, {
-          body,
-          tag: `bbs-2h-${task.id}`,
-          renotify: false,
-          vibrate: [300, 150, 300],
-          data: { url: './index.html', taskId: task.id }
-        });
+    // 2. Urgent Countdown Alert
+    if (urgentHours > 0) {
+      const urgentMs = urgentHours * 3600 * 1000;
+      if (timeRemaining > 0 && timeRemaining <= urgentMs) {
+        const key = `${task.id}_urg_${urgentHours}h`;
+        const last = notifiedMap[key] || 0;
+        if (now - last > Math.max((urgentHours * 0.75) * 3600 * 1000, 30 * 60 * 1000)) {
+          notifiedMap[key] = now;
+          changed = true;
+          notificationsTriggered++;
+          const label = urgentHours < 1 ? `${Math.round(urgentHours * 60)}m` : `${urgentHours}h`;
+          const { title, body } = formatNotificationPayload(task, label, timeRemaining);
+          await sendMobileNotification(title, {
+            body,
+            tag: `bbs-urg-${task.id}`,
+            renotify: false,
+            vibrate: [300, 150, 300],
+            data: { url: './index.html', taskId: task.id }
+          });
+        }
       }
     }
 
     // 3. Due Now / Closing (0 to -30m)
-    if (timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+    if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
       const key = `${task.id}_due`;
       const last = notifiedMap[key] || 0;
       if (now - last > 2 * 3600 * 1000) {
@@ -4429,8 +4460,46 @@ function initSettings() {
   const togglePush = document.getElementById('toggle-push-notif');
   const permStatus = document.getElementById('notif-permission-status');
   const btnTestNotif = document.getElementById('btn-test-notification');
+  const selAdvance = document.getElementById('select-notif-advance');
+  const selUrgent = document.getElementById('select-notif-urgent');
+  const toggleDue = document.getElementById('toggle-notif-due');
+  const summaryAdv = document.getElementById('timing-summary-advance');
+  const summaryUrg = document.getElementById('timing-summary-urgent');
+  const summaryDue = document.getElementById('timing-summary-due');
 
   function updateNotificationUi() {
+    const advH = getNotifAdvanceHours();
+    const urgH = getNotifUrgentHours();
+    const dueOn = getNotifDueAlertEnabled();
+
+    if (selAdvance) selAdvance.value = String(advH);
+    if (selUrgent) selUrgent.value = String(urgH);
+    if (toggleDue) toggleDue.checked = dueOn;
+
+    if (summaryAdv) {
+      if (advH > 0) {
+        const label = advH >= 24 ? `${Math.round(advH / 24)} Day${advH >= 48 ? 's' : ''}` : `${advH} Hours`;
+        summaryAdv.innerHTML = `<strong>${label} Before:</strong> Advance reminder for pending submissions.`;
+      } else {
+        summaryAdv.innerHTML = `<strong>Advance Alert:</strong> Disabled.`;
+      }
+    }
+
+    if (summaryUrg) {
+      if (urgH > 0) {
+        const label = urgH < 1 ? `${Math.round(urgH * 60)} Minutes` : `${urgH} Hour${urgH > 1 ? 's' : ''}`;
+        summaryUrg.innerHTML = `<strong>${label} Before:</strong> Final countdown alert for imminent deadlines.`;
+      } else {
+        summaryUrg.innerHTML = `<strong>Countdown Alert:</strong> Disabled.`;
+      }
+    }
+
+    if (summaryDue) {
+      summaryDue.innerHTML = dueOn
+        ? `<strong>At Due Time:</strong> Immediate alert when due window arrives.`
+        : `<strong>Due Time Alert:</strong> Disabled.`;
+    }
+
     if (!('Notification' in window)) {
       if (permStatus) permStatus.textContent = 'Not supported in this browser';
       if (togglePush) togglePush.disabled = true;
@@ -4441,7 +4510,9 @@ function initSettings() {
     const isSavedActive = localStorage.getItem('bbs_push_enabled') === 'true';
 
     if (perm === 'granted' && isSavedActive) {
-      if (permStatus) permStatus.textContent = 'Active: Reminders 24h and 2h before deadlines';
+      const advLabel = advH > 0 ? (advH >= 24 ? `${Math.round(advH / 24)}d` : `${advH}h`) : 'off';
+      const urgLabel = urgH > 0 ? (urgH < 1 ? `${Math.round(urgH * 60)}m` : `${urgH}h`) : 'off';
+      if (permStatus) permStatus.textContent = `Active: Alerts at ${advLabel} & ${urgLabel}`;
       if (togglePush) togglePush.checked = true;
     } else if (perm === 'denied') {
       if (permStatus) permStatus.textContent = 'Blocked by browser permissions';
@@ -4456,6 +4527,33 @@ function initSettings() {
   }
 
   updateNotificationUi();
+
+  selAdvance?.addEventListener('change', () => {
+    const val = parseFloat(selAdvance.value);
+    localStorage.setItem('bbs_notif_advance_hours', String(val));
+    updateNotificationUi();
+    syncTasksToServiceWorker();
+    checkUpcomingDeadlines(false);
+    showToast(val > 0 ? `Advance reminder set to ${val >= 24 ? val / 24 + ' days' : val + ' hours'} before.` : 'Advance reminder disabled.');
+  });
+
+  selUrgent?.addEventListener('change', () => {
+    const val = parseFloat(selUrgent.value);
+    localStorage.setItem('bbs_notif_urgent_hours', String(val));
+    updateNotificationUi();
+    syncTasksToServiceWorker();
+    checkUpcomingDeadlines(false);
+    showToast(val > 0 ? `Urgent countdown alert set to ${val < 1 ? (val * 60) + ' mins' : val + ' hours'} before.` : 'Urgent alert disabled.');
+  });
+
+  toggleDue?.addEventListener('change', () => {
+    const val = toggleDue.checked;
+    localStorage.setItem('bbs_notif_due_alert', String(val));
+    updateNotificationUi();
+    syncTasksToServiceWorker();
+    checkUpcomingDeadlines(false);
+    showToast(val ? 'Due time alert enabled.' : 'Due time alert disabled.');
+  });
 
   togglePush?.addEventListener('change', async () => {
     if (togglePush.checked) {
@@ -4496,7 +4594,9 @@ function initSettings() {
       let body = 'Calculus I for Engineering (1440 133)\n🕒 Due: Tomorrow at 12:30 PM (in ~24 hours)\n📍 Room: A12-110';
 
       if (nextTask) {
-        const payload = formatNotificationPayload(nextTask, '2h', Math.max(0, new Date(nextTask.dueDate).getTime() - now));
+        const urgH = getNotifUrgentHours();
+        const label = urgH > 0 ? (urgH < 1 ? `${Math.round(urgH * 60)}m` : `${urgH}h`) : '2h';
+        const payload = formatNotificationPayload(nextTask, label, Math.max(0, new Date(nextTask.dueDate).getTime() - now));
         title = payload.title;
         body = payload.body;
       }
