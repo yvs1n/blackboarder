@@ -397,6 +397,7 @@ async function checkDeadlinesInServiceWorker() {
             data: { url: './index.html', taskId: task.id }
           });
         }
+      }
     }
 
     if (changed) {

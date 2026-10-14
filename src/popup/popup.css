@@ -1268,16 +1268,18 @@ body {
 }
 
 [data-theme="dark"] .btn-primary-action {
-  background: #f4f4f6;
-  color: #111114;
-  border-color: transparent;
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
 .btn-primary-action:hover {
   background: var(--primary-hover);
 }
 [data-theme="dark"] .btn-primary-action:hover {
-  background: #ffffff;
+  background: #1d4ed8;
+  border-color: rgba(96, 165, 250, 0.6);
 }
 
 .btn-add-action {
@@ -3092,6 +3094,16 @@ body {
 
 .btn-ql-open:hover {
   background: var(--primary-hover);
+}
+
+[data-theme="dark"] .btn-ql-open {
+  background: #2563eb;
+  color: #ffffff !important;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .btn-ql-open:hover {
+  background: #1d4ed8;
 }
 
 .btn-ql-action {
