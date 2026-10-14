@@ -3651,7 +3651,7 @@ function renderDeadlines() {
           <div class="state-desc">
             ${hasKey
               ? 'Open Blackboard on your laptop and click "Scan Blackboard" to synchronize your courses here.'
-              : 'Pair your private Sync Key from the Chrome Extension to view your deadlines, syllabus weights, and classroom schedule.'}
+              : 'Open the Blackboarder extension on your laptop, click Settings &gt; "Copy Phone Pairing Link", and open it here to connect your deadlines.'}
           </div>
           <div style="margin-top: 14px;">
             <button type="button" class="btn-primary-action btn-trigger-setup" style="padding: 9px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0 auto;">
@@ -4317,9 +4317,10 @@ function initSettings() {
   const btnWebcal = document.getElementById('btn-webcal-subscribe');
   const btnCopy = document.getElementById('btn-copy-webcal');
   const inputToken = document.getElementById('input-webcal-token');
-  const inputSyncKey = document.getElementById('web-sync-key-input');
-  const btnSaveSyncKey = document.getElementById('btn-save-web-sync-key');
   const syncKeyStatus = document.getElementById('web-sync-key-status');
+  const statusIndicator = document.getElementById('web-sync-status-indicator');
+  const instructionText = document.getElementById('web-sync-instruction-text');
+  const btnDisconnectDevice = document.getElementById('btn-disconnect-device');
 
   const savedToken = localStorage.getItem('bbs_user_token') || '';
   if (inputToken) inputToken.value = savedToken;
@@ -4340,45 +4341,37 @@ function initSettings() {
     return currentFeedUrl;
   }
 
-  let activeFeedUrl = updateFeedUrls();
-
-  // Personal Sync Key Pairing Handler
-  const currentSyncKey = getSyncKey();
-  if (inputSyncKey) {
-    inputSyncKey.value = currentSyncKey;
-  }
-  if (syncKeyStatus) {
-    syncKeyStatus.textContent = currentSyncKey
-      ? `Currently paired to key: ${currentSyncKey} (Isolated cloud bucket)`
-      : 'No key set. Using default cloud bucket.';
-  }
-
-  btnSaveSyncKey?.addEventListener('click', async () => {
-    const rawVal = inputSyncKey ? inputSyncKey.value.trim().toUpperCase() : '';
-    if (rawVal) {
-      localStorage.setItem('bbs_sync_key', rawVal);
-      const url = new URL(window.location.href);
-      url.searchParams.set('key', rawVal);
-      window.history.replaceState({}, '', url.toString());
-      if (syncKeyStatus) {
-        syncKeyStatus.textContent = `Paired to key: ${rawVal}. Loading your tasks...`;
-        syncKeyStatus.style.color = 'var(--color-primary, #6366f1)';
-      }
-      activeFeedUrl = updateFeedUrls();
-      showToast(`Device paired with key ${rawVal}! Fetching your deadlines...`);
-      await fetchTasksFromServer();
+  function updateDevicePairingCard() {
+    const activeKey = getSyncKey();
+    if (activeKey) {
+      if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
+      if (statusIndicator) statusIndicator.style.background = '#10b981';
+      if (instructionText) instructionText.textContent = `This device is linked to your personal cloud bucket (${activeKey}). Deadlines and calendar feeds are active.`;
+      if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'inline-block';
     } else {
+      if (syncKeyStatus) syncKeyStatus.textContent = 'Not Paired';
+      if (statusIndicator) statusIndicator.style.background = '#94a3b8';
+      if (instructionText) instructionText.textContent = 'Keys are generated exclusively inside your Chrome extension. In your laptop\'s Blackboarder extension, go to Settings and click "Copy Phone Pairing Link" to connect.';
+      if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'none';
+    }
+  }
+
+  let activeFeedUrl = updateFeedUrls();
+  updateDevicePairingCard();
+
+  btnDisconnectDevice?.addEventListener('click', async () => {
+    if (confirm('Disconnect this device from your extension sync key?')) {
       localStorage.removeItem('bbs_sync_key');
       const url = new URL(window.location.href);
       url.searchParams.delete('key');
-      window.history.replaceState({}, '', url.toString());
-      if (syncKeyStatus) {
-        syncKeyStatus.textContent = 'Cleared sync key. Using default bucket.';
-        syncKeyStatus.style.color = 'var(--text-muted)';
-      }
+      url.searchParams.delete('sync');
+      url.searchParams.delete('code');
+      window.history.replaceState({}, '', url.pathname);
+      state.tasks = [];
+      updateAllViews();
+      updateDevicePairingCard();
       activeFeedUrl = updateFeedUrls();
-      showToast('Sync key cleared. Using default bucket.');
-      await fetchTasksFromServer();
+      showToast('Device disconnected. Open pairing link from extension to reconnect.');
     }
   });
 
@@ -5616,19 +5609,21 @@ function setOnboardingStep(step) {
   if (btnNext) btnNext.style.display = boundedStep < 4 ? 'inline-block' : 'none';
   if (btnFinish) btnFinish.style.display = boundedStep === 4 ? 'inline-block' : 'none';
 
-  // 4. Update Step 3 pairing input and status
+  // 4. Update Step 3 pairing status display
   if (boundedStep === 3) {
     const currentKey = getSyncKey();
-    const inputKey = document.getElementById('onboarding-sync-key-input');
     const statusDiv = document.getElementById('onboarding-pairing-status');
-    if (inputKey && !inputKey.value && currentKey) {
-      inputKey.value = currentKey;
-    }
     if (statusDiv) {
       if (currentKey) {
-        statusDiv.innerHTML = `<span style="color: #10b981;">✓ Paired with key: <strong>${escapeHtml(currentKey)}</strong> (Cloud Sync Active)</span>`;
+        statusDiv.innerHTML = `<span style="color: #10b981; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+          <span>✓ <strong>Device Paired:</strong> Connected to sync code <strong>${escapeHtml(currentKey)}</strong>. Your private cloud deadlines and calendar feed are live!</span>
+        </span>`;
       } else {
-        statusDiv.innerHTML = '<span style="color: var(--text-muted);">Enter the 6-character Sync Key shown in your extension popup.</span>';
+        statusDiv.innerHTML = `<span style="color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
+          <span>Status: <strong>Not Paired</strong>. Open this page via the pairing link from your Chrome extension to connect.</span>
+        </span>`;
       }
     }
   }
@@ -5685,39 +5680,6 @@ function initOnboardingModal() {
       const s = parseInt(ind.getAttribute('data-step') || '1', 10);
       setOnboardingStep(s);
     });
-  });
-
-  // Inline Sync Key pairing within Step 3
-  const pairBtn = document.getElementById('btn-onboarding-save-key');
-  const pairInput = document.getElementById('onboarding-sync-key-input');
-  const pairStatus = document.getElementById('onboarding-pairing-status');
-
-  pairBtn?.addEventListener('click', async () => {
-    const raw = pairInput ? pairInput.value.trim().toUpperCase() : '';
-    if (!raw) {
-      if (pairStatus) {
-        pairStatus.innerHTML = '<span style="color: #ef4444;">Please enter your Sync Key from the extension.</span>';
-      }
-      return;
-    }
-    const clean = raw.replace(/[^a-zA-Z0-9_-]/g, '');
-    localStorage.setItem('bbs_sync_key', clean);
-
-    // Sync input in settings if open
-    const settingsInput = document.getElementById('web-sync-key-input');
-    if (settingsInput) settingsInput.value = clean;
-    const settingsStatus = document.getElementById('web-sync-key-status');
-    if (settingsStatus) {
-      settingsStatus.textContent = `Paired to key: ${clean}. Loading your tasks...`;
-      settingsStatus.style.color = 'var(--primary, #6366f1)';
-    }
-
-    if (pairStatus) {
-      pairStatus.innerHTML = `<span style="color: #10b981;">✓ Paired with <strong>${escapeHtml(clean)}</strong>! Syncing your deadlines...</span>`;
-    }
-
-    showToast(`Paired with ${clean}! Fetching deadlines...`);
-    await fetchTasksFromServer(true);
   });
 }
 

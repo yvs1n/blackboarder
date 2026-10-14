@@ -520,20 +520,24 @@
           <div class="settings-icon-title">
             <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
             <div>
-              <h3 class="settings-card-title">Cloud Sync & Device Pairing</h3>
-              <p class="settings-card-subtitle">Pair your phone with your Chrome extension</p>
+              <h3 class="settings-card-title">Cloud Sync &amp; Device Pairing</h3>
+              <p class="settings-card-subtitle">Paired via Chrome Extension</p>
             </div>
           </div>
         </div>
         <div class="form-group" style="margin-top: 10px;">
-          <label class="form-label" for="web-sync-key-input" style="font-weight: 700;">Personal Sync Key</label>
-          <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <input type="text" id="web-sync-key-input" class="mobile-input" placeholder="e.g. BBS-9A2K" style="font-family: monospace; font-weight: 700; text-transform: uppercase; width: 100%;">
-            <button type="button" id="btn-save-web-sync-key" class="btn-primary" style="padding: 8px 14px; white-space: nowrap;">Pair Device</button>
+          <div id="web-sync-device-status-box" style="padding: 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="web-sync-status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
+                <span id="web-sync-key-status" style="font-size: 13px; font-weight: 600; color: var(--text-main);">Checking pairing status...</span>
+              </div>
+              <button type="button" id="btn-disconnect-device" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; color: #dc2626; border-color: rgba(220, 38, 38, 0.2);">Disconnect</button>
+            </div>
+            <p id="web-sync-instruction-text" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+              Keys are generated exclusively inside your Chrome extension. To pair this device, open the extension in Chrome and click <strong>Copy Phone Pairing Link</strong>.
+            </p>
           </div>
-          <span id="web-sync-key-status" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
-            Enter the Sync Key from your extension settings (or open via pairing link) to load your private deadlines.
-          </span>
           <button type="button" id="btn-settings-open-onboarding" class="btn-secondary-action" style="margin-top: 10px; font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
             <svg class="ui-icon" style="width: 14px; height: 14px;"><use href="#icon-bolt"></use></svg>
             <span>Open Setup Guide &amp; Instructions</span>
@@ -1303,27 +1307,41 @@
         </div>
 
         <!-- Step 3: Pair Devices (Sync Key) -->
+        <!-- Step 3: Pair Devices (Extension Link) -->
         <div class="onboarding-step-pane" id="onboarding-step-3" style="display: none;">
           <div class="onboarding-step-hero">
             <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-sync"></use></svg></span>
             <div class="step-hero-content">
-              <h4 class="step-hero-title">3. Pair Your Private Sync Key</h4>
-              <p class="step-hero-desc">Every student has a unique Sync Key (e.g. <code>BBS-W4K9</code>). Your deadlines sync to your private cloud bucket.</p>
+              <h4 class="step-hero-title">3. Pair Seamlessly via Extension</h4>
+              <p class="step-hero-desc">Keys are generated and secured entirely in your Chrome extension. You never need to type or remember codes manually.</p>
             </div>
           </div>
           
           <div class="onboarding-pairing-card">
-            <label class="form-label" for="onboarding-sync-key-input" style="font-weight: 700; margin-bottom: 6px; display: block;">Enter Your Personal Sync Key:</label>
-            <div class="onboarding-inline-pair-form">
-              <input type="text" id="onboarding-sync-key-input" class="mobile-input" placeholder="e.g. BBS-9A2K" maxlength="16" style="font-family: monospace; font-weight: 700; text-transform: uppercase;">
-              <button type="button" id="btn-onboarding-save-key" class="btn-primary" style="white-space: nowrap; padding: 9px 16px;">Pair Device</button>
+            <div class="onboarding-instructions-list">
+              <div class="instruction-row">
+                <span class="instruction-step-num">1</span>
+                <span>In Chrome on your laptop, open the <strong>Blackboarder</strong> extension popup.</span>
+              </div>
+              <div class="instruction-row">
+                <span class="instruction-step-num">2</span>
+                <span>Go to <strong>Settings</strong> and click <strong>"Copy Phone Pairing Link"</strong> (or click <em>"Open Mobile App"</em>).</span>
+              </div>
+              <div class="instruction-row">
+                <span class="instruction-step-num">3</span>
+                <span>Open that unique link on your phone (send it via WhatsApp, AirDrop, or email).</span>
+              </div>
+              <div class="instruction-row">
+                <span class="instruction-step-num">4</span>
+                <span>Your phone pairs instantly and securely with zero manual typing required!</span>
+              </div>
             </div>
-            <div id="onboarding-pairing-status" class="onboarding-pairing-status"></div>
+            <div id="onboarding-pairing-status" class="onboarding-pairing-status" style="margin-top: 12px; padding: 10px; background: var(--surface-hover); border-radius: 8px;"></div>
           </div>
 
           <div class="onboarding-note-box">
             <svg class="ui-icon"><use href="#icon-sparkles"></use></svg>
-            <span><strong>Fastest Way:</strong> In your laptop extension popup, simply click <em>"Open Mobile Web App"</em>—it opens this universal link with your key already attached and paired automatically!</span>
+            <span><strong>Privacy Guarantee:</strong> Your sync code stays locked to your devices. Each student gets their own private cloud partition that nobody else can access.</span>
           </div>
         </div>
 
