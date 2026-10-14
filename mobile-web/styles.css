@@ -130,12 +130,6 @@
   color: #f4f4f6;
 }
 
-[data-theme="dark"] .sync-banner {
-  background: #141417;
-  border-bottom-color: var(--surface-border);
-  color: var(--text-muted);
-}
-
 /* Calendar Grid & Day Cells in Dark Mode */
 [data-theme="dark"] .calendar-grid {
   background: var(--surface-border);
@@ -776,6 +770,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .brand-bolt {
@@ -800,6 +795,7 @@ body {
 .brand-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .brand-title {
@@ -822,16 +818,11 @@ body {
   border-radius: var(--radius-full);
 }
 
-.brand-subtitle {
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
 .header-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .wifi-status-badge {
@@ -931,17 +922,13 @@ body {
   to { transform: rotate(360deg); }
 }
 
-.sync-banner {
-  background: #f1f5f9;
-  font-size: 11px;
+#sync-banner-text {
+  font-size: 10.5px;
   color: var(--text-muted);
-  text-align: center;
-  padding: 5px 14px;
-  border-top: 1px solid var(--surface-border);
-  border-bottom: 1px solid var(--surface-border);
-  max-width: 640px;
-  margin: 0 auto;
-  width: 100%;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Main Navigation Tabs: Segmented Control (Hybrid 4 tabs mobile / 2 tabs desktop) */
@@ -1034,9 +1021,6 @@ body {
   .nav-item-mobile-only {
     display: flex !important;
   }
-  .app-nav {
-    grid-template-columns: repeat(4, 1fr) !important;
-  }
   .btn-setup-guide .setup-guide-label {
     display: none !important;
   }
@@ -1048,14 +1032,12 @@ body {
     justify-content: center !important;
     border-radius: 6px !important;
   }
-}
 
-@media (max-width: 540px) {
-  .header-content {
-    padding: 8px 12px 6px;
-  }
-  .header-actions {
-    gap: 4px;
+  /* Header: keep only wifi dot, add, and refresh. Theme and Setup Guide live in Settings; Quick Links has its own Manage button. */
+  .header-actions #btn-web-quick-links,
+  .header-actions #btn-open-onboarding,
+  .header-actions #btn-web-theme-toggle {
+    display: none !important;
   }
   .wifi-status-badge {
     padding: 0 !important;
@@ -1068,8 +1050,60 @@ body {
   #wifi-status-text {
     display: none !important;
   }
-  .brand-subtitle {
-    display: none !important;
+
+  /* Fixed bottom tab bar */
+  .app-nav,
+  [data-theme="dark"] .app-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-top: 1px solid var(--surface-border);
+    border-radius: 0;
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px;
+  }
+  .nav-item {
+    flex-direction: column;
+    gap: 3px;
+    font-size: 10.5px;
+    min-height: 48px;
+    padding: 4px 2px;
+    position: relative;
+  }
+  .nav-item .nav-label {
+    font-size: inherit;
+  }
+  /* The bar shares the surface colour, so the active tab needs its own fill. */
+  .nav-item.active,
+  [data-theme="dark"] .nav-item.active {
+    background: var(--surface-hover);
+    box-shadow: none;
+  }
+  #badge-deadlines-count {
+    position: absolute;
+    top: 2px;
+    right: 24%;
+    margin-left: 0;
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+}
+
+@media (max-width: 540px) {
+  .header-content {
+    padding: 8px 12px 6px;
+  }
+  .header-actions {
+    gap: 4px;
   }
 }
 
@@ -1124,9 +1158,6 @@ body {
     font-size: 12.5px;
     gap: 6px;
   }
-  .brand-subtitle {
-    display: none;
-  }
   #btn-open-day-sheet {
     display: none !important;
   }
@@ -1141,6 +1172,12 @@ body {
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .app-main {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .view-section {
@@ -2982,6 +3019,12 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .toast-container {
+    bottom: calc(76px + var(--safe-bottom));
+  }
 }
 
 .toast {
