@@ -46,7 +46,7 @@ describe('Multi-User Sync Key Isolation Suite', () => {
   });
 
   describe('Scoped Firebase CRUD Operations', () => {
-    it('pushTasksToFirebase writes to user-scoped endpoint when syncKey is provided and mirrors to root', async () => {
+    it('pushTasksToFirebase writes to user-scoped endpoint when syncKey is provided and does not mirror to root', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response(JSON.stringify({ ok: true }), { status: 200 })
       );
@@ -61,11 +61,9 @@ describe('Multi-User Sync Key Isolation Suite', () => {
           body: expect.stringContaining('"syncKey":"BBS-USER1"')
         })
       );
-      expect(fetchSpy).toHaveBeenCalledWith(
+      expect(fetchSpy).not.toHaveBeenCalledWith(
         `${FIREBASE_DB_URL}/data.json`,
-        expect.objectContaining({
-          method: 'PUT'
-        })
+        expect.anything()
       );
 
       fetchSpy.mockRestore();

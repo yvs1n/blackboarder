@@ -73,19 +73,6 @@ export async function pushTasksToFirebase(
       return { success: false, message: `Firebase error (${res.status}): ${err}` };
     }
 
-    // Mirror to root /data.json when syncKey is provided so unkeyed website access stays in sync
-    if (syncKey && targetUrl !== `${FIREBASE_DB_URL}/data.json`) {
-      try {
-        await fetch(`${FIREBASE_DB_URL}/data.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (mirrorErr) {
-        console.warn('Firebase root mirror error:', mirrorErr);
-      }
-    }
-
     return {
       success: true,
       message: `Synchronized ${tasks.length} deadlines with Firebase Cloud`,

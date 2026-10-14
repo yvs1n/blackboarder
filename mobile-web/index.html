@@ -256,6 +256,10 @@
         <button id="btn-web-quick-links" class="btn-icon" aria-label="Academic Quick Links" title="Academic Quick Links (Attendance, Study Plan, Marks)">
           <span class="action-icon"><svg class="ui-icon"><use href="#icon-link"></use></svg></span>
         </button>
+        <button id="btn-open-onboarding" class="btn-setup-guide" aria-label="Setup Guide &amp; Pairing Tutorial" title="Setup Guide &amp; Pairing Tutorial">
+          <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+          <span class="setup-guide-label">Setup Guide</span>
+        </button>
         <button id="btn-web-theme-toggle" class="btn-icon" aria-label="Toggle Dark or Light Mode" title="Toggle Dark or Light Mode">
           <span class="theme-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
         </button>
@@ -530,6 +534,10 @@
           <span id="web-sync-key-status" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
             Enter the Sync Key from your extension settings (or open via pairing link) to load your private deadlines.
           </span>
+          <button type="button" id="btn-settings-open-onboarding" class="btn-secondary-action" style="margin-top: 10px; font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+            <svg class="ui-icon" style="width: 14px; height: 14px;"><use href="#icon-bolt"></use></svg>
+            <span>Open Setup Guide &amp; Instructions</span>
+          </button>
         </div>
       </div>
 
@@ -1192,6 +1200,178 @@
         <div class="quick-links-manager-list" id="web-quick-links-manager-list" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Dynamically populated -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Onboarding & Setup Guide Walkthrough -->
+  <div id="modal-onboarding" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="onboarding-modal-title">
+    <div class="modal-card onboarding-modal-card">
+      <!-- Modal Header -->
+      <div class="modal-header onboarding-header">
+        <div class="onboarding-header-left">
+          <div class="onboarding-badge">
+            <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+            <span>Setup Guide</span>
+          </div>
+          <h3 id="onboarding-modal-title" class="modal-title">Get Started with Blackboarder</h3>
+        </div>
+        <button type="button" class="btn-modal-close" id="btn-close-onboarding" aria-label="Close setup guide">✕</button>
+      </div>
+
+      <!-- Step Indicator Bar -->
+      <div class="onboarding-stepper">
+        <button type="button" class="step-indicator active" data-step="1">
+          <span class="step-num">1</span>
+          <span class="step-name">Extension</span>
+        </button>
+        <div class="step-divider"></div>
+        <button type="button" class="step-indicator" data-step="2">
+          <span class="step-num">2</span>
+          <span class="step-name">Scan</span>
+        </button>
+        <div class="step-divider"></div>
+        <button type="button" class="step-indicator" data-step="3">
+          <span class="step-num">3</span>
+          <span class="step-name">Pair</span>
+        </button>
+        <div class="step-divider"></div>
+        <button type="button" class="step-indicator" data-step="4">
+          <span class="step-num">4</span>
+          <span class="step-name">Mobile</span>
+        </button>
+      </div>
+
+      <!-- Step Content Panes -->
+      <div class="onboarding-body">
+        <!-- Step 1: Install Extension -->
+        <div class="onboarding-step-pane active" id="onboarding-step-1">
+          <div class="onboarding-step-hero">
+            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-terminal"></use></svg></span>
+            <div class="step-hero-content">
+              <h4 class="step-hero-title">1. Install the Chrome Extension</h4>
+              <p class="step-hero-desc">The extension runs on your computer browser to safely parse your registered Blackboard courses and upcoming assignments.</p>
+            </div>
+          </div>
+          <ol class="onboarding-instructions-list">
+            <li>
+              <strong>Unzip the extension:</strong> Download the latest <code>blackboarder-extension.zip</code> and extract it to a folder on your computer.
+            </li>
+            <li>
+              <strong>Open Extensions:</strong> In Google Chrome or Microsoft Edge, navigate to <code>chrome://extensions</code> in your address bar.
+            </li>
+            <li>
+              <strong>Enable Developer mode:</strong> Turn on the <em>Developer mode</em> toggle switch in the top-right corner.
+            </li>
+            <li>
+              <strong>Load unpacked:</strong> Click <em>Load unpacked</em> at the top left, then select the extracted extension folder.
+            </li>
+            <li>
+              <strong>Pin to toolbar:</strong> Click the puzzle piece icon in Chrome's toolbar and pin <strong>Blackboarder</strong> for one-click access.
+            </li>
+          </ol>
+          <div class="onboarding-note-box">
+            <svg class="ui-icon"><use href="#icon-info"></use></svg>
+            <span><strong>Private &amp; Secure:</strong> Blackboarder runs entirely on your device. Your Blackboard password and university login credentials never leave your browser.</span>
+          </div>
+        </div>
+
+        <!-- Step 2: Scan Blackboard -->
+        <div class="onboarding-step-pane" id="onboarding-step-2" style="display: none;">
+          <div class="onboarding-step-hero">
+            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
+            <div class="step-hero-content">
+              <h4 class="step-hero-title">2. Scan Blackboard Ultra Once</h4>
+              <p class="step-hero-desc">Let Blackboarder automatically read your stream to extract deadlines, calculate syllabus weightings, and map lecture rooms.</p>
+            </div>
+          </div>
+          <ol class="onboarding-instructions-list">
+            <li>
+              <strong>Open Blackboard:</strong> Go to <a href="https://elearning.sharjah.ac.ae" target="_blank" rel="noopener">elearning.sharjah.ac.ae</a> and sign in with your student account.
+            </li>
+            <li>
+              <strong>Click "Scan Blackboard":</strong> A floating blue button will appear at the bottom right. Click it, or click the Blackboarder extension icon and select <em>Scan Now</em>.
+            </li>
+            <li>
+              <strong>Automatic Processing:</strong> Blackboarder identifies your active courses (Calculus 1, Physics 1, Intro to Comp, EAP, Islamic Culture, etc.), calculates dynamic syllabus weights (e.g. 10% for Quizzes 1 of 2), and matches your class rooms.
+            </li>
+          </ol>
+          <div class="onboarding-note-box">
+            <svg class="ui-icon"><use href="#icon-check"></use></svg>
+            <span><strong>Smart Deduplication:</strong> When professors edit or repost announcements, Blackboarder merges them automatically without cluttering your schedule with duplicates.</span>
+          </div>
+        </div>
+
+        <!-- Step 3: Pair Devices (Sync Key) -->
+        <div class="onboarding-step-pane" id="onboarding-step-3" style="display: none;">
+          <div class="onboarding-step-hero">
+            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-sync"></use></svg></span>
+            <div class="step-hero-content">
+              <h4 class="step-hero-title">3. Pair Your Private Sync Key</h4>
+              <p class="step-hero-desc">Every student has a unique Sync Key (e.g. <code>BBS-W4K9</code>). Your deadlines sync to your private cloud bucket.</p>
+            </div>
+          </div>
+          
+          <div class="onboarding-pairing-card">
+            <label class="form-label" for="onboarding-sync-key-input" style="font-weight: 700; margin-bottom: 6px; display: block;">Enter Your Personal Sync Key:</label>
+            <div class="onboarding-inline-pair-form">
+              <input type="text" id="onboarding-sync-key-input" class="mobile-input" placeholder="e.g. BBS-9A2K" maxlength="16" style="font-family: monospace; font-weight: 700; text-transform: uppercase;">
+              <button type="button" id="btn-onboarding-save-key" class="btn-primary" style="white-space: nowrap; padding: 9px 16px;">Pair Device</button>
+            </div>
+            <div id="onboarding-pairing-status" class="onboarding-pairing-status"></div>
+          </div>
+
+          <div class="onboarding-note-box">
+            <svg class="ui-icon"><use href="#icon-sparkles"></use></svg>
+            <span><strong>Fastest Way:</strong> In your laptop extension popup, simply click <em>"Open Mobile Web App"</em>—it opens this universal link with your key already attached and paired automatically!</span>
+          </div>
+        </div>
+
+        <!-- Step 4: Phone & Calendar Integration -->
+        <div class="onboarding-step-pane" id="onboarding-step-4" style="display: none;">
+          <div class="onboarding-step-hero">
+            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-smartphone"></use></svg></span>
+            <div class="step-hero-content">
+              <h4 class="step-hero-title">4. Mobile App, Calendar &amp; Widgets</h4>
+              <p class="step-hero-desc">Access your academic deadlines on your phone with full offline caching and lock-screen alerts.</p>
+            </div>
+          </div>
+          
+          <div class="onboarding-feature-grid">
+            <div class="onboarding-feature-item">
+              <div class="feature-item-title">
+                <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
+                <strong>Install PWA on Phone</strong>
+              </div>
+              <p><strong>iOS (Safari):</strong> Tap the <em>Share</em> button at the bottom (box with arrow) &gt; <em>Add to Home Screen</em>.<br>
+              <strong>Android (Chrome):</strong> Tap the 3-dot menu &gt; <em>Add to Home screen</em> / <em>Install</em>.</p>
+            </div>
+
+            <div class="onboarding-feature-item">
+              <div class="feature-item-title">
+                <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
+                <strong>Live Calendar Subscription</strong>
+              </div>
+              <p>Subscribe to the WebCal calendar feed in Apple Calendar or Google Calendar so deadlines appear directly alongside your class lectures.</p>
+            </div>
+
+            <div class="onboarding-feature-item">
+              <div class="feature-item-title">
+                <svg class="ui-icon"><use href="#icon-timer"></use></svg>
+                <strong>Lock Screen Widgets</strong>
+              </div>
+              <p>Add the Scriptable widget to see your next upcoming quiz and room number directly on your iPhone lock screen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer / Nav -->
+      <div class="modal-footer onboarding-footer">
+        <button type="button" class="btn-secondary-action" id="btn-onboarding-prev" style="display: none;">&larr; Back</button>
+        <div style="flex: 1;"></div>
+        <button type="button" class="btn-primary-action" id="btn-onboarding-next">Next Step &rarr;</button>
+        <button type="button" class="btn-primary-action" id="btn-onboarding-finish" style="display: none;">Done &amp; Close</button>
       </div>
     </div>
   </div>

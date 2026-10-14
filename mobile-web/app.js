@@ -7,17 +7,29 @@ const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast
 
 /**
  * Retrieves the active Sync Pairing Key:
- * 1. Checks URL parameter ?key=... (and saves to localStorage if present)
+ * 1. Checks URL parameter ?key=..., ?sync=..., or ?code=... (and saves to localStorage if present)
  * 2. Checks localStorage('bbs_sync_key')
  */
+let _justPairedViaUrl = false;
+
 function getSyncKey() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const urlKey = params.get('key');
+    const urlKey = params.get('key') || params.get('sync') || params.get('code');
     if (urlKey && urlKey.trim()) {
       const clean = urlKey.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '');
-      localStorage.setItem('bbs_sync_key', clean);
-      return clean;
+      if (clean) {
+        const prevKey = localStorage.getItem('bbs_sync_key');
+        if (prevKey !== clean) {
+          _justPairedViaUrl = true;
+        }
+        localStorage.setItem('bbs_sync_key', clean);
+        if (window.history && window.history.replaceState) {
+          const cleanUrl = window.location.pathname + (window.location.hash || '');
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+        return clean;
+      }
     }
     const saved = localStorage.getItem('bbs_sync_key');
     if (saved && saved.trim()) {
@@ -29,7 +41,7 @@ function getSyncKey() {
 
 function getFirebaseDataUrl() {
   const key = getSyncKey();
-  return key ? `${FIREBASE_DB_URL}/users/${key}/data.json` : `${FIREBASE_DB_URL}/data.json`;
+  return key ? `${FIREBASE_DB_URL}/users/${key}/data.json` : null;
 }
 
 // Permanent Subject Colors (matching University of Sharjah curriculum)
@@ -2218,6 +2230,14 @@ function initApp() {
 
   // 3. Proactively refresh data in the background non-blockingly without layout jumps
   refreshDataInBackground();
+
+  if (_justPairedViaUrl) {
+    const key = getSyncKey();
+    if (key) {
+      showToast(`✓ Paired with extension (Key: ${key})!`);
+    }
+    _justPairedViaUrl = false;
+  }
 }
 
 if (document.readyState === 'loading') {
@@ -2672,33 +2692,34 @@ async function fetchTasksFromServer(isManual = false) {
     let fetchedSync = null;
     let fetchedQuickLinks = null;
 
+    const activeKey = getSyncKey();
+    if (!activeKey) {
+      // Un-paired state: do not query unkeyed root data
+      updateSyncBanner();
+      renderDeadlines();
+      renderCalendar();
+      return;
+    }
+
     // 1. Fetch directly from Firebase Realtime Database (24/7 online even if laptop is off)
     try {
       const fbUrl = getFirebaseDataUrl();
-      const fbRes = await fetch(fbUrl, { cache: 'no-store' });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        if (fbData && Array.isArray(fbData.tasks)) {
-          fetchedTasks = fbData.tasks;
-          fetchedSync = fbData.lastSync || new Date().toISOString();
-          tasksLoaded = true;
-          if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
-            fetchedQuickLinks = fbData.quickLinks;
-          }
-          if (!localStorage.getItem('bbs_sync_key') && fbData.syncKey) {
-            localStorage.setItem('bbs_sync_key', fbData.syncKey);
-            const inputKey = document.getElementById('web-sync-key-input');
-            if (inputKey && !inputKey.value) inputKey.value = fbData.syncKey;
-            const syncKeyStatus = document.getElementById('web-sync-key-status');
-            if (syncKeyStatus) {
-              syncKeyStatus.textContent = `Paired with ${fbData.syncKey} (auto-discovered)`;
-              syncKeyStatus.style.color = '#15803d';
+      if (fbUrl) {
+        const fbRes = await fetch(fbUrl, { cache: 'no-store' });
+        if (fbRes.ok) {
+          const fbData = await fbRes.json();
+          if (fbData && Array.isArray(fbData.tasks)) {
+            fetchedTasks = fbData.tasks;
+            fetchedSync = fbData.lastSync || new Date().toISOString();
+            tasksLoaded = true;
+            if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
+              fetchedQuickLinks = fbData.quickLinks;
             }
-          }
-          if (fbData.tombstones && typeof fbData.tombstones === 'object') {
-            const tombs = getLocalTombstones();
-            Object.assign(tombs, fbData.tombstones);
-            localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+            if (fbData.tombstones && typeof fbData.tombstones === 'object') {
+              const tombs = getLocalTombstones();
+              Object.assign(tombs, fbData.tombstones);
+              localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+            }
           }
         }
       }
@@ -2707,9 +2728,8 @@ async function fetchTasksFromServer(isManual = false) {
     }
 
     // 2. Fallback to Cloudflare edge /api/tasks
-    if (!tasksLoaded) {
-      const activeKey = getSyncKey();
-      const edgeUrl = activeKey ? `/api/tasks?key=${encodeURIComponent(activeKey)}` : '/api/tasks';
+    if (!tasksLoaded && activeKey) {
+      const edgeUrl = `/api/tasks?key=${encodeURIComponent(activeKey)}`;
       const res = await fetch(edgeUrl, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
@@ -2719,9 +2739,6 @@ async function fetchTasksFromServer(isManual = false) {
           tasksLoaded = true;
           if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
             fetchedQuickLinks = data.quickLinks;
-          }
-          if (!localStorage.getItem('bbs_sync_key') && data.syncKey) {
-            localStorage.setItem('bbs_sync_key', data.syncKey);
           }
         }
       }
@@ -3626,13 +3643,27 @@ function renderDeadlines() {
 
   if (filtered.length === 0) {
     if (state.tasks.length === 0) {
+      const hasKey = Boolean(getSyncKey());
       container.innerHTML = `
         <div class="state-container">
           <div class="state-icon">${getSvgIcon('bolt')}</div>
-          <div class="state-title">No Deadlines Found Yet</div>
-          <div class="state-desc">Open Blackboard on your laptop extension and tap "Scan Page" to synchronize your courses here.</div>
+          <div class="state-title">${hasKey ? 'No Deadlines Found Yet' : 'Connect Your Blackboarder Extension'}</div>
+          <div class="state-desc">
+            ${hasKey
+              ? 'Open Blackboard on your laptop and click "Scan Blackboard" to synchronize your courses here.'
+              : 'Pair your private Sync Key from the Chrome Extension to view your deadlines, syllabus weights, and classroom schedule.'}
+          </div>
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn-primary-action btn-trigger-setup" style="padding: 9px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0 auto;">
+              ${getSvgIcon('bolt')}
+              <span>Open Setup Guide</span>
+            </button>
+          </div>
         </div>
       `;
+      container.querySelector('.btn-trigger-setup')?.addEventListener('click', () => {
+        openOnboardingModal(1);
+      });
     } else {
       container.innerHTML = `
         <div class="state-container">
@@ -5212,6 +5243,8 @@ function initModals() {
     await syncToCloudAndLocal();
     showToast('New deadline added and synced');
   });
+
+  initOnboardingModal();
 }
 
 function openEditTaskModal(task) {
@@ -5540,6 +5573,154 @@ function closeReadingSheet() {
   }
 }
 
+// ==========================================================================
+// Onboarding Tutorial & Setup Guide
+// ==========================================================================
+let _onboardingStep = 1;
+
+function setOnboardingStep(step) {
+  const boundedStep = Math.max(1, Math.min(4, step));
+  _onboardingStep = boundedStep;
+
+  // 1. Toggle step panes
+  for (let i = 1; i <= 4; i++) {
+    const pane = document.getElementById(`onboarding-step-${i}`);
+    if (pane) {
+      if (i === boundedStep) {
+        pane.style.display = 'block';
+        pane.classList.add('active');
+      } else {
+        pane.style.display = 'none';
+        pane.classList.remove('active');
+      }
+    }
+  }
+
+  // 2. Update stepper indicators
+  document.querySelectorAll('.onboarding-stepper .step-indicator').forEach(ind => {
+    const s = parseInt(ind.getAttribute('data-step') || '1', 10);
+    ind.classList.remove('active', 'completed');
+    if (s === boundedStep) {
+      ind.classList.add('active');
+    } else if (s < boundedStep) {
+      ind.classList.add('completed');
+    }
+  });
+
+  // 3. Update footer navigation buttons
+  const btnPrev = document.getElementById('btn-onboarding-prev');
+  const btnNext = document.getElementById('btn-onboarding-next');
+  const btnFinish = document.getElementById('btn-onboarding-finish');
+
+  if (btnPrev) btnPrev.style.display = boundedStep > 1 ? 'inline-block' : 'none';
+  if (btnNext) btnNext.style.display = boundedStep < 4 ? 'inline-block' : 'none';
+  if (btnFinish) btnFinish.style.display = boundedStep === 4 ? 'inline-block' : 'none';
+
+  // 4. Update Step 3 pairing input and status
+  if (boundedStep === 3) {
+    const currentKey = getSyncKey();
+    const inputKey = document.getElementById('onboarding-sync-key-input');
+    const statusDiv = document.getElementById('onboarding-pairing-status');
+    if (inputKey && !inputKey.value && currentKey) {
+      inputKey.value = currentKey;
+    }
+    if (statusDiv) {
+      if (currentKey) {
+        statusDiv.innerHTML = `<span style="color: #10b981;">✓ Paired with key: <strong>${escapeHtml(currentKey)}</strong> (Cloud Sync Active)</span>`;
+      } else {
+        statusDiv.innerHTML = '<span style="color: var(--text-muted);">Enter the 6-character Sync Key shown in your extension popup.</span>';
+      }
+    }
+  }
+}
+
+function openOnboardingModal(step = 1) {
+  const modal = document.getElementById('modal-onboarding');
+  if (!modal) return;
+  setOnboardingStep(step);
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+}
+
+function closeOnboardingModal() {
+  const modal = document.getElementById('modal-onboarding');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.style.display = 'none';
+}
+
+function initOnboardingModal() {
+  const modal = document.getElementById('modal-onboarding');
+  if (!modal) return;
+
+  // Open triggers
+  document.getElementById('btn-open-onboarding')?.addEventListener('click', () => {
+    openOnboardingModal(1);
+  });
+  document.getElementById('btn-settings-open-onboarding')?.addEventListener('click', () => {
+    openOnboardingModal(1);
+  });
+
+  // Close triggers
+  document.getElementById('btn-close-onboarding')?.addEventListener('click', closeOnboardingModal);
+  document.getElementById('btn-onboarding-finish')?.addEventListener('click', () => {
+    closeOnboardingModal();
+    showToast('Setup complete! Welcome to Blackboarder.');
+  });
+  modal.addEventListener('click', (e) => {
+    if (e.target.id === 'modal-onboarding') closeOnboardingModal();
+  });
+
+  // Step navigation buttons
+  document.getElementById('btn-onboarding-prev')?.addEventListener('click', () => {
+    setOnboardingStep(_onboardingStep - 1);
+  });
+  document.getElementById('btn-onboarding-next')?.addEventListener('click', () => {
+    setOnboardingStep(_onboardingStep + 1);
+  });
+
+  // Direct stepper indicators click
+  modal.querySelectorAll('.step-indicator').forEach(ind => {
+    ind.addEventListener('click', () => {
+      const s = parseInt(ind.getAttribute('data-step') || '1', 10);
+      setOnboardingStep(s);
+    });
+  });
+
+  // Inline Sync Key pairing within Step 3
+  const pairBtn = document.getElementById('btn-onboarding-save-key');
+  const pairInput = document.getElementById('onboarding-sync-key-input');
+  const pairStatus = document.getElementById('onboarding-pairing-status');
+
+  pairBtn?.addEventListener('click', async () => {
+    const raw = pairInput ? pairInput.value.trim().toUpperCase() : '';
+    if (!raw) {
+      if (pairStatus) {
+        pairStatus.innerHTML = '<span style="color: #ef4444;">Please enter your Sync Key from the extension.</span>';
+      }
+      return;
+    }
+    const clean = raw.replace(/[^a-zA-Z0-9_-]/g, '');
+    localStorage.setItem('bbs_sync_key', clean);
+
+    // Sync input in settings if open
+    const settingsInput = document.getElementById('web-sync-key-input');
+    if (settingsInput) settingsInput.value = clean;
+    const settingsStatus = document.getElementById('web-sync-key-status');
+    if (settingsStatus) {
+      settingsStatus.textContent = `Paired to key: ${clean}. Loading your tasks...`;
+      settingsStatus.style.color = 'var(--primary, #6366f1)';
+    }
+
+    if (pairStatus) {
+      pairStatus.innerHTML = `<span style="color: #10b981;">✓ Paired with <strong>${escapeHtml(clean)}</strong>! Syncing your deadlines...</span>`;
+    }
+
+    showToast(`Paired with ${clean}! Fetching deadlines...`);
+    await fetchTasksFromServer(true);
+  });
+}
+
 async function syncToCloudAndLocal() {
   state.tasks = (state.tasks || []).filter(isValidTask);
   state.tasks.sort(compareTasksByTime);
@@ -5569,20 +5750,13 @@ async function syncToCloudAndLocal() {
   let cloudOk = false;
   try {
     const fbUrl = getFirebaseDataUrl();
-    const fbRes = await fetch(fbUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    cloudOk = fbRes.ok;
-
-    const activeKey = getSyncKey();
-    if (activeKey && fbUrl !== `${FIREBASE_DB_URL}/data.json`) {
-      await fetch(`${FIREBASE_DB_URL}/data.json`, {
+    if (fbUrl) {
+      const fbRes = await fetch(fbUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(() => {});
+      });
+      cloudOk = fbRes.ok;
     }
   } catch (err) {
     console.warn('Firebase sync PUT error:', err);

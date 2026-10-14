@@ -83,41 +83,32 @@ function i(e) {
 	let t = (e || "").trim().replace(/[^a-zA-Z0-9_-]/g, "");
 	return t ? `${r}/users/${t}/data.json` : `${r}/data.json`;
 }
-async function a(e, t = "Chrome Extension", n, a, o) {
+async function a(e, t = "Chrome Extension", n, r, a) {
 	try {
-		let s = (/* @__PURE__ */ new Date()).toISOString(), c = {
+		let o = (/* @__PURE__ */ new Date()).toISOString(), s = {
 			tasks: e,
-			lastSync: s,
+			lastSync: o,
 			device: t,
 			count: e.length,
 			syncKey: n || void 0,
-			quickLinks: a || void 0,
-			tombstones: o || void 0
-		}, l = i(n), u = await fetch(l, {
+			quickLinks: r || void 0,
+			tombstones: a || void 0
+		}, c = i(n), l = await fetch(c, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(c)
+			body: JSON.stringify(s)
 		});
-		if (!u.ok) {
-			let e = await u.text().catch(() => "");
+		if (!l.ok) {
+			let e = await l.text().catch(() => "");
 			return {
 				success: !1,
-				message: `Firebase error (${u.status}): ${e}`
+				message: `Firebase error (${l.status}): ${e}`
 			};
-		}
-		if (n && l !== `${r}/data.json`) try {
-			await fetch(`${r}/data.json`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(c)
-			});
-		} catch (e) {
-			console.warn("Firebase root mirror error:", e);
 		}
 		return {
 			success: !0,
 			message: `Synchronized ${e.length} deadlines with Firebase Cloud`,
-			lastSync: s,
+			lastSync: o,
 			count: e.length
 		};
 	} catch (e) {
