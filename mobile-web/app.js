@@ -1851,7 +1851,7 @@ function renderQuickLinksBar() {
     return `
       <a class="ql-chip ${meta.badgeClass}" data-id="${link.id}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
         <span class="ql-chip-dot" style="background: ${meta.color};"></span>
-        <span>${escapeHtml(link.title)}</span>
+        <span class="ql-chip-label">${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
       </a>
     `;
@@ -3040,6 +3040,7 @@ function updateSyncBanner() {
 function updateAllViews() {
   renderCalendar();
   renderSelectedDay(state.selectedDate);
+  renderUpNextAgenda();
   renderDeadlines();
   renderQuickLinksBar();
   renderQuickLinksSchedule();
@@ -3315,6 +3316,7 @@ function initLegend() {
       initLegend();
       renderCalendar();
       renderSelectedDay();
+      renderUpNextAgenda();
     });
   });
 }
@@ -3640,6 +3642,150 @@ function initSelectedDayContainer() {
     const activeDate = state.selectedDate || new Date().toISOString().split('T')[0];
     const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(activeDate));
     openDaySheet(activeDate, dayTasks);
+  });
+}
+
+// ==========================================================================
+// Up Next Agenda (Compact Mobile-First Agenda Card Below Calendar)
+// ==========================================================================
+function getRelativeTimeBadge(dueDateIso) {
+  if (!dueDateIso) return { text: 'Pending', cls: 'badge-future' };
+  const due = new Date(dueDateIso);
+  if (isNaN(due.getTime())) return { text: 'Pending', cls: 'badge-future' };
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const diffDays = Math.round((dueStart - todayStart) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { text: 'Overdue', cls: 'badge-overdue' };
+  } else if (diffDays === 0) {
+    return { text: 'Today', cls: 'badge-today' };
+  } else if (diffDays === 1) {
+    return { text: 'Tomorrow', cls: 'badge-tomorrow' };
+  } else {
+    return { text: `In ${diffDays}d`, cls: 'badge-future' };
+  }
+}
+
+function formatUpNextDateTime(task) {
+  if (!task.dueDate) return 'No due date';
+  const d = new Date(task.dueDate);
+  if (isNaN(d.getTime())) return 'No due date';
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (task.hasSpecificTime === false) {
+    return `${dateStr} \u2022 Class Time`;
+  }
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} \u2022 ${timeStr}`;
+}
+
+function renderUpNextAgenda() {
+  const container = document.getElementById('up-next-container');
+  const list = document.getElementById('up-next-list');
+  const countBadge = document.getElementById('up-next-count-badge');
+  if (!container || !list) return;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  // Filter uncompleted tasks respecting course filter from today onward
+  const uncompleted = (state.tasks || []).filter(task => {
+    if (task.status === 'completed') return false;
+    if (!task.dueDate) return false;
+    if (!matchesSelectedCourseFilter(task, state.selectedCourseFilter)) return false;
+    const taskTime = getTaskSortTimestamp(task);
+    return taskTime >= todayStart;
+  });
+
+  uncompleted.sort(compareTasksByTime);
+  const upNext = uncompleted.slice(0, 3);
+
+  if (countBadge) {
+    if (uncompleted.length === 0) {
+      countBadge.textContent = 'Caught up';
+    } else {
+      countBadge.textContent = `${uncompleted.length} upcoming`;
+    }
+  }
+
+  if (upNext.length === 0) {
+    list.innerHTML = `
+      <div class="up-next-empty">
+        <svg class="ui-icon" style="color: var(--success);"><use href="#icon-check"></use></svg>
+        <span>All caught up! No upcoming deadlines.</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = upNext.map(task => {
+    const { courseName, courseCode } = resolveCourseInfo(task);
+    const courseTheme = getCourseColorTheme(courseName, courseCode, task.title);
+    const badgeInfo = getRelativeTimeBadge(task.dueDate);
+    const dateTimeStr = formatUpNextDateTime(task);
+    const hasRoom = Boolean(task.room && task.room.trim());
+
+    return `
+      <div class="up-next-item" data-task-id="${task.id}">
+        <button type="button" class="up-next-checkbox" data-task-id="${task.id}" aria-label="Mark completed" title="Mark as completed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#icon-check"></use></svg>
+        </button>
+        <div class="up-next-item-main">
+          <div class="up-next-item-top">
+            <span class="up-next-course-chip" style="background: ${courseTheme.bgLight}; color: ${courseTheme.textDark}; border: 1px solid ${courseTheme.border};">
+              <span class="up-next-course-dot" style="background: ${courseTheme.hex};"></span>
+              <span class="up-next-course-name">${escapeHtml(courseName)}</span>
+            </span>
+            <span class="up-next-badge ${badgeInfo.cls}">${badgeInfo.text}</span>
+          </div>
+          <div class="up-next-item-title">${escapeHtml(task.title)}</div>
+          <div class="up-next-item-time">
+            <svg class="ui-icon mr-1"><use href="#icon-clock"></use></svg>
+            <span>${dateTimeStr}</span>
+            ${hasRoom ? `<span class="up-next-room-tag"><svg class="ui-icon mr-1"><use href="#icon-pin"></use></svg>${escapeHtml(task.room.trim())}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.up-next-item').forEach(item => {
+    const taskId = item.getAttribute('data-task-id');
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.up-next-checkbox')) return;
+      openReadingSheet(task);
+    });
+
+    const checkbox = item.querySelector('.up-next-checkbox');
+    if (checkbox) {
+      checkbox.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const prevStatus = task.status;
+        const newStatus = 'completed';
+        task.status = newStatus;
+        task.updatedAt = new Date().toISOString();
+
+        enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+        await syncToCloudAndLocal();
+
+        showToast(
+          'Marked as completed',
+          'Undo',
+          async () => {
+            task.status = prevStatus;
+            task.updatedAt = new Date().toISOString();
+            enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
+            await syncToCloudAndLocal();
+            showToast('Status reverted');
+          }
+        );
+      });
+    }
   });
 }
 
