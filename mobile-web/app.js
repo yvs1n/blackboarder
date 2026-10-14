@@ -25,8 +25,7 @@ function getSyncKey() {
         }
         localStorage.setItem('bbs_sync_key', clean);
         if (window.history && window.history.replaceState) {
-          const cleanUrl = window.location.pathname + (window.location.hash || '');
-          window.history.replaceState({}, document.title, cleanUrl);
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
         return clean;
       }
@@ -4632,9 +4631,9 @@ function initSettings() {
     }
 
     localStorage.setItem('bbs_sync_key', clean);
-    const url = new URL(window.location.href);
-    url.searchParams.set('key', clean);
-    window.history.replaceState({}, '', url.toString());
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     updateDevicePairingCard();
     activeFeedUrl = updateFeedUrls();
@@ -4668,11 +4667,9 @@ function initSettings() {
     if (confirm('Disconnect this device from your extension sync key?')) {
       localStorage.removeItem('bbs_sync_key');
       if (inputSyncKey) inputSyncKey.value = '';
-      const url = new URL(window.location.href);
-      url.searchParams.delete('key');
-      url.searchParams.delete('sync');
-      url.searchParams.delete('code');
-      window.history.replaceState({}, '', url.pathname);
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       state.tasks = [];
       updateAllViews();
       updateDevicePairingCard();
@@ -5994,9 +5991,6 @@ function initOnboardingModal() {
 
   // Open triggers
   document.getElementById('btn-open-onboarding')?.addEventListener('click', () => {
-    openOnboardingModal(1);
-  });
-  document.getElementById('btn-settings-open-onboarding')?.addEventListener('click', () => {
     openOnboardingModal(1);
   });
   document.getElementById('btn-settings-onboarding')?.addEventListener('click', () => {

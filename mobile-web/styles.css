@@ -1530,8 +1530,13 @@ body {
   }
 }
 
-/* On wider screens (>=641px): Display text alongside icons */
+/* On wider screens (>=641px): Display text alongside icons, hide compact mobile up-next agenda */
 @media (min-width: 641px) {
+  #up-next-container,
+  .up-next-card {
+    display: none !important;
+  }
+
   .cal-event-chip .chip-text {
     display: inline;
     white-space: nowrap;
@@ -2062,6 +2067,13 @@ body {
   background: var(--surface);
   color: var(--text-muted);
   border-color: var(--surface-border);
+}
+
+@media (min-width: 641px) {
+  #up-next-container,
+  .up-next-card {
+    display: none !important;
+  }
 }
 
 /* ==========================================================================
