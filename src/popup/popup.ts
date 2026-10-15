@@ -3,7 +3,7 @@ import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, save
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask } from '../utils/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter } from '../utils/courseHelper';
 import { getCourseHex, getCourseColorTheme, PERMANENT_COURSE_LEGEND } from '../utils/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
 import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
@@ -24,6 +24,7 @@ const todayDate = new Date();
 let calendarYear = todayDate.getFullYear();
 let calendarMonth = todayDate.getMonth(); // 0-indexed (0 = Jan)
 let selectedDateStr = formatDateKey(todayDate); // 'YYYY-MM-DD'
+let selectedCourseFilter: string | null = null;
 
 // DOM Elements: Views & Nav
 const tabNavCalendar = document.getElementById('tab-nav-calendar') as HTMLButtonElement;
@@ -267,9 +268,10 @@ function getTaskTypeIcon(type: TaskType): string {
 function renderCalendar() {
   calMonthTitle.textContent = formatMonthYear(calendarYear, calendarMonth);
 
-  // Group active tasks by YYYY-MM-DD
+  // Group active tasks by YYYY-MM-DD (filtered by selectedCourseFilter if active)
   const tasksByDate = new Map<string, DeadlineTask[]>();
   currentTasks.forEach(task => {
+    if (!matchesSelectedCourseFilter(task, selectedCourseFilter)) return;
     const d = new Date(task.dueDate);
     if (!isNaN(d.getTime())) {
       const key = formatDateKey(d);
@@ -461,6 +463,7 @@ function openDayExpandedDrawer(dateKey: string) {
   });
 
   const tasksOnDate = currentTasks.filter(task => {
+    if (!matchesSelectedCourseFilter(task, selectedCourseFilter)) return false;
     const taskD = new Date(task.dueDate);
     return !isNaN(taskD.getTime()) && formatDateKey(taskD) === dateKey;
   });
@@ -671,9 +674,11 @@ function renderSelectedDay() {
     day: 'numeric'
   });
 
-  selectedDayTitle.innerHTML = `${getSvgIcon('calendar', 'mr-1')} <span>Deadlines for ${escapeHtml(formattedHeader)}</span>`;
+  const filterLabel = selectedCourseFilter ? ` <span style="font-weight: 500; font-size: 11px; color: var(--text-muted);">&bull; ${escapeHtml(selectedCourseFilter)}</span>` : '';
+  selectedDayTitle.innerHTML = `${getSvgIcon('calendar', 'mr-1')} <span>Deadlines for ${escapeHtml(formattedHeader)}${filterLabel}</span>`;
 
   const tasksOnDate = currentTasks.filter(task => {
+    if (!matchesSelectedCourseFilter(task, selectedCourseFilter)) return false;
     const taskD = new Date(task.dueDate);
     return !isNaN(taskD.getTime()) && formatDateKey(taskD) === selectedDateStr;
   });
@@ -684,7 +689,7 @@ function renderSelectedDay() {
   if (tasksOnDate.length === 0) {
     selectedDayList.innerHTML = `
       <div class="selected-day-empty">
-        <span>No deadlines scheduled for this day.</span>
+        <span>No deadlines scheduled for this day${selectedCourseFilter ? ' matching selected course' : ''}.</span>
       </div>
     `;
     return;
@@ -697,16 +702,47 @@ function renderSelectedDay() {
 }
 
 
-// Render permanent course color legend
+// Render permanent course color legend with interactive filtering
 function renderLegend() {
+  if (!legendChipsContainer) return;
   legendChipsContainer.innerHTML = '';
+  legendChipsContainer.classList.toggle('has-filter', selectedCourseFilter !== null);
+
+  // 1. "All" filter chip
+  const allChip = document.createElement('div');
+  allChip.className = `legend-chip ${selectedCourseFilter === null ? 'is-active' : ''}`;
+  allChip.setAttribute('data-course', '');
+  allChip.setAttribute('role', 'button');
+  allChip.setAttribute('tabindex', '0');
+  allChip.setAttribute('title', 'Show deadlines for all courses');
+  allChip.innerHTML = `<span>All</span>`;
+  allChip.addEventListener('click', () => {
+    selectedCourseFilter = null;
+    renderLegend();
+    renderCalendar();
+    renderSelectedDay();
+  });
+  legendChipsContainer.appendChild(allChip);
+
+  // 2. Individual Course chips
   PERMANENT_COURSE_LEGEND.forEach(course => {
     const chip = document.createElement('div');
-    chip.className = 'legend-chip';
+    const isActive = selectedCourseFilter === course.name;
+    chip.className = `legend-chip ${isActive ? 'is-active' : ''}`;
+    chip.setAttribute('data-course', course.name);
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('tabindex', '0');
+    chip.setAttribute('title', `Filter calendar by ${course.name}`);
     chip.innerHTML = `
       <span class="legend-dot" style="background-color: ${course.hex};"></span>
       <span>${escapeHtml(course.name)}</span>
     `;
+    chip.addEventListener('click', () => {
+      selectedCourseFilter = selectedCourseFilter === course.name ? null : course.name;
+      renderLegend();
+      renderCalendar();
+      renderSelectedDay();
+    });
     legendChipsContainer.appendChild(chip);
   });
 }
@@ -2462,10 +2498,10 @@ function setupEvents() {
       processedAnnouncementKeys: []
     });
     if (rescanStatusMsg) {
-      rescanStatusMsg.textContent = 'Checkpoint reset! Next scan will be a full scan.';
+      rescanStatusMsg.textContent = 'Scan cache cleared! Next scan will evaluate all announcements.';
       rescanStatusMsg.style.color = '#16a34a';
     }
-    alert('Scan checkpoint has been reset. Your next scan will examine all visible announcements from scratch and update existing tasks in place without resetting your data.');
+    alert('Scan cache has been cleared. Your next scan will examine all announcements from scratch and update existing tasks in place without resetting your data.');
   });
 
   // Mobile Sync Actions

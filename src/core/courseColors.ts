@@ -32,12 +32,12 @@ const PERMANENT_COLORS: Array<{ pattern: RegExp; hex: string }> = [
 ];
 
 export const PERMANENT_COURSE_LEGEND = [
-  { name: 'Intro to Comp Eng', hex: '#7c7c7c' },
-  { name: 'Calculus 1 for Engineering', hex: '#dc2626' },
-  { name: 'Physics 1', hex: '#4b99d2' },
-  { name: 'Physics 1 Lab', hex: '#4b99d2' },
-  { name: 'English for Academic Purposes', hex: '#525252' },
-  { name: 'Islamic Culture', hex: '#489160' }
+  { name: 'Intro to Comp Eng', code: '1502101', pattern: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101|0402102)/i, hex: '#7c7c7c' },
+  { name: 'Calculus 1 for Engineering', code: '1440133', pattern: /(?:calculus|calc\b|حسبان|1440133|1440131|0401101|0401201)/i, hex: '#dc2626' },
+  { name: 'Physics 1', code: '1430115', pattern: /(?:physics\s*1(?!\s*lab)|phys\s*1(?!\s*lab)|فيزياء\s*1(?!\s*عملي)|1430115)/i, hex: '#4b99d2' },
+  { name: 'Physics 1 Lab', code: '1430116', pattern: /(?:physics\s*1\s*lab|phys\s*1\s*lab|فيزياء\s*1\s*عملي|lab\s*phys|1430116)/i, hex: '#4b99d2' },
+  { name: 'English for Academic Purposes', code: '0202112', pattern: /(?:english|eap\b|academic\s*english|إنجليز|انجليز|0202112|0202111)/i, hex: '#525252' },
+  { name: 'Islamic Culture', code: '0104100', pattern: /(?:islamic|إسلام|اسلام|0104100|0104101)/i, hex: '#489160' }
 ];
 
 // Fallback deterministic colors for any other courses

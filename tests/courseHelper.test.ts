@@ -138,4 +138,42 @@ describe('Ghost Task Prevention & Stream Parser Resilience', () => {
     expect(isValidTask({ id: '5', title: 'Quiz 2', courseName: 'Calculus I for Engineering', courseCode: '1440133', dueDate: '' } as any)).toBe(true);
     expect(isValidTask({ id: '6', title: 'Lab 1 Report', courseName: 'General Course', courseCode: '', dueDate: '' } as any)).toBe(true);
   });
+
+  it('matchesSelectedCourseFilter matches tasks by name, code, or regex pattern', async () => {
+    const { matchesSelectedCourseFilter } = await import('../src/utils/courseHelper');
+
+    const taskCalc = {
+      courseName: 'Calculus I for Engineering',
+      courseCode: '1440133',
+      title: 'Quiz 2'
+    };
+
+    const taskPhys = {
+      courseName: 'Physics 1',
+      courseCode: '1430115',
+      title: 'Midterm Exam'
+    };
+
+    const taskLab = {
+      courseName: 'Physics 1 Lab',
+      courseCode: '1430116',
+      title: 'Lab Report 3'
+    };
+
+    // When filter is null / empty, all tasks match
+    expect(matchesSelectedCourseFilter(taskCalc, null)).toBe(true);
+    expect(matchesSelectedCourseFilter(taskCalc, '')).toBe(true);
+
+    // Filter by exact name
+    expect(matchesSelectedCourseFilter(taskCalc, 'Calculus I for Engineering')).toBe(true);
+    expect(matchesSelectedCourseFilter(taskPhys, 'Calculus I for Engineering')).toBe(false);
+
+    // Filter by code
+    expect(matchesSelectedCourseFilter(taskCalc, '1440133')).toBe(true);
+    expect(matchesSelectedCourseFilter(taskPhys, '1440133')).toBe(false);
+
+    // Filter distinguishes Physics 1 vs Physics 1 Lab
+    expect(matchesSelectedCourseFilter(taskLab, 'Physics 1 Lab')).toBe(true);
+    expect(matchesSelectedCourseFilter(taskPhys, 'Physics 1 Lab')).toBe(false);
+  });
 });

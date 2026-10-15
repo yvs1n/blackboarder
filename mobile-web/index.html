@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=17">
+  <link rel="stylesheet" href="./styles.css?v=18">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -18,6 +18,23 @@
     .day-sheet-drawer.hidden, .day-sheet-drawer[style*="display: none"] { display: none !important; }
     @media (min-width: 641px) {
       #btn-open-day-sheet { display: none !important; }
+    }
+    .up-next-checkbox svg {
+      opacity: 0;
+      transform: scale(0.6);
+      pointer-events: none;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .up-next-checkbox.is-checked,
+    .up-next-checkbox.checked {
+      background: var(--success) !important;
+      border-color: var(--success) !important;
+      color: #ffffff !important;
+    }
+    .up-next-checkbox.is-checked svg,
+    .up-next-checkbox.checked svg {
+      opacity: 1 !important;
+      transform: scale(1) !important;
     }
   </style>
 </head>
@@ -1412,6 +1429,6 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./app.js?v=17"></script>
+  <script src="./app.js?v=18"></script>
 </body>
 </html>

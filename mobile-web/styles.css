@@ -1903,8 +1903,18 @@ body {
   cursor: pointer;
   padding: 0;
   transition: all 0.15s ease;
-  color: transparent;
+  color: #fff;
   flex-shrink: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+
+.up-next-checkbox::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .up-next-checkbox svg {
@@ -1912,11 +1922,30 @@ body {
   height: 13px;
   stroke-width: 2.5;
   stroke: currentColor;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.up-next-checkbox:hover {
-  border-color: var(--success);
-  color: var(--success);
+@media (hover: hover) and (pointer: fine) {
+  .up-next-checkbox:hover {
+    border-color: var(--success);
+    background: var(--surface-hover);
+  }
+}
+
+.up-next-checkbox.is-checked,
+.up-next-checkbox.checked {
+  background: var(--success) !important;
+  border-color: var(--success) !important;
+  color: #ffffff !important;
+}
+
+.up-next-checkbox.is-checked svg,
+.up-next-checkbox.checked svg {
+  opacity: 1 !important;
+  transform: scale(1) !important;
 }
 
 .up-next-item-main {
@@ -2049,6 +2078,19 @@ body {
 [data-theme="dark"] .up-next-checkbox {
   background: var(--surface);
   border-color: var(--surface-border-strong);
+}
+
+[data-theme="dark"] .up-next-checkbox.is-checked,
+[data-theme="dark"] .up-next-checkbox.checked {
+  background: var(--success) !important;
+  border-color: var(--success) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .up-next-checkbox.is-checked svg,
+[data-theme="dark"] .up-next-checkbox.checked svg {
+  opacity: 1 !important;
+  transform: scale(1) !important;
 }
 
 [data-theme="dark"] .up-next-badge.badge-today {

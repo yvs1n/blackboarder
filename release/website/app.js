@@ -25,8 +25,7 @@ function getSyncKey() {
         }
         localStorage.setItem('bbs_sync_key', clean);
         if (window.history && window.history.replaceState) {
-          const cleanUrl = window.location.pathname + (window.location.hash || '');
-          window.history.replaceState({}, document.title, cleanUrl);
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
         return clean;
       }
@@ -1660,6 +1659,7 @@ const state = {
   selectedDay: null,
   selectedDate: null,
   selectedTaskId: null,
+  selectedCourseFilter: null,
   filterStatus: 'pending',
   filterCourse: 'all',
   filterType: 'all',
@@ -1726,6 +1726,9 @@ function initTheme() {
 
   const btnToggle = document.getElementById('btn-web-theme-toggle');
   btnToggle?.addEventListener('click', toggleTheme);
+
+  const btnSettingsToggle = document.getElementById('btn-settings-theme-toggle');
+  btnSettingsToggle?.addEventListener('click', toggleTheme);
 
   const selectEl = document.getElementById('web-setting-theme');
   selectEl?.addEventListener('change', () => {
@@ -1847,7 +1850,7 @@ function renderQuickLinksBar() {
     return `
       <a class="ql-chip ${meta.badgeClass}" data-id="${link.id}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
         <span class="ql-chip-dot" style="background: ${meta.color};"></span>
-        <span>${escapeHtml(link.title)}</span>
+        <span class="ql-chip-label">${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
       </a>
     `;
@@ -3036,6 +3039,7 @@ function updateSyncBanner() {
 function updateAllViews() {
   renderCalendar();
   renderSelectedDay(state.selectedDate);
+  renderUpNextAgenda();
   renderDeadlines();
   renderQuickLinksBar();
   renderQuickLinksSchedule();
@@ -3047,12 +3051,30 @@ function updateAllViews() {
   // If day sheet drawer is currently open, refresh its items to reflect status changes immediately
   const drawer = document.getElementById('day-sheet-drawer');
   if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
-    const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(state.selectedDate));
+    const dayTasks = state.tasks.filter(t => {
+      if (!t.dueDate || !t.dueDate.startsWith(state.selectedDate)) return false;
+      if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
+      return true;
+    });
     const itemsContainer = document.getElementById('day-sheet-items');
+    const count = document.getElementById('day-sheet-count');
     if (itemsContainer) {
       const sorted = dayTasks.slice().sort(compareTasksByTime);
-      itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
-      bindTaskCardEvents(itemsContainer);
+      if (count) {
+        count.textContent = sorted.length === 1 ? '1 Deadline Scheduled' : `${sorted.length} Deadlines Scheduled`;
+      }
+      if (sorted.length === 0) {
+        itemsContainer.innerHTML = `
+          <div class="state-container">
+            <div class="state-icon">${getSvgIcon('coffee')}</div>
+            <div class="state-title">No Deadlines for this Day</div>
+            <div class="state-desc">You are completely free on this date. Take time to relax or review class material!</div>
+          </div>
+        `;
+      } else {
+        itemsContainer.innerHTML = sorted.map(t => renderTaskCardHtml(t, false)).join('');
+        bindTaskCardEvents(itemsContainer);
+      }
     }
   }
 }
@@ -3228,15 +3250,74 @@ function initCalendarSwipe() {
   }, { passive: true });
 }
 
+function matchesSelectedCourseFilter(task, filter) {
+  if (!filter) return true;
+  const { courseName, courseCode } = resolveCourseInfo(task);
+  if (
+    task.courseName === filter ||
+    task.courseCode === filter ||
+    courseName === filter ||
+    courseCode === filter
+  ) {
+    return true;
+  }
+  const legendItem = PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
+  if (legendItem) {
+    const combined = `${task.courseName || ''} ${task.courseCode || ''} ${courseName || ''} ${courseCode || ''} ${task.title || ''}`;
+    if (legendItem.pattern.test(combined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function initLegend() {
   const container = document.getElementById('calendar-legend-items');
   if (!container) return;
-  container.innerHTML = PERMANENT_COURSE_LEGEND.map(c => `
-    <span class="legend-chip">
-      <span class="legend-color-box" style="background-color: ${c.color};"></span>
-      <span>${c.name}</span>
+
+  const isAllActive = state.selectedCourseFilter === null;
+  const hasActiveFilter = !isAllActive;
+
+  if (hasActiveFilter) {
+    container.classList.add('has-active-filter');
+  } else {
+    container.classList.remove('has-active-filter');
+  }
+
+  let html = `
+    <span class="legend-chip ${isAllActive ? 'is-active' : ''}" data-course="">
+      <span>All</span>
     </span>
-  `).join('');
+  `;
+
+  html += PERMANENT_COURSE_LEGEND.map(c => {
+    const isActive = state.selectedCourseFilter === c.name;
+    return `
+      <span class="legend-chip ${isActive ? 'is-active' : ''}" data-course="${escapeHtml(c.name)}">
+        <span class="legend-color-box" style="background-color: ${c.color};"></span>
+        <span>${escapeHtml(c.name)}</span>
+      </span>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.legend-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const course = chip.getAttribute('data-course');
+      if (!course) {
+        state.selectedCourseFilter = null;
+      } else if (state.selectedCourseFilter === course) {
+        state.selectedCourseFilter = null;
+      } else {
+        state.selectedCourseFilter = course;
+      }
+      initLegend();
+      renderCalendar();
+      renderSelectedDay();
+      renderUpNextAgenda();
+    });
+  });
 }
 
 function renderCalendar() {
@@ -3267,7 +3348,9 @@ function renderCalendar() {
     // Find tasks for this day
     const dayTasks = state.tasks.filter(t => {
       if (!t.dueDate) return false;
-      return t.dueDate.startsWith(dateStr);
+      if (!t.dueDate.startsWith(dateStr)) return false;
+      if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
+      return true;
     });
     dayTasks.sort(compareTasksByTime);
 
@@ -3285,7 +3368,7 @@ function renderCalendar() {
         const safeTitle = escapeHtml(task.title);
         const tooltip = escapeHtml(`${isDone ? '[Completed] ' : ''}[${courseName}] ${task.title}`);
         const iconSvg = isDone ? getSvgIcon('check', 'chip-svg-icon') : getTaskTypeIcon(task.type, 'chip-svg-icon');
-        const styleAttr = isDone ? `style="border-left-color: ${color};"` : `style="background-color: ${color};"`;
+        const styleAttr = isDone ? `style="border-color: ${color}; border-left-color: ${color};"` : `style="background-color: ${color};"`;
         chipsHtml += `<span class="cal-event-chip ${isDone ? 'is-completed' : ''}" ${styleAttr} title="${tooltip}">` +
           `<span class="chip-icon">${iconSvg}</span>` +
           `<span class="chip-text">${safeTitle}</span>` +
@@ -3448,7 +3531,8 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     titleText.textContent = `Deadlines for ${formattedHeader}`;
   }
 
-  const tasksOnDate = dayTasks || state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(targetDate));
+  const tasksOnDate = (dayTasks || state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(targetDate)))
+    .filter(t => matchesSelectedCourseFilter(t, state.selectedCourseFilter));
   tasksOnDate.sort(compareTasksByTime);
 
   list.innerHTML = '';
@@ -3557,6 +3641,157 @@ function initSelectedDayContainer() {
     const activeDate = state.selectedDate || new Date().toISOString().split('T')[0];
     const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(activeDate));
     openDaySheet(activeDate, dayTasks);
+  });
+}
+
+// ==========================================================================
+// Up Next Agenda (Compact Mobile-First Agenda Card Below Calendar)
+// ==========================================================================
+function getRelativeTimeBadge(dueDateIso) {
+  if (!dueDateIso) return { text: 'Pending', cls: 'badge-future' };
+  const due = new Date(dueDateIso);
+  if (isNaN(due.getTime())) return { text: 'Pending', cls: 'badge-future' };
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const diffDays = Math.round((dueStart - todayStart) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { text: 'Overdue', cls: 'badge-overdue' };
+  } else if (diffDays === 0) {
+    return { text: 'Today', cls: 'badge-today' };
+  } else if (diffDays === 1) {
+    return { text: 'Tomorrow', cls: 'badge-tomorrow' };
+  } else {
+    return { text: `In ${diffDays}d`, cls: 'badge-future' };
+  }
+}
+
+function formatUpNextDateTime(task) {
+  if (!task.dueDate) return 'No due date';
+  const d = new Date(task.dueDate);
+  if (isNaN(d.getTime())) return 'No due date';
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (task.hasSpecificTime === false) {
+    return `${dateStr} \u2022 Class Time`;
+  }
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} \u2022 ${timeStr}`;
+}
+
+function renderUpNextAgenda() {
+  const container = document.getElementById('up-next-container');
+  const list = document.getElementById('up-next-list');
+  const countBadge = document.getElementById('up-next-count-badge');
+  if (!container || !list) return;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  // Filter uncompleted tasks respecting course filter from today onward
+  const uncompleted = (state.tasks || []).filter(task => {
+    if (task.status === 'completed') return false;
+    if (!task.dueDate) return false;
+    if (!matchesSelectedCourseFilter(task, state.selectedCourseFilter)) return false;
+    const taskTime = getTaskSortTimestamp(task);
+    return taskTime >= todayStart;
+  });
+
+  uncompleted.sort(compareTasksByTime);
+  const upNext = uncompleted.slice(0, 3);
+
+  if (countBadge) {
+    if (uncompleted.length === 0) {
+      countBadge.textContent = 'Caught up';
+    } else {
+      countBadge.textContent = `${uncompleted.length} upcoming`;
+    }
+  }
+
+  if (upNext.length === 0) {
+    list.innerHTML = `
+      <div class="up-next-empty">
+        <svg class="ui-icon" style="color: var(--success);"><use href="#icon-check"></use></svg>
+        <span>All caught up! No upcoming deadlines.</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = upNext.map(task => {
+    const { courseName, courseCode } = resolveCourseInfo(task);
+    const courseTheme = getCourseColorTheme(courseName, courseCode, task.title);
+    const badgeInfo = getRelativeTimeBadge(task.dueDate);
+    const dateTimeStr = formatUpNextDateTime(task);
+    const hasRoom = Boolean(task.room && task.room.trim());
+
+    return `
+      <div class="up-next-item" data-task-id="${task.id}">
+        <button type="button" class="up-next-checkbox" data-task-id="${task.id}" aria-label="Mark completed" title="Mark as completed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#icon-check"></use></svg>
+        </button>
+        <div class="up-next-item-main">
+          <div class="up-next-item-top">
+            <span class="up-next-course-chip" style="background: ${courseTheme.bgLight}; color: ${courseTheme.textDark}; border: 1px solid ${courseTheme.border};">
+              <span class="up-next-course-dot" style="background: ${courseTheme.hex};"></span>
+              <span class="up-next-course-name">${escapeHtml(courseName)}</span>
+            </span>
+            <span class="up-next-badge ${badgeInfo.cls}">${badgeInfo.text}</span>
+          </div>
+          <div class="up-next-item-title">${escapeHtml(task.title)}</div>
+          <div class="up-next-item-time">
+            <svg class="ui-icon mr-1"><use href="#icon-clock"></use></svg>
+            <span>${dateTimeStr}</span>
+            ${hasRoom ? `<span class="up-next-room-tag"><svg class="ui-icon mr-1"><use href="#icon-pin"></use></svg>${escapeHtml(task.room.trim())}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.up-next-item').forEach(item => {
+    const taskId = item.getAttribute('data-task-id');
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.up-next-checkbox')) return;
+      openReadingSheet(task);
+    });
+
+    const checkbox = item.querySelector('.up-next-checkbox');
+    if (checkbox) {
+      checkbox.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        checkbox.classList.add('is-checked');
+        item.style.opacity = '0.45';
+        item.style.transform = 'scale(0.98)';
+        item.style.transition = 'all 0.16s ease';
+
+        setTimeout(async () => {
+          const prevStatus = task.status;
+          const newStatus = 'completed';
+          task.status = newStatus;
+          task.updatedAt = new Date().toISOString();
+
+          enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+          await syncToCloudAndLocal();
+
+          showToast(
+            'Marked as completed',
+            'Undo',
+            async () => {
+              task.status = prevStatus;
+              task.updatedAt = new Date().toISOString();
+              enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
+              await syncToCloudAndLocal();
+              showToast('Status reverted');
+            }
+          );
+        }, 160);
+      });
+    }
   });
 }
 
@@ -4351,6 +4586,9 @@ function initSettings() {
   const statusIndicator = document.getElementById('web-sync-status-indicator');
   const instructionText = document.getElementById('web-sync-instruction-text');
   const btnDisconnectDevice = document.getElementById('btn-disconnect-device');
+  const inputSyncKey = document.getElementById('web-sync-key-input');
+  const btnSaveSyncKey = document.getElementById('btn-save-web-sync-key');
+  const btnCopySyncKey = document.getElementById('btn-copy-web-sync-key');
 
   function updateFeedUrls() {
     const activeSyncKey = getSyncKey();
@@ -4366,30 +4604,79 @@ function initSettings() {
 
   function updateDevicePairingCard() {
     const activeKey = getSyncKey();
+    if (inputSyncKey && !inputSyncKey.matches(':focus')) {
+      inputSyncKey.value = activeKey || '';
+    }
     if (activeKey) {
       if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
       if (statusIndicator) statusIndicator.style.background = '#10b981';
       if (instructionText) instructionText.textContent = `This device is linked to your personal cloud bucket (${activeKey}). Deadlines and calendar feeds are active.`;
       if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'inline-block';
+      if (btnCopySyncKey) btnCopySyncKey.style.display = 'inline-flex';
     } else {
       if (syncKeyStatus) syncKeyStatus.textContent = 'Not Paired';
       if (statusIndicator) statusIndicator.style.background = '#94a3b8';
-      if (instructionText) instructionText.textContent = 'Keys are generated exclusively inside your Chrome extension. In your laptop\'s Blackboarder extension, go to Settings and click "Copy Phone Pairing Link" to connect.';
+      if (instructionText) instructionText.textContent = 'Keys are generated inside your Chrome extension (under Settings > Personal Sync Key). Enter your code below to link your private cloud bucket, or open via your phone pairing link.';
       if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'none';
+      if (btnCopySyncKey) btnCopySyncKey.style.display = 'none';
     }
   }
 
   let activeFeedUrl = updateFeedUrls();
   updateDevicePairingCard();
 
+  btnSaveSyncKey?.addEventListener('click', async () => {
+    const rawVal = inputSyncKey ? inputSyncKey.value.trim().toUpperCase() : '';
+    if (!rawVal) {
+      showToast('Please enter a Sync Key from your Chrome extension.');
+      return;
+    }
+    const clean = rawVal.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!clean) {
+      showToast('Invalid key format. Please enter a valid Sync Key.');
+      return;
+    }
+
+    localStorage.setItem('bbs_sync_key', clean);
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    updateDevicePairingCard();
+    activeFeedUrl = updateFeedUrls();
+    showToast(`Device paired with key ${clean}! Fetching deadlines...`);
+    await fetchTasksFromServer(true);
+    updateAllViews();
+  });
+
+  inputSyncKey?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnSaveSyncKey?.click();
+    }
+  });
+
+  btnCopySyncKey?.addEventListener('click', async () => {
+    const activeKey = getSyncKey();
+    if (!activeKey) {
+      showToast('No active sync key to copy.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(activeKey);
+      showToast(`Copied sync key "${activeKey}" to clipboard!`);
+    } catch (err) {
+      showToast(`Sync Key: ${activeKey}`);
+    }
+  });
+
   btnDisconnectDevice?.addEventListener('click', async () => {
     if (confirm('Disconnect this device from your extension sync key?')) {
       localStorage.removeItem('bbs_sync_key');
-      const url = new URL(window.location.href);
-      url.searchParams.delete('key');
-      url.searchParams.delete('sync');
-      url.searchParams.delete('code');
-      window.history.replaceState({}, '', url.pathname);
+      if (inputSyncKey) inputSyncKey.value = '';
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       state.tasks = [];
       updateAllViews();
       updateDevicePairingCard();
@@ -4419,7 +4706,7 @@ function initSettings() {
   });
 
   // iOS Scriptable Widget Code & Copy Handler
-  const SCRIPTABLE_WIDGET_CODE = "// ============================================================================\n// Blackboarder iOS Widget (Lock Screen, Small & Medium Home Screen)\n// Offline-Ready with Native Disk Caching\n// ============================================================================\n\nconst BASE_URL = \"https://blackboarder.pages.dev/api/tasks\";\n\n// Enter your personal pairing key if paired (e.g. \"BBS-ABC123\"), or pass it\n// via the widget parameter in iOS:\nlet SYNC_KEY = \"\"; \nif (typeof args !== \"undefined\" && args.widgetParameter && args.widgetParameter.trim()) {\n  SYNC_KEY = args.widgetParameter.trim();\n}\n\n// ----------------------------------------------------------------------------\n// Offline Cache Setup (Scriptable FileManager)\n// ----------------------------------------------------------------------------\nconst fm = FileManager.local();\nconst cacheDir = fm.joinPath(fm.documentsDirectory(), \"blackboarder_cache\");\nconst keySlug = SYNC_KEY ? SYNC_KEY.replace(/[^a-zA-Z0-9_-]/g, \"\") : \"default\";\nconst cachePath = fm.joinPath(cacheDir, `tasks_${keySlug}.json`);\n\nlet res = null;\nlet isOffline = false;\n\n// Attempt online fetch with quick timeout (4s) so poor signals don't hang iOS\nconst url = BASE_URL + (SYNC_KEY ? `?key=${encodeURIComponent(SYNC_KEY)}` : \"\");\ntry {\n  const req = new Request(url);\n  req.timeoutInterval = 4;\n  res = await req.loadJSON();\n\n  if (res && Array.isArray(res.tasks)) {\n    // Write successful response to offline cache\n    if (!fm.fileExists(cacheDir)) {\n      fm.createDirectory(cacheDir, true);\n    }\n    fm.writeString(cachePath, JSON.stringify(res));\n  } else {\n    throw new Error(\"Invalid response format\");\n  }\n} catch (netErr) {\n  // Network failed or offline: fall back to local disk cache\n  isOffline = true;\n  if (fm.fileExists(cachePath)) {\n    try {\n      const cachedRaw = fm.readString(cachePath);\n      res = JSON.parse(cachedRaw);\n    } catch (parseErr) {\n      res = null;\n    }\n  }\n}\n\n// ----------------------------------------------------------------------------\n// Data Processing & Sorting\n// ----------------------------------------------------------------------------\nconst allTasks = (res && Array.isArray(res.tasks) ? res.tasks : []).filter(\n  t => t.status !== \"completed\" && t.status !== \"dismissed\"\n);\nconst tasks = allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));\nconst nextTask = tasks[0];\n\n// ----------------------------------------------------------------------------\n// Helpers\n// ----------------------------------------------------------------------------\nfunction getCleanCourse(t) {\n  let name = (t.courseName || t.courseCode || \"Course\").trim();\n  name = name.replace(/\\s*\\(\\d+[\\s\\d]*\\)/g, \"\").trim();\n  if (/calculus|calc/i.test(name)) return \"Calculus 1\";\n  if (/intro.*comp|computer.*eng/i.test(name)) return \"Intro to Comp\";\n  if (/phys.*lab/i.test(name)) return \"Physics 1 Lab\";\n  if (/phys/i.test(name)) return \"Physics 1\";\n  if (/english|eap/i.test(name)) return \"English\";\n  if (/islamic/i.test(name)) return \"Islamic\";\n  return name.split(/[-–|]/)[0].trim() || name;\n}\n\nfunction formatDay(t) {\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"TBD\";\n  const now = new Date();\n  if (d.toDateString() === now.toDateString()) return \"Today\";\n  const tomorrow = new Date();\n  tomorrow.setDate(now.getDate() + 1);\n  if (d.toDateString() === tomorrow.toDateString()) return \"Tomorrow\";\n  return d.toLocaleDateString(\"en-US\", { weekday: \"short\", month: \"short\", day: \"numeric\" });\n}\n\nfunction formatTime(t) {\n  if (!t.hasSpecificTime) return \"\";\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"\";\n  return d.toLocaleTimeString(\"en-US\", { hour: \"numeric\", minute: \"2-digit\" });\n}\n\nfunction formatDayAndTime(t) {\n  const day = formatDay(t);\n  const time = formatTime(t);\n  return time ? `${day} • ${time}` : day;\n}\n\nfunction getLocation(t) {\n  const type = (t.type || \"\").toLowerCase();\n  // Only show room if NOT HW or Project\n  if (type === \"assignment\" || type === \"hw\" || type === \"project\") return \"\";\n  let r = (t.room || \"\").trim();\n  if (!r) return \"\";\n  r = r.replace(/^(?:room|rm)\\s+/i, \"\");\n  r = r.split(/\\s*[\\(\\[,\\-–—]\\s*(?:men|bldg|building|hall)/i)[0].trim();\n  return `📍 ${r}`;\n}\n\nfunction getPendingTypeSummary(taskList) {\n  const counts = {};\n  for (const t of taskList) {\n    const raw = (t.type || \"assignment\").toLowerCase();\n    const type = raw === \"hw\" ? \"assignment\" : raw;\n    counts[type] = (counts[type] || 0) + 1;\n  }\n  const parts = [];\n  if (counts.quiz) parts.push(`${counts.quiz} Quiz${counts.quiz > 1 ? \"zes\" : \"\"}`);\n  if (counts.exam) parts.push(`${counts.exam} Exam${counts.exam > 1 ? \"s\" : \"\"}`);\n  if (counts.assignment) parts.push(`${counts.assignment} HW`);\n  if (counts.lab) parts.push(`${counts.lab} Lab${counts.lab > 1 ? \"s\" : \"\"}`);\n  if (counts.project) parts.push(`${counts.project} Proj${counts.project > 1 ? \"s\" : \"\"}`);\n  if (counts.other) parts.push(`${counts.other} Other`);\n  return parts.join(\" • \");\n}\n\n// ----------------------------------------------------------------------------\n// Widget Construction\n// ----------------------------------------------------------------------------\nconst widget = new ListWidget();\nwidget.url = \"https://blackboarder.pages.dev\";\nwidget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000); // 15-min auto refresh\n\nif (config.runsInAccessoryWidget) {\n  // ==========================================================================\n  // LOCK SCREEN WIDGET (Course Name, Title, Day & Time, Location)\n  // ==========================================================================\n  if (!nextTask) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache\" : \"No pending deadlines 🎉\");\n    empty.font = Font.systemFont(12);\n  } else {\n    const courseName = getCleanCourse(nextTask);\n    const loc = getLocation(nextTask);\n    const dayAndTime = formatDayAndTime(nextTask);\n\n    // Line 1: Course + Location (dynamic scaling prevents truncation)\n    const line1Text = loc ? `${courseName} • ${loc}` : courseName;\n    const line1 = widget.addText(line1Text);\n    line1.font = Font.boldSystemFont(10.5);\n    line1.lineLimit = 1;\n    line1.minimumScaleFactor = 0.65;\n\n    // Line 2: What the due date is (title)\n    const line2 = widget.addText(nextTask.title);\n    line2.font = Font.systemFont(12);\n    line2.lineLimit = 1;\n    line2.minimumScaleFactor = 0.75;\n\n    // Line 3: Day and time due\n    const line3 = widget.addText(dayAndTime);\n    line3.font = Font.caption2();\n    line3.lineLimit = 1;\n    line3.minimumScaleFactor = 0.75;\n  }\n} else {\n  // ==========================================================================\n  // HOME SCREEN WIDGET (Invisible Table Grid: 3 on Medium, 2 on Small)\n  // ==========================================================================\n  widget.backgroundColor = new Color(\"#0f172a\");\n\n  const isMedium = config.widgetFamily === \"medium\";\n  const isLarge = config.widgetFamily === \"large\";\n  \n  // Padding & spacing adjustments\n  widget.setPadding(10, 14, 10, 14);\n\n  // 1. Header: Blackboarder title (+ subtle offline indicator) + Pending summary\n  const header = widget.addStack();\n  header.centerAlignContent();\n  \n  const title = header.addText(\"Blackboarder\");\n  title.font = Font.boldSystemFont(11.5);\n  title.textColor = new Color(\"#94a3b8\");\n\n  if (isOffline) {\n    header.addSpacer(4);\n    const cachedBadge = header.addText(\"cached\");\n    cachedBadge.font = Font.systemFont(9);\n    cachedBadge.textColor = new Color(\"#64748b\");\n  }\n\n  header.addSpacer();\n\n  const typeSummary = getPendingTypeSummary(tasks);\n  if (typeSummary && (isMedium || isLarge)) {\n    // In Medium/Large: place pending summary directly on the top-right\n    const summaryText = header.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(10);\n    summaryText.textColor = new Color(\"#38bdf8\");\n  }\n\n  // In Small widget: put pending summary below the title\n  if (!isMedium && !isLarge && typeSummary) {\n    widget.addSpacer(2);\n    const summaryText = widget.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(9.5);\n    summaryText.textColor = new Color(\"#38bdf8\");\n    summaryText.lineLimit = 1;\n    summaryText.minimumScaleFactor = 0.75;\n  }\n\n  widget.addSpacer(isMedium ? 6 : 7);\n\n  // 2. Invisible Table Grid (3 items for Medium, 2 for Small, 5 for Large)\n  const maxItems = isLarge ? 5 : (isMedium ? 3 : 2);\n  const upcoming = tasks.slice(0, maxItems);\n\n  if (upcoming.length === 0) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache yet\" : \"All caught up! 🎉\");\n    empty.font = Font.mediumSystemFont(12);\n    empty.textColor = new Color(\"#cbd5e1\");\n  } else {\n    for (let i = 0; i < upcoming.length; i++) {\n      const t = upcoming[i];\n      const loc = getLocation(t);\n      const dayStr = formatDay(t);\n      const timeStr = formatTime(t);\n\n      // Table Row Container\n      const tableRow = widget.addStack();\n      tableRow.layoutHorizontally();\n      tableRow.centerAlignContent();\n\n      // Column 1 (Left Column): Course on top, Title & Room on bottom\n      const colLeft = tableRow.addStack();\n      colLeft.layoutVertically();\n\n      const courseRow = colLeft.addStack();\n      courseRow.centerAlignContent();\n      const dot = courseRow.addText(\"● \");\n      dot.font = Font.boldSystemFont(9);\n      dot.textColor = new Color(t.courseColor || \"#60a5fa\");\n\n      const courseText = courseRow.addText(getCleanCourse(t));\n      courseText.font = Font.boldSystemFont(11);\n      courseText.textColor = new Color(\"#f1f5f9\");\n      courseText.lineLimit = 1;\n      courseText.minimumScaleFactor = 0.8;\n\n      const subStr = loc ? `${t.title} • ${loc}` : t.title;\n      const subText = colLeft.addText(subStr);\n      subText.font = Font.systemFont(10);\n      subText.textColor = new Color(\"#94a3b8\");\n      subText.lineLimit = 1;\n      subText.minimumScaleFactor = 0.7;\n\n      // Space between Column 1 and Column 2\n      tableRow.addSpacer();\n\n      // Column 2 (Right Column): Date on top, Time on bottom (Right-aligned)\n      const colRight = tableRow.addStack();\n      colRight.layoutVertically();\n\n      const dateText = colRight.addText(dayStr);\n      dateText.font = Font.semiboldSystemFont(10.5);\n      dateText.textColor = new Color(\"#e2e8f0\");\n      dateText.rightAlignText();\n      dateText.lineLimit = 1;\n      dateText.minimumScaleFactor = 0.8;\n\n      if (timeStr) {\n        const timeText = colRight.addText(timeStr);\n        timeText.font = Font.systemFont(10);\n        timeText.textColor = new Color(\"#38bdf8\");\n        timeText.rightAlignText();\n        timeText.lineLimit = 1;\n      }\n\n      if (i < upcoming.length - 1) {\n        widget.addSpacer(isMedium ? 5 : 7);\n      }\n    }\n  }\n}\n\nScript.setWidget(widget);\nScript.complete();\n";
+  const SCRIPTABLE_WIDGET_CODE = "// ============================================================================\n// Blackboarder iOS Widget (Lock Screen, Small & Medium Home Screen)\n// Offline-Ready with Native Disk Caching\n// ============================================================================\n\nconst BASE_URL = \"https://blackboarder.pages.dev/api/tasks\";\n\n// Enter your personal pairing key if paired (e.g. \"BBS-ABC123\"), or pass it\n// via the widget parameter in iOS:\nlet SYNC_KEY = \"\"; \nif (typeof args !== \"undefined\" && args.widgetParameter && args.widgetParameter.trim()) {\n  SYNC_KEY = args.widgetParameter.trim();\n}\n\n// ----------------------------------------------------------------------------\n// Offline Cache Setup (Scriptable FileManager)\n// ----------------------------------------------------------------------------\nconst fm = FileManager.local();\nconst cacheDir = fm.joinPath(fm.documentsDirectory(), \"blackboarder_cache\");\nconst keySlug = SYNC_KEY ? SYNC_KEY.replace(/[^a-zA-Z0-9_-]/g, \"\") : \"default\";\nconst cachePath = fm.joinPath(cacheDir, `tasks_${keySlug}.json`);\n\nlet res = null;\nlet isOffline = false;\n\n// Attempt online fetch with quick timeout (4s) so poor signals don't hang iOS\nconst url = BASE_URL + (SYNC_KEY ? `?key=${encodeURIComponent(SYNC_KEY)}` : \"\");\ntry {\n  const req = new Request(url);\n  req.timeoutInterval = 4;\n  res = await req.loadJSON();\n\n  if (res && Array.isArray(res.tasks)) {\n    // Write successful response to offline cache\n    if (!fm.fileExists(cacheDir)) {\n      fm.createDirectory(cacheDir, true);\n    }\n    fm.writeString(cachePath, JSON.stringify(res));\n  } else {\n    throw new Error(\"Invalid response format\");\n  }\n} catch (netErr) {\n  // Network failed or offline: fall back to local disk cache\n  isOffline = true;\n  if (fm.fileExists(cachePath)) {\n    try {\n      const cachedRaw = fm.readString(cachePath);\n      res = JSON.parse(cachedRaw);\n    } catch (parseErr) {\n      res = null;\n    }\n  }\n}\n\n// ----------------------------------------------------------------------------\n// Data Processing & Sorting\n// ----------------------------------------------------------------------------\nconst allTasks = (res && Array.isArray(res.tasks) ? res.tasks : []).filter(\n  t => t.status !== \"completed\" && t.status !== \"dismissed\"\n);\nconst tasks = allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));\nconst nextTask = tasks[0];\n\n// ----------------------------------------------------------------------------\n// Helpers\n// ----------------------------------------------------------------------------\nfunction getCleanCourse(t) {\n  let name = (t.courseName || t.courseCode || \"Course\").trim();\n  name = name.replace(/\\s*\\(\\d+[\\s\\d]*\\)/g, \"\").trim();\n  if (/calculus|calc/i.test(name)) return \"Calculus 1\";\n  if (/intro.*comp|computer.*eng/i.test(name)) return \"Intro to Comp\";\n  if (/phys.*lab/i.test(name)) return \"Physics 1 Lab\";\n  if (/phys/i.test(name)) return \"Physics 1\";\n  if (/english|eap/i.test(name)) return \"English\";\n  if (/islamic/i.test(name)) return \"Islamic\";\n  return name.split(/[-–|]/)[0].trim() || name;\n}\n\nfunction formatDay(t) {\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"TBD\";\n  const now = new Date();\n  if (d.toDateString() === now.toDateString()) return \"Today\";\n  const tomorrow = new Date();\n  tomorrow.setDate(now.getDate() + 1);\n  if (d.toDateString() === tomorrow.toDateString()) return \"Tomorrow\";\n  return d.toLocaleDateString(\"en-US\", { weekday: \"short\", month: \"short\", day: \"numeric\" });\n}\n\nfunction formatTime(t) {\n  if (!t.hasSpecificTime) return \"\";\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"\";\n  return d.toLocaleTimeString(\"en-US\", { hour: \"numeric\", minute: \"2-digit\" });\n}\n\nfunction formatDayAndTime(t) {\n  const day = formatDay(t);\n  const time = formatTime(t);\n  return time ? `${day} • ${time}` : day;\n}\n\nfunction getLocation(t) {\n  const type = (t.type || \"\").toLowerCase();\n  // Only show room if NOT HW or Project\n  if (type === \"assignment\" || type === \"hw\" || type === \"project\") return \"\";\n  let r = (t.room || \"\").trim();\n  if (!r) return \"\";\n  r = r.replace(/^(?:room|rm)\\s+/i, \"\");\n  r = r.split(/\\s*[\\(\\[,\\-–—]\\s*(?:men|bldg|building|hall)/i)[0].trim();\n  return `📍 ${r}`;\n}\n\nfunction getPendingTypeSummary(taskList) {\n  const counts = {};\n  for (const t of taskList) {\n    const raw = (t.type || \"assignment\").toLowerCase();\n    const type = raw === \"hw\" ? \"assignment\" : raw;\n    counts[type] = (counts[type] || 0) + 1;\n  }\n  const parts = [];\n  if (counts.quiz) parts.push(`${counts.quiz} Quiz${counts.quiz > 1 ? \"zes\" : \"\"}`);\n  if (counts.exam) parts.push(`${counts.exam} Exam${counts.exam > 1 ? \"s\" : \"\"}`);\n  if (counts.assignment) parts.push(`${counts.assignment} HW`);\n  if (counts.lab) parts.push(`${counts.lab} Lab${counts.lab > 1 ? \"s\" : \"\"}`);\n  if (counts.project) parts.push(`${counts.project} Proj${counts.project > 1 ? \"s\" : \"\"}`);\n  if (counts.other) parts.push(`${counts.other} Other`);\n  return parts.join(\" • \");\n}\n\n// ----------------------------------------------------------------------------\n// Widget Construction\n// ----------------------------------------------------------------------------\nconst widget = new ListWidget();\nconst WEB_APP_BASE = \"https://blackboarder.pages.dev\";\nwidget.url = SYNC_KEY ? (WEB_APP_BASE + \"/?key=\" + encodeURIComponent(SYNC_KEY)) : WEB_APP_BASE;\nwidget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000); // 15-min auto refresh\n\nif (config.runsInAccessoryWidget) {\n  // ==========================================================================\n  // LOCK SCREEN WIDGET (Course Name, Title, Day & Time, Location)\n  // ==========================================================================\n  if (!nextTask) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache\" : \"No pending deadlines 🎉\");\n    empty.font = Font.systemFont(12);\n  } else {\n    const courseName = getCleanCourse(nextTask);\n    const loc = getLocation(nextTask);\n    const dayAndTime = formatDayAndTime(nextTask);\n\n    // Line 1: Course + Location (dynamic scaling prevents truncation)\n    const line1Text = loc ? `${courseName} • ${loc}` : courseName;\n    const line1 = widget.addText(line1Text);\n    line1.font = Font.boldSystemFont(10.5);\n    line1.lineLimit = 1;\n    line1.minimumScaleFactor = 0.65;\n\n    // Line 2: What the due date is (title)\n    const line2 = widget.addText(nextTask.title);\n    line2.font = Font.systemFont(12);\n    line2.lineLimit = 1;\n    line2.minimumScaleFactor = 0.75;\n\n    // Line 3: Day and time due\n    const line3 = widget.addText(dayAndTime);\n    line3.font = Font.caption2();\n    line3.lineLimit = 1;\n    line3.minimumScaleFactor = 0.75;\n  }\n} else {\n  // ==========================================================================\n  // HOME SCREEN WIDGET (Invisible Table Grid: 3 on Medium, 2 on Small)\n  // ==========================================================================\n  widget.backgroundColor = new Color(\"#0f172a\");\n\n  const isMedium = config.widgetFamily === \"medium\";\n  const isLarge = config.widgetFamily === \"large\";\n  \n  // Padding & spacing adjustments\n  widget.setPadding(10, 14, 10, 14);\n\n  // 1. Header: Blackboarder title (+ subtle offline indicator) + Pending summary\n  const header = widget.addStack();\n  header.centerAlignContent();\n  \n  const title = header.addText(\"Blackboarder\");\n  title.font = Font.boldSystemFont(11.5);\n  title.textColor = new Color(\"#94a3b8\");\n\n  if (isOffline) {\n    header.addSpacer(4);\n    const cachedBadge = header.addText(\"cached\");\n    cachedBadge.font = Font.systemFont(9);\n    cachedBadge.textColor = new Color(\"#64748b\");\n  }\n\n  header.addSpacer();\n\n  const typeSummary = getPendingTypeSummary(tasks);\n  if (typeSummary && (isMedium || isLarge)) {\n    // In Medium/Large: place pending summary directly on the top-right\n    const summaryText = header.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(10);\n    summaryText.textColor = new Color(\"#38bdf8\");\n  }\n\n  // In Small widget: put pending summary below the title\n  if (!isMedium && !isLarge && typeSummary) {\n    widget.addSpacer(2);\n    const summaryText = widget.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(9.5);\n    summaryText.textColor = new Color(\"#38bdf8\");\n    summaryText.lineLimit = 1;\n    summaryText.minimumScaleFactor = 0.75;\n  }\n\n  widget.addSpacer(isMedium ? 6 : 7);\n\n  // 2. Invisible Table Grid (3 items for Medium, 2 for Small, 5 for Large)\n  const maxItems = isLarge ? 5 : (isMedium ? 3 : 2);\n  const upcoming = tasks.slice(0, maxItems);\n\n  if (upcoming.length === 0) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache yet\" : \"All caught up! 🎉\");\n    empty.font = Font.mediumSystemFont(12);\n    empty.textColor = new Color(\"#cbd5e1\");\n  } else {\n    for (let i = 0; i < upcoming.length; i++) {\n      const t = upcoming[i];\n      const loc = getLocation(t);\n      const dayStr = formatDay(t);\n      const timeStr = formatTime(t);\n\n      // Table Row Container\n      const tableRow = widget.addStack();\n      tableRow.layoutHorizontally();\n      tableRow.centerAlignContent();\n\n      // Column 1 (Left Column): Course on top, Title & Room on bottom\n      const colLeft = tableRow.addStack();\n      colLeft.layoutVertically();\n\n      const courseRow = colLeft.addStack();\n      courseRow.centerAlignContent();\n      const dot = courseRow.addText(\"● \");\n      dot.font = Font.boldSystemFont(9);\n      dot.textColor = new Color(t.courseColor || \"#60a5fa\");\n\n      const courseText = courseRow.addText(getCleanCourse(t));\n      courseText.font = Font.boldSystemFont(11);\n      courseText.textColor = new Color(\"#f1f5f9\");\n      courseText.lineLimit = 1;\n      courseText.minimumScaleFactor = 0.8;\n\n      const subStr = loc ? `${t.title} • ${loc}` : t.title;\n      const subText = colLeft.addText(subStr);\n      subText.font = Font.systemFont(10);\n      subText.textColor = new Color(\"#94a3b8\");\n      subText.lineLimit = 1;\n      subText.minimumScaleFactor = 0.7;\n\n      // Space between Column 1 and Column 2\n      tableRow.addSpacer();\n\n      // Column 2 (Right Column): Date on top, Time on bottom (Right-aligned)\n      const colRight = tableRow.addStack();\n      colRight.layoutVertically();\n\n      const dateText = colRight.addText(dayStr);\n      dateText.font = Font.semiboldSystemFont(10.5);\n      dateText.textColor = new Color(\"#e2e8f0\");\n      dateText.rightAlignText();\n      dateText.lineLimit = 1;\n      dateText.minimumScaleFactor = 0.8;\n\n      if (timeStr) {\n        const timeText = colRight.addText(timeStr);\n        timeText.font = Font.systemFont(10);\n        timeText.textColor = new Color(\"#38bdf8\");\n        timeText.rightAlignText();\n        timeText.lineLimit = 1;\n      }\n\n      if (i < upcoming.length - 1) {\n        widget.addSpacer(isMedium ? 5 : 7);\n      }\n    }\n  }\n}\n\nScript.setWidget(widget);\nScript.complete();\n";
 
   const btnCopyWidget = document.getElementById('btn-copy-widget-code');
   btnCopyWidget?.addEventListener('click', async () => {
@@ -5713,7 +6000,7 @@ function initOnboardingModal() {
   document.getElementById('btn-open-onboarding')?.addEventListener('click', () => {
     openOnboardingModal(1);
   });
-  document.getElementById('btn-settings-open-onboarding')?.addEventListener('click', () => {
+  document.getElementById('btn-settings-onboarding')?.addEventListener('click', () => {
     openOnboardingModal(1);
   });
 

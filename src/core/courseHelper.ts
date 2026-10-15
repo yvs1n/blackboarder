@@ -1,3 +1,5 @@
+import { PERMANENT_COURSE_LEGEND } from './courseColors';
+
 /**
  * Utility to extract clean course names and course codes from Blackboard text.
  */
@@ -312,5 +314,33 @@ export function isValidTask(task: {
     return false;
   }
   return true;
+}
+
+/**
+ * Checks if a task matches the selected course filter (handles code, name, or regex pattern).
+ */
+export function matchesSelectedCourseFilter(task: {
+  courseName?: string;
+  courseCode?: string;
+  title?: string;
+}, filter: string | null): boolean {
+  if (!filter) return true;
+  const { courseName, courseCode } = resolveCourseInfo(task);
+  if (
+    task.courseName === filter ||
+    task.courseCode === filter ||
+    courseName === filter ||
+    courseCode === filter
+  ) {
+    return true;
+  }
+  const legendItem = PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
+  if (legendItem) {
+    const combined = `${task.courseName || ''} ${task.courseCode || ''} ${courseName || ''} ${courseCode || ''} ${task.title || ''}`;
+    if (legendItem.pattern.test(combined)) {
+      return true;
+    }
+  }
+  return false;
 }
 

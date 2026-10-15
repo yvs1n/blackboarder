@@ -3764,25 +3764,32 @@ function renderUpNextAgenda() {
     if (checkbox) {
       checkbox.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const prevStatus = task.status;
-        const newStatus = 'completed';
-        task.status = newStatus;
-        task.updatedAt = new Date().toISOString();
+        checkbox.classList.add('is-checked');
+        item.style.opacity = '0.45';
+        item.style.transform = 'scale(0.98)';
+        item.style.transition = 'all 0.16s ease';
 
-        enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
-        await syncToCloudAndLocal();
+        setTimeout(async () => {
+          const prevStatus = task.status;
+          const newStatus = 'completed';
+          task.status = newStatus;
+          task.updatedAt = new Date().toISOString();
 
-        showToast(
-          'Marked as completed',
-          'Undo',
-          async () => {
-            task.status = prevStatus;
-            task.updatedAt = new Date().toISOString();
-            enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
-            await syncToCloudAndLocal();
-            showToast('Status reverted');
-          }
-        );
+          enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+          await syncToCloudAndLocal();
+
+          showToast(
+            'Marked as completed',
+            'Undo',
+            async () => {
+              task.status = prevStatus;
+              task.updatedAt = new Date().toISOString();
+              enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
+              await syncToCloudAndLocal();
+              showToast('Status reverted');
+            }
+          );
+        }, 160);
       });
     }
   });
