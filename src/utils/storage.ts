@@ -558,12 +558,12 @@ export function getCachedCoursesSync(): UserCourseConfig[] {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch {}
   }
-  return DEFAULT_USER_COURSES;
+  return [];
 }
 
 export async function getUserCourses(): Promise<UserCourseConfig[]> {
@@ -575,29 +575,29 @@ export async function getUserCourses(): Promise<UserCourseConfig[]> {
             try {
               if (chrome.runtime?.lastError) {
                 const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
-                const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
-                const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+                const courses = raw ? JSON.parse(raw) : [];
+                const finalCourses = Array.isArray(courses) ? courses : [];
                 setActiveUserCourses(finalCourses);
                 resolve(finalCourses);
                 return;
               }
               const courses = result?.[STORAGE_KEYS.COURSES];
-              const resolved = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+              const resolved = Array.isArray(courses) ? courses : [];
               safeSetLocalStorage(STORAGE_KEYS.COURSES, JSON.stringify(resolved));
               setActiveUserCourses(resolved);
               resolve(resolved);
             } catch {
               const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
-              const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
-              const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+              const courses = raw ? JSON.parse(raw) : [];
+              const finalCourses = Array.isArray(courses) ? courses : [];
               setActiveUserCourses(finalCourses);
               resolve(finalCourses);
             }
           });
         } catch {
           const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
-          const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
-          const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+          const courses = raw ? JSON.parse(raw) : [];
+          const finalCourses = Array.isArray(courses) ? courses : [];
           setActiveUserCourses(finalCourses);
           resolve(finalCourses);
         }
@@ -611,14 +611,14 @@ export async function getUserCourses(): Promise<UserCourseConfig[]> {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         setActiveUserCourses(parsed);
         return parsed;
       }
     } catch {}
   }
-  setActiveUserCourses(DEFAULT_USER_COURSES);
-  return DEFAULT_USER_COURSES;
+  setActiveUserCourses([]);
+  return [];
 }
 
 export async function getCoursesUpdatedAt(): Promise<string | null> {
@@ -663,7 +663,7 @@ export async function saveCoursesUpdatedAt(timestamp: string): Promise<void> {
 }
 
 export async function saveUserCourses(courses: UserCourseConfig[], updatedAt?: string): Promise<void> {
-  const safeCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+  const safeCourses = Array.isArray(courses) ? courses : [];
   const stamp = updatedAt || new Date().toISOString();
   safeSetLocalStorage(STORAGE_KEYS.COURSES, JSON.stringify(safeCourses));
   safeSetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT, stamp);
@@ -691,6 +691,78 @@ export async function saveUserCourses(courses: UserCourseConfig[], updatedAt?: s
 export async function resetUserCoursesToDefault(): Promise<UserCourseConfig[]> {
   await saveUserCourses(DEFAULT_USER_COURSES);
   return DEFAULT_USER_COURSES;
+}
+
+/**
+ * Automatically registers newly discovered courses from scraped tasks into bbs_user_courses
+ * if they do not already match any existing configured course.
+ */
+export async function autoRegisterDiscoveredCourses(tasks: DeadlineTask[]): Promise<UserCourseConfig[]> {
+  const currentCourses = await getUserCourses();
+  const palette = [
+    '#2563eb', // Blue
+    '#dc2626', // Red
+    '#059669', // Emerald
+    '#d97706', // Amber
+    '#7c3aed', // Purple
+    '#db2777', // Pink
+    '#0891b2', // Cyan
+    '#4b5563'  // Slate
+  ];
+
+  let addedCount = 0;
+  const updatedCourses = [...currentCourses];
+
+  for (const task of tasks) {
+    const rawName = (task.courseName || '').trim();
+    const rawCode = (task.courseCode || '').trim();
+    if (!rawName && !rawCode) continue;
+
+    // Check if task matches any existing course by code, name, or alias
+    const exists = updatedCourses.some(c => {
+      const cCode = (c.courseCode || '').trim().toLowerCase();
+      const cName = (c.courseName || '').trim().toLowerCase();
+      const tCode = rawCode.toLowerCase();
+      const tName = rawName.toLowerCase();
+
+      if (cCode && tCode && cCode === tCode) return true;
+      if (cName && tName && (cName === tName || tName.includes(cName) || cName.includes(tName))) return true;
+      if (Array.isArray(c.aliases)) {
+        return c.aliases.some(a => {
+          const cleanA = a.trim().toLowerCase();
+          return cleanA && (tName.includes(cleanA) || tCode.includes(cleanA));
+        });
+      }
+      return false;
+    });
+
+    if (!exists) {
+      // Pick next color from palette
+      const usedColors = new Set(updatedCourses.map(c => c.colorHex?.toLowerCase()));
+      const nextColor = palette.find(hex => !usedColors.has(hex.toLowerCase())) || palette[updatedCourses.length % palette.length];
+
+      const id = 'course_' + (rawCode || rawName).toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 20) + '_' + Math.random().toString(36).substring(2, 6);
+
+      const newCourse: UserCourseConfig = {
+        id,
+        courseCode: rawCode || rawName,
+        courseName: rawName || rawCode,
+        colorHex: nextColor,
+        aliases: rawCode && rawName && rawCode !== rawName ? [rawCode, rawName] : [rawCode || rawName],
+        scheduleSlots: [],
+        syllabus: []
+      };
+
+      updatedCourses.push(newCourse);
+      addedCount++;
+    }
+  }
+
+  if (addedCount > 0) {
+    await saveUserCourses(updatedCourses);
+  }
+
+  return updatedCourses;
 }
 
 export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[]> {

@@ -706,6 +706,16 @@ function renderSelectedDay() {
 // Render permanent course color legend with interactive filtering
 function renderLegend() {
   if (!legendChipsContainer) return;
+  const activeLegend = getActiveCourseLegend();
+  const legendPanel = document.getElementById('course-legend-panel');
+
+  if (activeLegend.length === 0) {
+    legendChipsContainer.innerHTML = '';
+    if (legendPanel) legendPanel.style.display = 'none';
+    return;
+  }
+
+  if (legendPanel) legendPanel.style.display = '';
   legendChipsContainer.innerHTML = '';
   legendChipsContainer.classList.toggle('has-filter', selectedCourseFilter !== null);
 
@@ -766,7 +776,7 @@ function renderUserCoursesManager() {
   if (currentUserCourses.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 20px 10px; color: var(--text-muted); background: var(--surface-hover); border-radius: var(--radius-sm); border: 1px dashed var(--surface-border);">
-        <p style="font-size: 12px; margin-bottom: 8px;">No courses configured yet.</p>
+        <p style="font-size: 12px; margin-bottom: 8px;">No courses configured yet. Click <b>+ Add Course</b> or scan Blackboard to detect your courses automatically.</p>
         <button type="button" class="btn-primary" id="btn-empty-add-course" style="font-size: 11px; padding: 4px 10px;">
           + Add Your First Course
         </button>
@@ -2142,7 +2152,7 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
         renderQuickLinksManager();
       }
 
-      if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
+      if (Array.isArray(res.courses)) {
         const localUpdatedAt = await getCoursesUpdatedAt();
         const cloudTime = res.coursesUpdatedAt ? new Date(res.coursesUpdatedAt).getTime() : 0;
         const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
@@ -2159,6 +2169,20 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
             refreshAllViews();
           }
         }
+      }
+
+      // If this is a brand new or uninitialized syncKey node in Firebase, initialize it
+      if (res.lastSync === undefined && settings.syncKey) {
+        const coursesUpdatedAt = await getCoursesUpdatedAt();
+        pushTasksToFirebase(
+          currentTasks,
+          'Initial Sync Key Provisioning',
+          settings.syncKey,
+          currentQuickLinks,
+          tombstones,
+          currentUserCourses,
+          coursesUpdatedAt || undefined
+        ).catch(() => {});
       }
     }
   } catch (err) {
@@ -2965,6 +2989,9 @@ function setupEvents() {
     const hostedUrl = (document.getElementById('setting-hosted-url') as HTMLInputElement)?.value?.trim() || 'https://blackboarder.pages.dev';
     const selectedTheme = ((document.getElementById('setting-theme') as HTMLSelectElement)?.value || 'light') as 'light' | 'dark' | 'system';
 
+    const prevSettings = await getSettings();
+    const prevSyncKey = prevSettings.syncKey;
+
     await saveSettings({
       openRouterApiKey: apiKey,
       openRouterModel: model,
@@ -2981,6 +3008,10 @@ function setupEvents() {
       hostedWebUrl: hostedUrl,
       theme: selectedTheme
     });
+
+    if (syncKey && syncKey !== prevSyncKey) {
+      await pullTasksFromFirebaseIfNewer();
+    }
 
     applyTheme(selectedTheme);
     try {
@@ -3805,7 +3836,7 @@ async function refreshDataInBackground() {
     const freshCourses = await getUserCourses();
     let viewsNeedUpdate = false;
 
-    if (freshCourses && freshCourses.length > 0 && JSON.stringify(freshCourses) !== JSON.stringify(currentUserCourses)) {
+    if (Array.isArray(freshCourses) && JSON.stringify(freshCourses) !== JSON.stringify(currentUserCourses)) {
       currentUserCourses = freshCourses;
       renderUserCoursesManager();
       renderLegend();

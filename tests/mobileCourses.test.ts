@@ -69,7 +69,13 @@ describe('Mobile Web App Custom Courses Dynamic Engine', () => {
   const resolveWeight = (...args: any[]) => vm.runInContext('resolveTaskWeight', sandbox)(...args);
   const loadCourses = () => vm.runInContext('loadInitialUserCourses', sandbox)();
 
-  it('compiles default UOS courses into runtime legend, schedule, and syllabus arrays', () => {
+  it('initializes to empty courses array by default and compiles default UOS courses on demand', () => {
+    expect(loadCourses()).toEqual([]);
+    expect(getLegend().length).toBe(0);
+
+    const defaultCourses = vm.runInContext('DEFAULT_USER_COURSES', sandbox);
+    recompileCourses(defaultCourses);
+
     expect(getLegend().length).toBe(6);
     expect(getSchedule().length).toBeGreaterThanOrEqual(6);
     expect(getSyllabusDb().length).toBe(6);

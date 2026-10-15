@@ -548,7 +548,7 @@ let SYLLABUS_INFO = [];
 const FALLBACK_PALETTE = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#db2777', '#0891b2'];
 
 function recompileDynamicCourseData(courses) {
-  const courseList = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+  const courseList = Array.isArray(courses) ? courses : [];
 
   // 1. Recompile PERMANENT_COURSE_LEGEND
   const newLegend = courseList.map(course => ({
@@ -624,17 +624,22 @@ function recompileDynamicCourseData(courses) {
 
 function loadInitialUserCourses() {
   try {
-    const raw = localStorage.getItem('bbs_mobile_courses');
+    let syncKey = '';
+    try {
+      syncKey = (new URLSearchParams(window.location.search).get('key') || localStorage.getItem('bbs_sync_key') || '').trim().toUpperCase();
+    } catch {}
+    const scopedKey = syncKey ? `bbs_mobile_courses_${syncKey}` : null;
+    const raw = (scopedKey ? localStorage.getItem(scopedKey) : null) || localStorage.getItem('bbs_mobile_courses');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch (e) {
     console.warn('Failed to parse cached mobile courses:', e);
   }
-  return DEFAULT_USER_COURSES;
+  return [];
 }
 
 // Initialize active courses and dynamic data immediately on startup
@@ -3257,7 +3262,7 @@ async function fetchTasksFromServer(isManual = false) {
         if (fbRes.ok) {
           const fbData = await fbRes.json();
           if (fbData) {
-            if (Array.isArray(fbData.courses) && fbData.courses.length > 0) {
+            if (Array.isArray(fbData.courses)) {
               fetchedCourses = fbData.courses;
               fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
@@ -3288,7 +3293,7 @@ async function fetchTasksFromServer(isManual = false) {
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          if (Array.isArray(data.courses) && data.courses.length > 0) {
+          if (Array.isArray(data.courses)) {
             fetchedCourses = data.courses;
             fetchedCoursesUpdatedAt = data.coursesUpdatedAt || null;
           }
@@ -3306,7 +3311,7 @@ async function fetchTasksFromServer(isManual = false) {
 
     // 3. Process courses if updated from cloud
     let coursesChanged = false;
-    if (fetchedCourses && Array.isArray(fetchedCourses) && fetchedCourses.length > 0) {
+    if (fetchedCourses && Array.isArray(fetchedCourses)) {
       const localCoursesUpdatedAt = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at');
       const cloudTime = fetchedCoursesUpdatedAt ? new Date(fetchedCoursesUpdatedAt).getTime() : 0;
       const localTime = localCoursesUpdatedAt ? new Date(localCoursesUpdatedAt).getTime() : 0;
@@ -3319,6 +3324,9 @@ async function fetchTasksFromServer(isManual = false) {
           state.userCourses = fetchedCourses;
           state.coursesUpdatedAt = fetchedCoursesUpdatedAt;
           localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+          if (activeKey) {
+            localStorage.setItem(`bbs_mobile_courses_${activeKey}`, newCoursesJson);
+          }
           if (fetchedCoursesUpdatedAt) {
             localStorage.setItem('bbs_mobile_courses_updated_at', fetchedCoursesUpdatedAt);
           }
@@ -3846,6 +3854,14 @@ function matchesSelectedCourseFilter(task, filter) {
 function initLegend() {
   const container = document.getElementById('calendar-legend-items');
   if (!container) return;
+  const panel = container.closest('.course-legend-panel');
+
+  if (PERMANENT_COURSE_LEGEND.length === 0) {
+    container.innerHTML = '';
+    if (panel) panel.style.display = 'none';
+    return;
+  }
+  if (panel) panel.style.display = '';
 
   const isAllActive = state.selectedCourseFilter === null;
   const hasActiveFilter = !isAllActive;
@@ -5024,6 +5040,11 @@ function renderGradeTracker() {
   if (!badge || !breakdown) return;
 
   const courses = DEFAULT_SYLLABUS_DATABASE;
+  if (courses.length === 0) {
+    badge.textContent = '0% Tracked';
+    breakdown.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:10px 4px; text-align:center;">No courses configured yet.</div>';
+    return;
+  }
   let totalTrackedCompleted = 0;
   let totalTrackedWeight = 0;
 
@@ -5219,6 +5240,23 @@ function initSettings() {
       return;
     }
 
+    const prevKey = getSyncKey();
+    if (clean !== prevKey) {
+      state.userCourses = [];
+      state.coursesUpdatedAt = null;
+      const scoped = localStorage.getItem(`bbs_mobile_courses_${clean}`);
+      if (scoped) {
+        try {
+          state.userCourses = JSON.parse(scoped) || [];
+        } catch {}
+      }
+      recompileDynamicCourseData(state.userCourses);
+      initLegend();
+      initScheduleAndSyllabus();
+      renderGradeTracker();
+      updateCourseDatalist();
+    }
+
     localStorage.setItem('bbs_sync_key', clean);
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -5254,12 +5292,26 @@ function initSettings() {
 
   btnDisconnectDevice?.addEventListener('click', async () => {
     if (confirm('Disconnect this device from your extension sync key?')) {
+      const oldKey = getSyncKey();
+      if (oldKey) {
+        localStorage.removeItem(`bbs_mobile_courses_${oldKey}`);
+      }
+      localStorage.removeItem('bbs_mobile_courses');
+      localStorage.removeItem('bbs_mobile_courses_updated_at');
       localStorage.removeItem('bbs_sync_key');
       if (inputSyncKey) inputSyncKey.value = '';
       if (window.history && window.history.replaceState) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
       state.tasks = [];
+      state.userCourses = [];
+      state.coursesUpdatedAt = null;
+      recompileDynamicCourseData([]);
+      recalculateAllTaskWeightsAndRooms();
+      initLegend();
+      initScheduleAndSyllabus();
+      renderGradeTracker();
+      updateCourseDatalist();
       updateAllViews();
       updateDevicePairingCard();
       activeFeedUrl = updateFeedUrls();
@@ -6646,7 +6698,7 @@ async function syncToCloudAndLocal() {
       const snapRes = await fetch(fbUrl, { cache: 'no-store' });
       if (snapRes.ok) {
         const snap = await snapRes.json();
-        if (snap && Array.isArray(snap.courses) && snap.courses.length > 0) {
+        if (snap && Array.isArray(snap.courses)) {
           const snapTime = snap.coursesUpdatedAt ? new Date(snap.coursesUpdatedAt).getTime() : 0;
           const localTime = coursesUpdatedAtToSync ? new Date(coursesUpdatedAtToSync).getTime() : 0;
 
@@ -6662,6 +6714,10 @@ async function syncToCloudAndLocal() {
                 state.userCourses = snap.courses;
                 state.coursesUpdatedAt = snap.coursesUpdatedAt || null;
                 localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+                const activeKey = getSyncKey();
+                if (activeKey) {
+                  localStorage.setItem(`bbs_mobile_courses_${activeKey}`, newCoursesJson);
+                }
                 if (snap.coursesUpdatedAt) {
                   localStorage.setItem('bbs_mobile_courses_updated_at', snap.coursesUpdatedAt);
                 }

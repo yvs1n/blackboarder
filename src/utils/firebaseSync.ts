@@ -62,7 +62,7 @@ export async function pushTasksToFirebase(
       count: tasks.length,
       syncKey: syncKey || undefined,
       quickLinks: quickLinks || undefined,
-      courses: courses || undefined,
+      courses: Array.isArray(courses) ? courses : undefined,
       coursesUpdatedAt: coursesUpdatedAt || undefined,
       tombstones: tombstones || undefined
     };

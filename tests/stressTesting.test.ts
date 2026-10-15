@@ -1,12 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { generateIcsFeed } from '../server/calendarFeed';
 import { resolveTaskWeight } from '../src/utils/syllabusWeights';
 import { resolveTaskRoom } from '../src/utils/courseSchedule';
 import { extractDeadlinesLocally } from '../src/engine/localExtractor';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../src/utils/courseHelper';
 import { DeadlineTask, TaskType } from '../src/types';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('🚀 Maximum Stress Test Suite', () => {
+  beforeEach(() => {
+    setActiveUserCourses(DEFAULT_USER_COURSES);
+  });
 
   // =========================================================================
   // 1. Offline Service Worker Cache & Query String Simulation

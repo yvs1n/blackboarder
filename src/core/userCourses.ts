@@ -570,7 +570,7 @@ export function userCoursesToLegend(courses: UserCourseConfig[]): Array<{
 }
 
 // In-Memory Active State
-let activeUserCourses: UserCourseConfig[] = [...DEFAULT_USER_COURSES];
+let activeUserCourses: UserCourseConfig[] = [];
 let activeScheduleCache: CourseScheduleEntry[] | null = null;
 let activeSyllabiCache: CourseSyllabus[] | null = null;
 let activeLegendCache: Array<{ name: string; code: string; pattern: RegExp; hex: string }> | null = null;
@@ -586,16 +586,16 @@ export function getActiveUserCourses(): UserCourseConfig[] {
 }
 
 export function setActiveUserCourses(courses: UserCourseConfig[]): void {
-  if (Array.isArray(courses) && courses.length > 0) {
+  if (Array.isArray(courses)) {
     activeUserCourses = courses;
   } else {
-    activeUserCourses = [...DEFAULT_USER_COURSES];
+    activeUserCourses = [];
   }
   clearCaches();
 }
 
 export function resetActiveUserCourses(): void {
-  activeUserCourses = [...DEFAULT_USER_COURSES];
+  activeUserCourses = [];
   clearCaches();
 }
 

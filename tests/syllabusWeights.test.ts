@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { resolveTaskWeight, findCourseSyllabus, DEFAULT_SYLLABUS_DATABASE, extractAssessmentNumber } from '../src/utils/syllabusWeights';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Syllabus Weights Database & Resolution', () => {
+  beforeEach(() => {
+    setActiveUserCourses(DEFAULT_USER_COURSES);
+  });
   it('contains all 6 configured courses with totalWeight of 100%', () => {
     expect(DEFAULT_SYLLABUS_DATABASE.length).toBe(6);
     expect(findCourseSyllabus('Calculus 1')?.courseId).toBe('calc1');

@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createGoogleCalendarUrl, generateIcsContent, formatTaskTime, getTaskSortTimestamp, compareTasksByTime, formatCountdown } from '../src/utils/calendar';
 import { DeadlineTask } from '../src/types';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Calendar Utilities', () => {
+  beforeEach(() => {
+    setActiveUserCourses(DEFAULT_USER_COURSES);
+  });
   const sampleTask: DeadlineTask = {
     id: 'test-task-1',
     courseCode: '0401201',

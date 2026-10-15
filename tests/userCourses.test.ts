@@ -20,7 +20,8 @@ import {
   resetUserCoursesToDefault,
   recalculateTasksWithActiveCourses,
   saveTasks,
-  getTasks
+  getTasks,
+  autoRegisterDiscoveredCourses
 } from '../src/utils/storage';
 
 describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
@@ -183,7 +184,7 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
 
   it('reactively updates active legend when custom courses are added or modified', async () => {
     const initialLegend = getActiveCourseLegend();
-    expect(initialLegend.length).toBe(6);
+    expect(initialLegend.length).toBe(0);
 
     const extraCourse: UserCourseConfig = {
       id: 'chem1',
@@ -206,5 +207,51 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
 
     await resetUserCoursesToDefault();
     expect(getActiveCourseLegend().length).toBe(6);
+  });
+
+  it('automatically registers newly discovered courses during scans into user courses', async () => {
+    // Start with empty custom courses
+    await saveUserCourses([]);
+    expect(getActiveUserCourses().length).toBe(0);
+
+    const scannedTasks: DeadlineTask[] = [
+      {
+        id: 't-stat',
+        title: 'Homework 1',
+        courseName: 'Applied Statistics',
+        courseCode: '1440 211',
+        type: 'assignment',
+        dueDate: '2026-10-20T23:59:00.000Z',
+        hasSpecificTime: false,
+        completed: false,
+        userEdited: false,
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 't-algo',
+        title: 'Quiz 1',
+        courseName: 'Analysis of Algorithms',
+        courseCode: '1501 331',
+        type: 'quiz',
+        dueDate: '2026-10-22T10:00:00.000Z',
+        hasSpecificTime: true,
+        completed: false,
+        userEdited: false,
+        createdAt: new Date().toISOString()
+      }
+    ];
+
+    const result = await autoRegisterDiscoveredCourses(scannedTasks);
+    expect(result.length).toBe(2);
+    expect(result.some(c => c.courseName === 'Applied Statistics')).toBe(true);
+    expect(result.some(c => c.courseName === 'Analysis of Algorithms')).toBe(true);
+
+    // Running again with the same tasks should not create duplicates
+    const rerun = await autoRegisterDiscoveredCourses(scannedTasks);
+    expect(rerun.length).toBe(2);
+
+    // Active legend reflects the newly auto-registered courses
+    const legend = getActiveCourseLegend();
+    expect(legend.length).toBe(2);
   });
 });

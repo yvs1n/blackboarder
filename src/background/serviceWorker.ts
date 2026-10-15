@@ -36,7 +36,7 @@ export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
       return false;
     }
 
-    if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
+    if (Array.isArray(res.courses)) {
       const localUpdatedAt = await getCoursesUpdatedAt();
       const cloudTime = res.coursesUpdatedAt ? new Date(res.coursesUpdatedAt).getTime() : 0;
       const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;

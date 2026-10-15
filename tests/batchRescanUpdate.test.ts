@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { processAnnouncementsBatch } from '../src/engine/hybridExtractor';
 import { resolveTaskRoom } from '../src/utils/courseSchedule';
 import { Announcement, DeadlineTask, UserSettings } from '../src/types';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Batch Rescan & In-Place Task Updating Engine', () => {
+  beforeEach(() => {
+    setActiveUserCourses(DEFAULT_USER_COURSES);
+  });
   const defaultSettings: UserSettings = {
     openRouterApiKey: '',
     openRouterModel: 'google/gemini-3.8-flash',

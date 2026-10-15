@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   findCourseSchedule,
   resolveTaskTimeWithSchedule,
@@ -7,8 +7,12 @@ import {
   extractRoomFromText,
   resolveTaskRoom
 } from '../src/utils/courseSchedule';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Student Class Schedule Engine (schedule.pdf)', () => {
+  beforeEach(() => {
+    setActiveUserCourses(DEFAULT_USER_COURSES);
+  });
   it('loads all 6 registered courses with accurate class timings', () => {
     const schedules = getAllCourseSchedules();
     expect(schedules.length).toBe(6);

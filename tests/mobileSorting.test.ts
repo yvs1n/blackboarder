@@ -54,6 +54,9 @@ describe('Mobile Web App Sorting Verification', () => {
   });
 
   it('places tasks without specific time at schedule class time (e.g. Calculus 1 at 12:30 PM)', () => {
+    const defaultCourses = vm.runInContext('DEFAULT_USER_COURSES', sandbox);
+    vm.runInContext('recompileDynamicCourseData', sandbox)(defaultCourses);
+
     const tasks = [
       { id: 'late', title: 'Late HW', dueDate: '2026-10-15T15:00:00', hasSpecificTime: true },
       { id: 'calc', courseName: 'Calculus I for Engineering', title: 'Midterm', dueDate: '2026-10-15T00:00:00', hasSpecificTime: false },

@@ -1,7 +1,7 @@
 import { Announcement, DeadlineTask } from '../types';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
-import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses } from '../utils/storage';
-import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../core/userCourses';
+import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses } from '../utils/storage';
+import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
 import { parseDirectStreamCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
@@ -998,6 +998,9 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
 
     const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]);
 
+    // Auto-register any new courses found in scanned tasks
+    await autoRegisterDiscoveredCourses(finalTasks).catch(() => {});
+
     await saveTasks(finalTasks);
 
     // Update scan checkpoint with newly processed IDs
@@ -1074,10 +1077,10 @@ function init() {
       chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName === 'local' && changes['bbs_user_courses']) {
           const newCourses = changes['bbs_user_courses'].newValue;
-          if (Array.isArray(newCourses) && newCourses.length > 0) {
+          if (Array.isArray(newCourses)) {
             setActiveUserCourses(newCourses);
           } else {
-            setActiveUserCourses(DEFAULT_USER_COURSES);
+            setActiveUserCourses([]);
           }
         }
       });
