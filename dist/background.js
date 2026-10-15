@@ -83,33 +83,34 @@ function i(e) {
 	let t = (e || "").trim().replace(/[^a-zA-Z0-9_-]/g, "");
 	return t ? `${r}/users/${t}/data.json` : `${r}/data.json`;
 }
-async function a(e, t = "Chrome Extension", n, r, a, o) {
+async function a(e, t = "Chrome Extension", n, r, a, o, s) {
 	try {
-		let s = (/* @__PURE__ */ new Date()).toISOString(), c = {
+		let c = (/* @__PURE__ */ new Date()).toISOString(), l = {
 			tasks: e,
-			lastSync: s,
+			lastSync: c,
 			device: t,
 			count: e.length,
 			syncKey: n || void 0,
 			quickLinks: r || void 0,
 			courses: o || void 0,
+			coursesUpdatedAt: s || void 0,
 			tombstones: a || void 0
-		}, l = i(n), u = await fetch(l, {
+		}, u = i(n), d = await fetch(u, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(c)
+			body: JSON.stringify(l)
 		});
-		if (!u.ok) {
-			let e = await u.text().catch(() => "");
+		if (!d.ok) {
+			let e = await d.text().catch(() => "");
 			return {
 				success: !1,
-				message: `Firebase error (${u.status}): ${e}`
+				message: `Firebase error (${d.status}): ${e}`
 			};
 		}
 		return {
 			success: !0,
 			message: `Synchronized ${e.length} deadlines with Firebase Cloud`,
-			lastSync: s,
+			lastSync: c,
 			count: e.length
 		};
 	} catch (e) {
@@ -134,6 +135,7 @@ async function o(e) {
 			lastSync: void 0,
 			quickLinks: r?.quickLinks,
 			courses: r?.courses,
+			coursesUpdatedAt: r?.coursesUpdatedAt,
 			tombstones: r?.tombstones
 		} : {
 			success: !0,
@@ -142,6 +144,7 @@ async function o(e) {
 			device: r.device,
 			quickLinks: r.quickLinks,
 			courses: r.courses,
+			coursesUpdatedAt: r.coursesUpdatedAt,
 			tombstones: r.tombstones
 		};
 	} catch (e) {
@@ -966,125 +969,125 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	constructor(e = "Request was aborted.", t) {
 		super(e, t);
 	}
-}, xe = [
+}, j = [
 	"debug",
 	"info",
 	"warn",
 	"error",
 	"off"
-], Se = "warn", Ce = (e) => xe.includes(e), j = (e, t) => {
-	if (Ce(e)) return e;
-	throw new w(`Invalid log level "${e}" from ${t}. Expected one of: ${xe.join(", ")}.`);
-}, M = "[typesafe-sdk]", we = {
-	debug: (e, ...t) => console.debug(`${M} ${e}`, ...t),
-	info: (e, ...t) => console.info(`${M} ${e}`, ...t),
-	warn: (e, ...t) => console.warn(`${M} ${e}`, ...t),
-	error: (e, ...t) => console.error(`${M} ${e}`, ...t)
-}, N = {
+], xe = "warn", Se = (e) => j.includes(e), M = (e, t) => {
+	if (Se(e)) return e;
+	throw new w(`Invalid log level "${e}" from ${t}. Expected one of: ${j.join(", ")}.`);
+}, N = "[typesafe-sdk]", Ce = {
+	debug: (e, ...t) => console.debug(`${N} ${e}`, ...t),
+	info: (e, ...t) => console.info(`${N} ${e}`, ...t),
+	warn: (e, ...t) => console.warn(`${N} ${e}`, ...t),
+	error: (e, ...t) => console.error(`${N} ${e}`, ...t)
+}, P = {
 	debug: 0,
 	info: 1,
 	warn: 2,
 	error: 3,
 	off: 4
-}, P = () => {}, Te = (e, t) => {
-	let n = (e) => N[e] >= N[t];
+}, F = () => {}, we = (e, t) => {
+	let n = (e) => P[e] >= P[t];
 	return {
-		debug: n("debug") ? (t, ...n) => e.debug(t, ...n) : P,
-		info: n("info") ? (t, ...n) => e.info(t, ...n) : P,
-		warn: n("warn") ? (t, ...n) => e.warn(t, ...n) : P,
-		error: n("error") ? (t, ...n) => e.error(t, ...n) : P
+		debug: n("debug") ? (t, ...n) => e.debug(t, ...n) : F,
+		info: n("info") ? (t, ...n) => e.info(t, ...n) : F,
+		warn: n("warn") ? (t, ...n) => e.warn(t, ...n) : F,
+		error: n("error") ? (t, ...n) => e.error(t, ...n) : F
 	};
-}, Ee = /* @__PURE__ */ new Set([
+}, Te = /* @__PURE__ */ new Set([
 	"authorization",
 	"proxy-authorization",
 	"x-api-key"
-]), De = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), Oe = (e) => {
+]), Ee = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), De = (e) => {
 	let [t, n] = e.includes(" ") ? e.split(/\s+/, 2) : [void 0, e], r = n && n.length > 8 ? n.slice(-4) : "";
 	return `${t ? `${t} ` : ""}***${r}`;
-}, ke = (e, t) => {
+}, Oe = (e, t) => {
 	let n = e.toLowerCase();
-	return Ee.has(n) ? Oe(t) : De.has(n) ? "***" : t;
-}, Ae = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, ke(e, t)])), F = (e = null, t) => ({
+	return Te.has(n) ? De(t) : Ee.has(n) ? "***" : t;
+}, ke = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, Oe(e, t)])), I = (e = null, t) => ({
 	type: "noul",
 	instructions: e,
 	criteria: t
-}), je = (e, t) => {
+}), Ae = (e, t) => {
 	if (!Array.isArray(t)) throw new w("Score criteria must be a list of descriptions indexed by score from zero, not a map.");
 	return {
 		type: "score",
 		instructions: e,
 		criteria: t
 	};
-}, Me = (e, t) => {
+}, je = (e, t) => {
 	if (Array.isArray(t)) throw new w("Choice criteria must be a map of labels to descriptions, not a list.");
 	return {
 		type: "choice",
 		instructions: e,
 		criteria: t
 	};
-}, Ne = (e) => {
+}, Me = (e) => {
 	if (Object.keys(e).length === 0) throw new w("At least one question is required.");
 	for (let [t, n] of Object.entries(e)) if (n.type === "score") {
 		if (!Array.isArray(n.criteria)) throw new w(`Score question "${t}" has criteria that are not a list; score criteria must be a list of descriptions indexed by score from zero.`);
 		if (n.criteria.length < 2) throw new w(`Score question "${t}" has ${n.criteria.length} criteria; at least two scores are required.`);
 	}
-}, Pe = class {
+}, Ne = class {
 	#e;
 	constructor(e) {
 		this.#e = e;
 	}
 	list(e = {}) {
-		return this.#e.request("GET", "/v1/models", e).map(Fe);
+		return this.#e.request("GET", "/v1/models", e).map(Pe);
 	}
-}, Fe = (e) => {
+}, Pe = (e) => {
 	if (Array.isArray(e?.models)) return e.models;
 	throw new w("Unexpected response shape from GET /v1/models; expected { models: [...] }.");
-}, I = globalThis, L = () => I.window !== void 0 && I.window.document !== void 0 && I.navigator !== void 0, Ie = () => {
-	let e = I.process?.platform && I.process?.arch ? ` (${I.process.platform}; ${I.process.arch})` : "";
-	return I.Bun?.version ? `bun/${I.Bun.version}${e}` : I.Deno?.version?.deno ? `deno/${I.Deno.version.deno}${e}` : I.EdgeRuntime === void 0 ? I.navigator?.userAgent === "Cloudflare-Workers" ? "cloudflare-workers" : I.process?.versions?.node ? `node/${I.process.versions.node}${e}` : L() ? "browser" : "unknown" : "vercel-edge";
-}, R = "0.6.0", Le = () => {
+}, L = globalThis, R = () => L.window !== void 0 && L.window.document !== void 0 && L.navigator !== void 0, Fe = () => {
+	let e = L.process?.platform && L.process?.arch ? ` (${L.process.platform}; ${L.process.arch})` : "";
+	return L.Bun?.version ? `bun/${L.Bun.version}${e}` : L.Deno?.version?.deno ? `deno/${L.Deno.version.deno}${e}` : L.EdgeRuntime === void 0 ? L.navigator?.userAgent === "Cloudflare-Workers" ? "cloudflare-workers" : L.process?.versions?.node ? `node/${L.process.versions.node}${e}` : R() ? "browser" : "unknown" : "vercel-edge";
+}, z = "0.6.0", Ie = () => {
 	throw new w(`No API key was provided. Pass \`apiKey\` to the TypeSafeClient constructor or set the ${y.apiKey} environment variable.`);
-}, Re = () => {
+}, Le = () => {
 	throw new w("No global `fetch` is available in this runtime. Pass a `fetch` implementation to the TypeSafeClient constructor.");
-}, ze = () => {
+}, Re = () => {
 	throw new w("TypeSafeClient is running in a browser, which would expose your API key to anyone using the page. Call the API from a server instead, or pass `dangerouslyAllowBrowser: true` if you understand the risk.");
-}, Be = (e, t) => globalThis.fetch(e, t), Ve = (e, t) => {
+}, ze = (e, t) => globalThis.fetch(e, t), Be = (e, t) => {
 	if (!Number.isInteger(t) || t < 0) throw new w(`\`${e}\` must be a non-negative integer, got ${String(t)}.`);
 	return t;
-}, z = (e, t) => {
+}, B = (e, t) => {
 	if (!Number.isFinite(t) || t <= 0) throw new w(`\`${e}\` must be a positive number of milliseconds, got ${String(t)}.`);
 	return t;
-}, B = (e, t) => {
+}, V = (e, t) => {
 	if (!Number.isFinite(t) || t < 0) throw new w(`\`${e}\` must be a non-negative number of milliseconds, got ${String(t)}.`);
 	return t;
-}, He = (e, t) => {
+}, Ve = (e, t) => {
 	if (!Number.isFinite(t) || t < 0 || t > 1) throw new w(`\`${e}\` must be between 0 and 1, got ${String(t)}.`);
 	return t;
-}, Ue = (e, t) => {
+}, He = (e, t) => {
 	for (let n of t) if (!Number.isInteger(n) || n < 100 || n > 999) throw new w(`\`${e}\` must contain HTTP status codes, got ${String(n)}.`);
 	return t;
-}, V = (e, t) => {
+}, H = (e, t) => {
 	let n = t ?? {};
 	return {
-		maxRetries: n.maxRetries === void 0 ? e.maxRetries : Ve("retry.maxRetries", n.maxRetries),
-		backoffInitialMs: n.backoffInitialMs === void 0 ? e.backoffInitialMs : B("retry.backoffInitialMs", n.backoffInitialMs),
-		backoffMaxMs: n.backoffMaxMs === void 0 ? e.backoffMaxMs : B("retry.backoffMaxMs", n.backoffMaxMs),
-		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : He("retry.backoffJitter", n.backoffJitter),
-		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : Ue("retry.httpStatuses", n.httpStatuses)),
+		maxRetries: n.maxRetries === void 0 ? e.maxRetries : Be("retry.maxRetries", n.maxRetries),
+		backoffInitialMs: n.backoffInitialMs === void 0 ? e.backoffInitialMs : V("retry.backoffInitialMs", n.backoffInitialMs),
+		backoffMaxMs: n.backoffMaxMs === void 0 ? e.backoffMaxMs : V("retry.backoffMaxMs", n.backoffMaxMs),
+		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : Ve("retry.backoffJitter", n.backoffJitter),
+		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : He("retry.httpStatuses", n.httpStatuses)),
 		respectRetryAfter: n.respectRetryAfter ?? e.respectRetryAfter,
-		maxRetryAfterMs: n.maxRetryAfterMs === void 0 ? e.maxRetryAfterMs : B("retry.maxRetryAfterMs", n.maxRetryAfterMs),
+		maxRetryAfterMs: n.maxRetryAfterMs === void 0 ? e.maxRetryAfterMs : V("retry.maxRetryAfterMs", n.maxRetryAfterMs),
 		apiConnectionError: n.apiConnectionError ?? e.apiConnectionError,
 		apiTimeoutError: n.apiTimeoutError ?? e.apiTimeoutError
 	};
-}, We = (e, t) => e instanceof k ? t.apiTimeoutError : e instanceof O && t.apiConnectionError, Ge = (e) => {
-	if (e !== void 0) return j(e, "the `logLevel` option");
+}, Ue = (e, t) => e instanceof k ? t.apiTimeoutError : e instanceof O && t.apiConnectionError, We = (e) => {
+	if (e !== void 0) return M(e, "the `logLevel` option");
 	let t = b(y.logLevel);
-	return t === void 0 ? Se : j(t, y.logLevel);
-}, Ke = (e) => e.replace(/\/+$/, ""), H = (...e) => {
+	return t === void 0 ? xe : M(t, y.logLevel);
+}, Ge = (e) => e.replace(/\/+$/, ""), U = (...e) => {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e) for (let [e, r] of Object.entries(n)) r === void 0 ? t.delete(e.toLowerCase()) : t.set(e.toLowerCase(), [e, r]);
 	return Object.fromEntries(t.values());
-}, qe = async (e, t) => {
+}, Ke = async (e, t) => {
 	let n = e.clone().body?.getReader();
 	if (!n) return;
 	let r = () => {
@@ -1097,7 +1100,7 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	} finally {
 		t.removeEventListener("abort", r), n.releaseLock();
 	}
-}, Je = Ie(), Ye = class {
+}, qe = Fe(), Je = class {
 	#e;
 	baseURL;
 	defaultModel;
@@ -1110,15 +1113,15 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	models;
 	#t = 0;
 	constructor(e = {}) {
-		L() && !e.dangerouslyAllowBrowser && ze(), this.#e = x(e.apiKey, y.apiKey) ?? Le(), this.baseURL = Ke(x(e.baseURL, y.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = x(e.defaultModel, y.defaultModel) ?? "jev-latest", this.logLevel = Ge(e.logLevel), this.logger = Te(e.logger ?? we, this.logLevel), this.retry = V(S, e.retry), this.timeout = z("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && Re(), this.fetch = e.fetch ?? Be;
+		R() && !e.dangerouslyAllowBrowser && Re(), this.#e = x(e.apiKey, y.apiKey) ?? Ie(), this.baseURL = Ge(x(e.baseURL, y.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = x(e.defaultModel, y.defaultModel) ?? "jev-latest", this.logLevel = We(e.logLevel), this.logger = we(e.logger ?? Ce, this.logLevel), this.retry = H(S, e.retry), this.timeout = B("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && Le(), this.fetch = e.fetch ?? ze;
 		let t = {
 			request: (e, t, n) => this.#n(e, t, n),
 			defaultModel: this.defaultModel
 		};
-		this.models = new Pe(t);
+		this.models = new Ne(t);
 	}
 	systemOne(e, t = {}) {
-		Ne(e.questions);
+		Me(e.questions);
 		let n = {
 			...e,
 			model: e.model ?? this.defaultModel
@@ -1133,23 +1136,23 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 			method: e,
 			path: t,
 			body: n.body,
-			headers: H(this.defaultHeaders, n.headers ?? {}),
+			headers: U(this.defaultHeaders, n.headers ?? {}),
 			signal: n.signal,
-			timeout: n.timeout === void 0 ? this.timeout : z("timeout", n.timeout),
-			retry: V(this.retry, n.retry)
+			timeout: n.timeout === void 0 ? this.timeout : B("timeout", n.timeout),
+			retry: H(this.retry, n.retry)
 		}, i = `#${++this.#t} ${e} ${t}`;
 		return new ce(this.fetchWithRetries(i, r), async (e) => {
-			let t = await U(e);
+			let t = await W(e);
 			return this.logger.debug(`${i} <- body`, t), t;
 		});
 	}
 	async fetchWithRetries(e, t) {
-		let n = `${this.baseURL}${t.path}`, r = H(t.headers, {
+		let n = `${this.baseURL}${t.path}`, r = U(t.headers, {
 			Authorization: `Bearer ${this.#e}`,
 			Accept: "application/json",
-			"User-Agent": `typesafe-sdk/${R}`,
-			"X-TypeSafe-SDK": `typesafe-sdk/${R}`,
-			"X-TypeSafe-Runtime": Je,
+			"User-Agent": `typesafe-sdk/${z}`,
+			"X-TypeSafe-SDK": `typesafe-sdk/${z}`,
+			"X-TypeSafe-Runtime": qe,
 			"Content-Type": t.body === void 0 ? void 0 : "application/json",
 			"X-TypeSafe-Retry-Count": void 0
 		}), i = t.body === void 0 ? void 0 : JSON.stringify(t.body);
@@ -1159,7 +1162,7 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 				"X-TypeSafe-Retry-Count": String(a)
 			};
 			this.logger.debug(`${e} -> ${n}`, {
-				headers: Ae(s),
+				headers: ke(s),
 				body: t.body
 			});
 			let c = Date.now(), l;
@@ -1170,13 +1173,13 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 					body: i
 				}, t);
 			} catch (n) {
-				if (n instanceof A || o <= 0 || !We(n, t.retry)) throw n;
+				if (n instanceof A || o <= 0 || !Ue(n, t.retry)) throw n;
 				await this.backOff(e, a, o, n.message, void 0, t);
 				continue;
 			}
 			let u = v(l.headers);
 			if (this.logger.info(`${e} <- ${l.status} in ${Date.now() - c}ms${u ? ` (request ${u})` : ""}`), l.ok) return l;
-			let d = await U(l);
+			let d = await W(l);
 			this.logger.debug(`${e} <- error body`, d);
 			let f = D.fromResponse(l.status, d, l.headers);
 			if (o <= 0 || !le(l.status, t.retry)) throw f;
@@ -1194,7 +1197,7 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 				...n,
 				signal: a.signal
 			});
-			return await qe(e, a.signal), e;
+			return await Ke(e, a.signal), e;
 		} catch (t) {
 			throw r?.aborted ? (this.logger.info(`${e} aborted by caller after ${u()}`), new A(void 0, { cause: t })) : s ? (this.logger.info(`${e} timed out after ${u()}`), new k(i, { cause: t })) : (this.logger.info(`${e} connection error after ${u()}`, t), new O(t instanceof Error ? `Connection error: ${t.message}` : void 0, { cause: t }));
 		} finally {
@@ -1210,7 +1213,7 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 			throw this.logger.info(`${e} aborted by caller while waiting to retry`), new A(void 0, { cause: t });
 		}
 	}
-}, U = async (e) => {
+}, W = async (e) => {
 	let t = await e.text();
 	if (t.length !== 0) {
 		if ((e.headers.get("content-type") ?? "").includes("application/json")) try {
@@ -1224,23 +1227,24 @@ var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 			return t;
 		}
 	}
-}, W = {
+}, G = {
 	TASKS: "bbs_tasks",
 	ANNOUNCEMENTS: "bbs_announcements",
 	SETTINGS: "bbs_settings",
 	LAST_SCANNED: "bbs_last_scanned",
 	QUICK_LINKS: "bbs_quick_links",
-	COURSES: "bbs_user_courses"
+	COURSES: "bbs_user_courses",
+	COURSES_UPDATED_AT: "bbs_courses_updated_at"
 };
-function Xe() {
+function K() {
 	try {
 		return typeof chrome < "u" && !!chrome.runtime?.id && !!chrome.storage?.local;
 	} catch {
 		return !1;
 	}
 }
-var G = /* @__PURE__ */ new Map();
-function K() {
+var Ye = /* @__PURE__ */ new Map();
+function Xe() {
 	try {
 		return !(!(typeof localStorage < "u") || typeof window < "u" && typeof chrome < "u" && chrome.runtime?.id && (window.location?.protocol === "http:" || window.location?.protocol === "https:"));
 	} catch {
@@ -1249,65 +1253,99 @@ function K() {
 }
 function q(e) {
 	try {
-		if (K()) return localStorage.getItem(e);
+		if (Xe()) return localStorage.getItem(e);
 	} catch {}
-	return G.get(e) || null;
+	return Ye.get(e) || null;
 }
-function Ze(e, t) {
+function J(e, t) {
 	try {
-		if (K()) {
+		if (Xe()) {
 			localStorage.setItem(e, t);
 			return;
 		}
 	} catch {}
-	G.set(e, t);
+	Ye.set(e, t);
 }
-function Qe() {
-	let e = q(W.COURSES);
+function Ze() {
+	let e = q(G.COURSES);
 	if (e) try {
 		let t = JSON.parse(e);
 		if (Array.isArray(t) && t.length > 0) return t;
 	} catch {}
 	return l;
 }
-async function J() {
-	if (Xe()) try {
+async function Y() {
+	if (K()) try {
 		return await new Promise((e) => {
 			try {
-				chrome.storage.local.get([W.COURSES], (t) => {
+				chrome.storage.local.get([G.COURSES], (t) => {
 					try {
 						if (chrome.runtime?.lastError) {
-							let t = q(W.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+							let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
 							f(r), e(r);
 							return;
 						}
-						let n = t?.[W.COURSES], r = Array.isArray(n) && n.length > 0 ? n : l;
-						Ze(W.COURSES, JSON.stringify(r)), f(r), e(r);
+						let n = t?.[G.COURSES], r = Array.isArray(n) && n.length > 0 ? n : l;
+						J(G.COURSES, JSON.stringify(r)), f(r), e(r);
 					} catch {
-						let t = q(W.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+						let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
 						f(r), e(r);
 					}
 				});
 			} catch {
-				let t = q(W.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+				let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
 				f(r), e(r);
 			}
 		});
 	} catch {}
-	let e = q(W.COURSES);
+	let e = q(G.COURSES);
 	if (e) try {
 		let t = JSON.parse(e);
 		if (Array.isArray(t) && t.length > 0) return f(t), t;
 	} catch {}
 	return f(l), l;
 }
+async function Qe() {
+	if (K()) try {
+		return await new Promise((e) => {
+			try {
+				chrome.storage.local.get([G.COURSES_UPDATED_AT], (t) => {
+					if (chrome.runtime?.lastError) {
+						e(q(G.COURSES_UPDATED_AT));
+						return;
+					}
+					e(t?.[G.COURSES_UPDATED_AT] || q(G.COURSES_UPDATED_AT) || null);
+				});
+			} catch {
+				e(q(G.COURSES_UPDATED_AT));
+			}
+		});
+	} catch {}
+	return q(G.COURSES_UPDATED_AT);
+}
+async function $e(e, t) {
+	let n = Array.isArray(e) && e.length > 0 ? e : l, r = t || (/* @__PURE__ */ new Date()).toISOString();
+	if (J(G.COURSES, JSON.stringify(n)), J(G.COURSES_UPDATED_AT, r), f(n), K()) try {
+		await new Promise((e) => {
+			try {
+				chrome.storage.local.set({
+					[G.COURSES]: n,
+					[G.COURSES_UPDATED_AT]: r
+				}, () => e());
+			} catch {
+				e();
+			}
+		});
+		return;
+	} catch {}
+}
 try {
-	let e = Qe();
+	let e = Ze();
 	Array.isArray(e) && e.length > 0 && f(e);
 } catch {}
 //#endregion
 //#region src/engine/jevClassifier.ts
-async function $e(e, t, n = 6e3) {
+async function et(e, t, n = 6e3) {
 	let r = {
 		isDeadline: !0,
 		deadlineProbability: .5,
@@ -1344,15 +1382,15 @@ async function $e(e, t, n = 6e3) {
 		}
 	} catch {}
 	try {
-		let r = new Ye({
+		let r = new Je({
 			apiKey: t.trim(),
 			dangerouslyAllowBrowser: !0,
 			timeout: n
 		}), i = e.length > 1200 ? e.slice(0, 1200) : e, a = (await r.systemOne({
 			state: i,
 			questions: {
-				is_deadline: F("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
-				category: Me("What type of academic task or event is described?", {
+				is_deadline: I("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
+				category: je("What type of academic task or event is described?", {
 					quiz: "A quiz, pop quiz, short assessment, or test",
 					exam: "A midterm exam, final exam, or major examination",
 					assignment: "A homework assignment, problem set, essay, paper, or exercise",
@@ -1360,15 +1398,15 @@ async function $e(e, t, n = 6e3) {
 					project: "A semester project, group project, milestone, presentation, or term project",
 					not_a_task: "General announcement, lecture slides notice, office hours, syllabus info, or greetings with no upcoming assessment"
 				}),
-				urgency: je("How urgent or high-priority is this academic event?", [
+				urgency: Ae("How urgent or high-priority is this academic event?", [
 					"Low priority or non-mandatory notice",
 					"Standard homework or recurring reading",
 					"Medium priority assignment or lab report",
 					"High priority quiz or milestone",
 					"Critical high-stakes midterm or final exam"
 				]),
-				has_room: F("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
-				has_time: F("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
+				has_room: I("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
+				has_time: I("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
 			}
 		})).answers, o = a.is_deadline?.noul ?? .5, s = a.category?.choice ?? "not_a_task", c = a.category?.confidence ?? .5, l = a.urgency?.score ?? 2, u = a.has_room?.noul ?? .5, d = a.has_time?.noul ?? .5, f = u >= .5, p = d >= .5, m = "medium";
 		l >= 2.8 ? m = "high" : l < 1.3 && (m = "low");
@@ -1391,10 +1429,10 @@ async function $e(e, t, n = 6e3) {
 }
 //#endregion
 //#region src/background/serviceWorker.ts
-var Y = "bbs_check_deadlines", X = "bbs_midnight_sync";
-function et() {
+var X = "bbs_check_deadlines", tt = "bbs_midnight_sync";
+function nt() {
 	let e = /* @__PURE__ */ new Date(), t = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1, 0, 0, 5).getTime();
-	chrome.alarms.create(X, {
+	chrome.alarms.create(tt, {
 		when: t,
 		periodInMinutes: 1440
 	}), console.log(`[Auto-Sync] Scheduled daily midnight sync for ${new Date(t).toLocaleString()}`);
@@ -1404,8 +1442,8 @@ async function Z() {
 		let e = await chrome.storage.local.get(["bbs_settings", "bbs_tombstones"]), t = e.bbs_settings?.syncKey, n = await o(t);
 		if (!n.success || !Array.isArray(n.tasks)) return !1;
 		if (n.courses && Array.isArray(n.courses) && n.courses.length > 0) {
-			let e = await chrome.storage.local.get(["bbs_user_courses"]);
-			JSON.stringify(e.bbs_user_courses) !== JSON.stringify(n.courses) && (await chrome.storage.local.set({ bbs_user_courses: n.courses }), await J());
+			let e = await Qe(), t = n.coursesUpdatedAt ? new Date(n.coursesUpdatedAt).getTime() : 0, r = e ? new Date(e).getTime() : 0;
+			(!e || t > r) && await $e(n.courses, n.coursesUpdatedAt);
 		}
 		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = e.bbs_tombstones || {}, a = h(i, n.tombstones || {});
 		JSON.stringify(a) !== JSON.stringify(i) && await chrome.storage.local.set({ bbs_tombstones: a });
@@ -1415,7 +1453,7 @@ async function Z() {
 		return console.warn("[Background Sync] Failed pulling tasks from Firebase:", e), !1;
 	}
 }
-async function tt() {
+async function rt() {
 	try {
 		await Z();
 		let t = await chrome.storage.local.get([
@@ -1427,11 +1465,11 @@ async function tt() {
 			ok: !1,
 			reason: "disabled"
 		};
-		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, s = await J(), [c, l] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, t.bbs_quick_links, o, s), n(r, i, t.bbs_quick_links)]);
-		return console.log("[Auto-Sync] Firebase Result:", c, "Server Result:", l), {
-			ok: c.success || l.success,
-			fbResult: c,
-			serverResult: l
+		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, s = await Y(), c = await Qe(), [l, u] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, t.bbs_quick_links, o, s, c || void 0), n(r, i, t.bbs_quick_links)]);
+		return console.log("[Auto-Sync] Firebase Result:", l, "Server Result:", u), {
+			ok: l.success || u.success,
+			fbResult: l,
+			serverResult: u
 		};
 	} catch (e) {
 		return console.error("[Auto-Sync] Failed syncing to mobile server:", e), {
@@ -1482,12 +1520,12 @@ async function $() {
 	}
 }
 chrome.runtime.onInstalled.addListener(() => {
-	chrome.alarms.create(Y, { periodInMinutes: 30 }), et(), J().catch(() => {}), Z().then(() => Q());
+	chrome.alarms.create(X, { periodInMinutes: 30 }), nt(), Y().catch(() => {}), Z().then(() => Q());
 }), chrome.storage.onChanged.addListener((e, t) => {
-	t === "local" && e.bbs_user_courses && J().catch(() => {});
+	t === "local" && e.bbs_user_courses && Y().catch(() => {});
 }), chrome.alarms.onAlarm.addListener((e) => {
-	e.name === Y ? Z().then(() => $()) : e.name === X && (tt(), et());
-}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? ($e(e.text, e.apiKey, e.timeoutMs).then((e) => n({
+	e.name === X ? Z().then(() => $()) : e.name === tt && (rt(), nt());
+}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? (et(e.text, e.apiKey, e.timeoutMs).then((e) => n({
 	ok: !0,
 	result: e,
 	data: e
@@ -1527,7 +1565,7 @@ chrome.runtime.onInstalled.addListener(() => {
 })), !0) : e.type === "CHECK_DEADLINES" ? ($().then(() => n({ ok: !0 })).catch((e) => n({
 	ok: !1,
 	error: String(e)
-})), !0) : e.type === "SYNC_TO_SERVER" ? (tt().then((e) => n(e)).catch((e) => n({
+})), !0) : e.type === "SYNC_TO_SERVER" ? (rt().then((e) => n(e)).catch((e) => n({
 	ok: !1,
 	error: String(e)
 })), !0) : e.type === "OPEN_POPUP" && (chrome.action.openPopup?.().catch(() => {}), n({ ok: !0 }), !0));

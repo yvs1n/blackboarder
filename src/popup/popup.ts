@@ -1,5 +1,5 @@
 import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
-import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses } from '../utils/storage';
+import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -1185,7 +1185,8 @@ async function handleCoursesUpdated(courses: UserCourseConfig[]) {
   // Cloud sync to Firebase & Sync Server
   const settings = await getSettings();
   const tombstones = await getLocalTombstones();
-  pushTasksToFirebase(currentTasks, 'Course Configuration Update', settings.syncKey, currentQuickLinks, tombstones, courses).catch(() => {});
+  const coursesUpdatedAt = await getCoursesUpdatedAt();
+  pushTasksToFirebase(currentTasks, 'Course Configuration Update', settings.syncKey, currentQuickLinks, tombstones, courses, coursesUpdatedAt || undefined).catch(() => {});
   if (settings.autoSyncOnScan !== false) {
     pushTasksToSyncServer(currentTasks, settings, currentQuickLinks).catch(() => {});
   }
@@ -2087,9 +2088,9 @@ function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Ex
     // Merge in anything the phone changed since the last pull before overwriting the cloud copy
     const pulled = await pullTasksFromFirebaseIfNewer();
     const toPush = pulled ?? tasks;
-    const [settings, tombstones] = await Promise.all([getSettings(), getLocalTombstones()]);
+    const [settings, tombstones, coursesUpdatedAt] = await Promise.all([getSettings(), getLocalTombstones(), getCoursesUpdatedAt()]);
 
-    pushTasksToFirebase(toPush, actionDescription, settings.syncKey, currentQuickLinks, tombstones, currentUserCourses).then(res => {
+    pushTasksToFirebase(toPush, actionDescription, settings.syncKey, currentQuickLinks, tombstones, currentUserCourses, coursesUpdatedAt || undefined).then(res => {
       console.log(`[Firebase Cloud Sync] ${actionDescription}:`, res);
     }).catch(err => {
       console.warn('[Firebase Cloud Sync error]:', err);
@@ -2142,14 +2143,21 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
       }
 
       if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
-        if (JSON.stringify(res.courses) !== JSON.stringify(currentUserCourses)) {
-          currentUserCourses = res.courses;
-          await saveUserCourses(currentUserCourses);
-          currentTasks = await recalculateTasksWithActiveCourses();
-          renderUserCoursesManager();
-          renderLegend();
-          updateCourseFilterOptions(currentTasks);
-          refreshAllViews();
+        const localUpdatedAt = await getCoursesUpdatedAt();
+        const cloudTime = res.coursesUpdatedAt ? new Date(res.coursesUpdatedAt).getTime() : 0;
+        const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
+
+        // Only overwrite local courses if cloud timestamp is newer, or if local has no timestamp yet
+        if (!localUpdatedAt || cloudTime > localTime) {
+          if (JSON.stringify(res.courses) !== JSON.stringify(currentUserCourses)) {
+            currentUserCourses = res.courses;
+            await saveUserCourses(currentUserCourses, res.coursesUpdatedAt);
+            currentTasks = await recalculateTasksWithActiveCourses();
+            renderUserCoursesManager();
+            renderLegend();
+            updateCourseFilterOptions(currentTasks);
+            refreshAllViews();
+          }
         }
       }
     }
@@ -3075,9 +3083,9 @@ function setupEvents() {
     await pullTasksFromFirebaseIfNewer();
 
     // 2. Push current tasks & tombstones to Firebase Cloud & sync server
-    const tombstones = await getLocalTombstones();
+    const [tombstones, coursesUpdatedAt] = await Promise.all([getLocalTombstones(), getCoursesUpdatedAt()]);
     const [fbRes, serverRes] = await Promise.all([
-      pushTasksToFirebase(currentTasks, 'Extension Manual Sync', settings.syncKey, currentQuickLinks, tombstones),
+      pushTasksToFirebase(currentTasks, 'Extension Manual Sync', settings.syncKey, currentQuickLinks, tombstones, currentUserCourses, coursesUpdatedAt || undefined),
       pushTasksToSyncServer(currentTasks, settings, currentQuickLinks)
     ]);
 
@@ -3541,8 +3549,8 @@ function initQuickLinksModal() {
 
 async function syncQuickLinksToCloud() {
   try {
-    const settings = await getSettings();
-    await pushTasksToFirebase(currentTasks, 'Chrome Extension', settings.syncKey, currentQuickLinks, await getLocalTombstones());
+    const [settings, tombstones, coursesUpdatedAt] = await Promise.all([getSettings(), getLocalTombstones(), getCoursesUpdatedAt()]);
+    await pushTasksToFirebase(currentTasks, 'Chrome Extension', settings.syncKey, currentQuickLinks, tombstones, currentUserCourses, coursesUpdatedAt || undefined);
     await pushTasksToSyncServer(currentTasks, settings, currentQuickLinks);
   } catch {}
 }

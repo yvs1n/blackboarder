@@ -1,6 +1,7 @@
 import { Announcement, DeadlineTask } from '../types';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
-import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid } from '../utils/storage';
+import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses } from '../utils/storage';
+import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
 import { parseDirectStreamCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
@@ -906,6 +907,9 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     return;
   }
 
+  // Hydrate user-configured courses & schedules before scanning
+  await getUserCourses().catch(() => {});
+
   try {
     const checkpoint = fullRescan
       ? { lastScannedAt: '', processedAnnouncementIds: [], processedDirectTaskIds: [] }
@@ -1061,6 +1065,27 @@ function init() {
     return;
   }
 
+  // Hydrate custom courses on startup
+  getUserCourses().catch(() => {});
+
+  // Listen for custom course updates from popup or background
+  try {
+    if (isExtensionContextValid() && chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && changes['bbs_user_courses']) {
+          const newCourses = changes['bbs_user_courses'].newValue;
+          if (Array.isArray(newCourses) && newCourses.length > 0) {
+            setActiveUserCourses(newCourses);
+          } else {
+            setActiveUserCourses(DEFAULT_USER_COURSES);
+          }
+        }
+      });
+    }
+  } catch {
+    // Context may already be invalidated
+  }
+
   // Inject floating button (cards are only expanded when extract is explicitly triggered)
   injectFloatingButton(() => runScan(true));
 
@@ -1084,6 +1109,7 @@ function init() {
         if (message.type === 'SCRAPE_PAGE') {
           (async () => {
             try {
+              await getUserCourses().catch(() => {});
               const fullRescan = Boolean(message.fullRescan);
               const checkpoint = fullRescan
                 ? { lastScannedAt: '', processedAnnouncementIds: [], processedDirectTaskIds: [] }

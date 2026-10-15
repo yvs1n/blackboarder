@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
   SETTINGS: 'bbs_settings',
   LAST_SCANNED: 'bbs_last_scanned',
   QUICK_LINKS: 'bbs_quick_links',
-  COURSES: 'bbs_user_courses'
+  COURSES: 'bbs_user_courses',
+  COURSES_UPDATED_AT: 'bbs_courses_updated_at'
 };
 
 /**
@@ -620,16 +621,62 @@ export async function getUserCourses(): Promise<UserCourseConfig[]> {
   return DEFAULT_USER_COURSES;
 }
 
-export async function saveUserCourses(courses: UserCourseConfig[]): Promise<void> {
+export async function getCoursesUpdatedAt(): Promise<string | null> {
+  if (isExtensionContextValid()) {
+    try {
+      return await new Promise<string | null>(resolve => {
+        try {
+          chrome.storage.local.get([STORAGE_KEYS.COURSES_UPDATED_AT], (result: { [key: string]: any }) => {
+            if (chrome.runtime?.lastError) {
+              resolve(safeGetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT));
+              return;
+            }
+            const stamp = result?.[STORAGE_KEYS.COURSES_UPDATED_AT] || safeGetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT);
+            resolve(stamp || null);
+          });
+        } catch {
+          resolve(safeGetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT));
+        }
+      });
+    } catch {
+      // Fall through
+    }
+  }
+  return safeGetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT);
+}
+
+export async function saveCoursesUpdatedAt(timestamp: string): Promise<void> {
+  safeSetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT, timestamp);
+  if (isExtensionContextValid()) {
+    try {
+      await new Promise<void>(resolve => {
+        try {
+          chrome.storage.local.set({ [STORAGE_KEYS.COURSES_UPDATED_AT]: timestamp }, () => resolve());
+        } catch {
+          resolve();
+        }
+      });
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+export async function saveUserCourses(courses: UserCourseConfig[], updatedAt?: string): Promise<void> {
   const safeCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+  const stamp = updatedAt || new Date().toISOString();
   safeSetLocalStorage(STORAGE_KEYS.COURSES, JSON.stringify(safeCourses));
+  safeSetLocalStorage(STORAGE_KEYS.COURSES_UPDATED_AT, stamp);
   setActiveUserCourses(safeCourses);
 
   if (isExtensionContextValid()) {
     try {
       await new Promise<void>(resolve => {
         try {
-          chrome.storage.local.set({ [STORAGE_KEYS.COURSES]: safeCourses }, () => resolve());
+          chrome.storage.local.set({
+            [STORAGE_KEYS.COURSES]: safeCourses,
+            [STORAGE_KEYS.COURSES_UPDATED_AT]: stamp
+          }, () => resolve());
         } catch {
           resolve();
         }

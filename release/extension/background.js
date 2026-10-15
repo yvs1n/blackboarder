@@ -83,32 +83,34 @@ function i(e) {
 	let t = (e || "").trim().replace(/[^a-zA-Z0-9_-]/g, "");
 	return t ? `${r}/users/${t}/data.json` : `${r}/data.json`;
 }
-async function a(e, t = "Chrome Extension", n, r, a) {
+async function a(e, t = "Chrome Extension", n, r, a, o, s) {
 	try {
-		let o = (/* @__PURE__ */ new Date()).toISOString(), s = {
+		let c = (/* @__PURE__ */ new Date()).toISOString(), l = {
 			tasks: e,
-			lastSync: o,
+			lastSync: c,
 			device: t,
 			count: e.length,
 			syncKey: n || void 0,
 			quickLinks: r || void 0,
+			courses: o || void 0,
+			coursesUpdatedAt: s || void 0,
 			tombstones: a || void 0
-		}, c = i(n), l = await fetch(c, {
+		}, u = i(n), d = await fetch(u, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(s)
+			body: JSON.stringify(l)
 		});
-		if (!l.ok) {
-			let e = await l.text().catch(() => "");
+		if (!d.ok) {
+			let e = await d.text().catch(() => "");
 			return {
 				success: !1,
-				message: `Firebase error (${l.status}): ${e}`
+				message: `Firebase error (${d.status}): ${e}`
 			};
 		}
 		return {
 			success: !0,
 			message: `Synchronized ${e.length} deadlines with Firebase Cloud`,
-			lastSync: o,
+			lastSync: c,
 			count: e.length
 		};
 	} catch (e) {
@@ -132,6 +134,8 @@ async function o(e) {
 			tasks: [],
 			lastSync: void 0,
 			quickLinks: r?.quickLinks,
+			courses: r?.courses,
+			coursesUpdatedAt: r?.coursesUpdatedAt,
 			tombstones: r?.tombstones
 		} : {
 			success: !0,
@@ -139,6 +143,8 @@ async function o(e) {
 			lastSync: r.lastSync,
 			device: r.device,
 			quickLinks: r.quickLinks,
+			courses: r.courses,
+			coursesUpdatedAt: r.coursesUpdatedAt,
 			tombstones: r.tombstones
 		};
 	} catch (e) {
@@ -150,12 +156,541 @@ async function o(e) {
 	}
 }
 //#endregion
-//#region src/core/courseHelper.ts
+//#region src/core/userCourses.ts
 function s(e) {
+	return e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function c(e) {
+	let t = [];
+	if (e.courseCode) {
+		let n = e.courseCode.trim();
+		t.push(s(n));
+		let r = n.replace(/\s+/g, "");
+		r !== n && t.push(s(r));
+	}
+	if (e.courseName) {
+		let n = e.courseName.trim();
+		e.id === "phy1" || n.toLowerCase() === "physics 1" ? t.push(`${s(n)}(?!\\s*lab)`) : t.push(s(n));
+	}
+	if (Array.isArray(e.aliases)) for (let n of e.aliases) {
+		let e = n.trim();
+		e && (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(e) ? t.push(e) : t.push(s(e)));
+	}
+	return t.length === 0 ? new RegExp(s(e.id || "general"), "i") : RegExp(`(?:${t.join("|")})`, "i");
+}
+var l = [
+	{
+		id: "compeng",
+		courseCode: "1502101",
+		courseName: "Introduction to Computer Eng.",
+		crn: "12056",
+		colorHex: "#7c7c7c",
+		aliases: [
+			"intro.*comp",
+			"comp(?:uter)?\\s*eng",
+			"هندسة.*حاسوب",
+			"حاسوب",
+			"1502 101 01",
+			"1502 101",
+			"1502101",
+			"0402101",
+			"0402102"
+		],
+		scheduleSlots: [{
+			days: ["Tuesday", "Thursday"],
+			startTime: "11:00",
+			endTime: "12:15",
+			room: "A8-103",
+			location: "UOS Men's Campus, A8, 103",
+			instructor: "Arain, Bilal"
+		}],
+		syllabus: [
+			{
+				id: "compeng_final",
+				name: "Final Exam",
+				type: "exam",
+				totalWeight: 45,
+				unitWeight: 45,
+				note: "TBA (45%)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"امتحان\\s*نهائي",
+					"نهائي"
+				]
+			},
+			{
+				id: "compeng_midterm",
+				name: "Midterm Exam",
+				type: "exam",
+				totalWeight: 30,
+				unitWeight: 30,
+				note: "TBA (30%)",
+				keywords: [
+					"midterm\\s*exam",
+					"midterm",
+					"امتحان\\s*نصفي",
+					"نصفي",
+					"منتصف"
+				]
+			},
+			{
+				id: "compeng_quizzes",
+				name: "Quizzes",
+				type: "quiz",
+				totalWeight: 25,
+				count: 3,
+				unitWeight: 8.33,
+				note: "Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)",
+				keywords: [
+					"quiz",
+					"كويز",
+					"امتحان\\s*قصير"
+				]
+			}
+		]
+	},
+	{
+		id: "calc1",
+		courseCode: "1440133",
+		courseName: "Calculus I for Engineering",
+		crn: "10806",
+		colorHex: "#dc2626",
+		aliases: [
+			"calculus",
+			"calc\\b",
+			"حسبان",
+			"1440 133 02",
+			"1440 133",
+			"1440133",
+			"1440131",
+			"0401101",
+			"0401201"
+		],
+		scheduleSlots: [{
+			days: ["Tuesday", "Thursday"],
+			startTime: "12:30",
+			endTime: "13:45",
+			room: "A12-110",
+			location: "UOS Men's Campus, A12, 110",
+			instructor: "Al-Teraifi, Randa"
+		}],
+		syllabus: [
+			{
+				id: "calc1_final",
+				name: "Final Exam",
+				type: "exam",
+				totalWeight: 40,
+				unitWeight: 40,
+				note: "On paper (40%)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"امتحان\\s*نهائي",
+					"نهائي"
+				]
+			},
+			{
+				id: "calc1_midterm",
+				name: "Midterm Exam",
+				type: "exam",
+				totalWeight: 30,
+				unitWeight: 30,
+				note: "On paper (30%)",
+				keywords: [
+					"midterm\\s*exam",
+					"midterm",
+					"امتحان\\s*نصفي",
+					"نصفي",
+					"منتصف"
+				]
+			},
+			{
+				id: "calc1_quizzes",
+				name: "Quizzes",
+				type: "quiz",
+				totalWeight: 20,
+				count: 2,
+				unitWeight: 10,
+				note: "On paper, best 2 of 3 quizzes (10% each, 20% total)",
+				keywords: [
+					"quiz",
+					"كويز",
+					"امتحان\\s*قصير"
+				]
+			},
+			{
+				id: "calc1_assignments",
+				name: "Homeworks",
+				type: "assignment",
+				totalWeight: 10,
+				count: 3,
+				unitWeight: 3.33,
+				note: "Online, best 3 of 4 homeworks (~3.33% each, 10% total)",
+				keywords: [
+					"assignment",
+					"hw",
+					"homework",
+					"واجب",
+					"connect"
+				]
+			}
+		]
+	},
+	{
+		id: "eap",
+		courseCode: "0202112",
+		courseName: "English for Academic Purposes",
+		crn: "10175",
+		colorHex: "#525252",
+		aliases: [
+			"english",
+			"eap\\b",
+			"academic\\s*purposes",
+			"academic\\s*english",
+			"إنجليزي",
+			"انجليزي",
+			"0202 112 09",
+			"0202 112",
+			"0202112",
+			"0202111"
+		],
+		scheduleSlots: [{
+			days: ["Tuesday", "Thursday"],
+			startTime: "14:00",
+			endTime: "15:15",
+			room: "A3-184",
+			location: "UOS Men's Campus, A3, 184",
+			instructor: "Manzol, Mutwakil"
+		}],
+		syllabus: [
+			{
+				id: "eap_final",
+				name: "Final Exam",
+				type: "exam",
+				totalWeight: 40,
+				unitWeight: 40,
+				note: "Week 16 (40%)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"نهائي"
+				]
+			},
+			{
+				id: "eap_midterm",
+				name: "Midterm Exam",
+				type: "exam",
+				totalWeight: 20,
+				unitWeight: 20,
+				note: "Week 8 (20%)",
+				keywords: [
+					"midterm\\s*exam",
+					"midterm",
+					"نصفي",
+					"منتصف"
+				]
+			},
+			{
+				id: "eap_quizzes",
+				name: "Quizzes",
+				type: "quiz",
+				totalWeight: 20,
+				count: 2,
+				unitWeight: 10,
+				note: "2 Quizzes: Quiz 1 in Wk 4, Quiz 2 in Wk 7 (10% each, 20% total)",
+				keywords: ["quiz", "كويز"]
+			},
+			{
+				id: "eap_essay",
+				name: "Cause-Effect Essay",
+				type: "assignment",
+				totalWeight: 10,
+				unitWeight: 10,
+				note: "Week 12 Writing Assignment (10%)",
+				keywords: [
+					"essay",
+					"cause.*effect",
+					"writing\\s*assignment",
+					"مقال"
+				]
+			},
+			{
+				id: "eap_employability",
+				name: "Employability Skills",
+				type: "assignment",
+				totalWeight: 10,
+				count: 5,
+				unitWeight: 2,
+				note: "5 Employability Tasks across Weeks 2-13 (2% each, 10% total)",
+				keywords: [
+					"employability",
+					"skill",
+					"task",
+					"مهام",
+					"مهارات"
+				]
+			}
+		]
+	},
+	{
+		id: "phy1lab",
+		courseCode: "1430116",
+		courseName: "Physics 1 Lab",
+		crn: "10708",
+		colorHex: "#4b99d2",
+		aliases: [
+			"physics.*lab",
+			"phy(?:sics)?\\s*1\\s*lab",
+			"مختبر.*فيزياء",
+			"فيزياء.*عملي",
+			"1430 116 11L",
+			"1430 116",
+			"1430116",
+			"1430117",
+			"0401116",
+			"measuring\\s*density",
+			"free\\s*fall",
+			"student'?s\\s*lab"
+		],
+		scheduleSlots: [{
+			days: ["Wednesday"],
+			startTime: "14:00",
+			endTime: "16:45",
+			room: "Central Lab Men - 105",
+			location: "UOS Men's Campus, Central Laboratories (Men), 105",
+			instructor: "Khudada Mohamed, Abdulraheem"
+		}],
+		syllabus: [
+			{
+				id: "phy1lab_final",
+				name: "Final Examination",
+				type: "exam",
+				totalWeight: 40,
+				unitWeight: 40,
+				note: "Practical Final Exam during last week (40%)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"امتحان\\s*نهائي",
+					"نهائي",
+					"عملي"
+				]
+			},
+			{
+				id: "phy1lab_quizzes",
+				name: "Lab Quizzes",
+				type: "quiz",
+				totalWeight: 30,
+				count: 3,
+				unitWeight: 10,
+				note: "4 scheduled, top 3 counted (10% each, 30% total)",
+				keywords: ["quiz", "كويز"]
+			},
+			{
+				id: "phy1lab_reports",
+				name: "Experiments & Lab Reports",
+				type: "lab",
+				totalWeight: 30,
+				count: 9,
+				unitWeight: 3.33,
+				note: "9 Weekly lab reports (approx 3.33% each, 30% total)",
+				keywords: [
+					"report",
+					"experiment",
+					"تقرير",
+					"تجربة",
+					"مختبر"
+				]
+			}
+		]
+	},
+	{
+		id: "phy1",
+		courseCode: "1430115",
+		courseName: "Physics 1",
+		crn: "10668",
+		colorHex: "#4b99d2",
+		aliases: [
+			"physics\\s*1(?!\\s*lab)",
+			"general\\s*physics\\s*1",
+			"فيزياء\\s*1(?!\\s*عملي)",
+			"فيزياء\\s*عامة\\s*1",
+			"1430 115 02",
+			"1430 115",
+			"1430115",
+			"1430111",
+			"0401115"
+		],
+		scheduleSlots: [{
+			days: ["Monday", "Wednesday"],
+			startTime: "11:00",
+			endTime: "12:15",
+			room: "A8-110",
+			location: "UOS Men's Campus, A8, 110",
+			instructor: "Ahriche, Amine"
+		}],
+		syllabus: [
+			{
+				id: "phy1_final",
+				name: "Final Exam",
+				type: "exam",
+				totalWeight: 45,
+				unitWeight: 45,
+				note: "Final Examination (45 marks)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"امتحان\\s*نهائي",
+					"نهائي"
+				]
+			},
+			{
+				id: "phy1_midterm",
+				name: "Midterm Exam",
+				type: "exam",
+				totalWeight: 25,
+				unitWeight: 25,
+				note: "Midterm Exam (25 marks)",
+				keywords: [
+					"midterm\\s*exam",
+					"midterm",
+					"امتحان\\s*نصفي",
+					"نصفي",
+					"منتصف"
+				]
+			},
+			{
+				id: "phy1_quizzes",
+				name: "Quizzes",
+				type: "quiz",
+				totalWeight: 20,
+				unitWeight: 20,
+				note: "Quizzes throughout semester (average = 20 marks)",
+				keywords: [
+					"quiz",
+					"كويز",
+					"امتحان\\s*قصير"
+				]
+			},
+			{
+				id: "phy1_assignments",
+				name: "Assignments",
+				type: "assignment",
+				totalWeight: 10,
+				unitWeight: 10,
+				note: "Assignments / Homework (10 marks total)",
+				keywords: [
+					"assignment",
+					"hw",
+					"homework",
+					"واجب"
+				]
+			}
+		]
+	},
+	{
+		id: "islamic",
+		courseCode: "0104100",
+		courseName: "Islamic Culture",
+		crn: "10475",
+		colorHex: "#489160",
+		aliases: [
+			"islamic",
+			"ثقافة\\s*إسلامية",
+			"ثقافة\\s*اسلامية",
+			"إسلام",
+			"اسلام",
+			"0104 100 13A",
+			"0104 100",
+			"0104100",
+			"0104101"
+		],
+		scheduleSlots: [{
+			days: ["Monday", "Wednesday"],
+			startTime: "17:00",
+			endTime: "18:15",
+			room: "A8-TH005",
+			location: "UOS Men's Campus, A8, TH005",
+			instructor: "Haq, Zia Ul"
+		}],
+		syllabus: [
+			{
+				id: "islamic_final",
+				name: "Final Exam",
+				type: "exam",
+				totalWeight: 50,
+				unitWeight: 50,
+				note: "Comprehensive final exam (50%)",
+				keywords: [
+					"final\\s*exam",
+					"final",
+					"امتحان\\s*نهائي",
+					"نهائي"
+				]
+			},
+			{
+				id: "islamic_midterm",
+				name: "Midterm Exam",
+				type: "exam",
+				totalWeight: 25,
+				unitWeight: 25,
+				note: "Midterm exam (25%)",
+				keywords: [
+					"midterm\\s*exam",
+					"midterm",
+					"امتحان\\s*نصفي",
+					"نصفي",
+					"منتصف"
+				]
+			},
+			{
+				id: "islamic_coursework",
+				name: "Coursework & Research",
+				type: "project",
+				totalWeight: 25,
+				unitWeight: 15,
+				note: "واجبات، تقارير، مشروعات، امتحانات قصيرة (25% total)",
+				keywords: [
+					"بحث",
+					"مشروع",
+					"تقرير",
+					"واجب",
+					"عرض",
+					"project",
+					"research",
+					"assignment",
+					"report",
+					"quiz",
+					"كويز"
+				]
+			}
+		]
+	}
+], u = [...l];
+function d() {
+	return u;
+}
+function f(e) {
+	u = Array.isArray(e) && e.length > 0 ? e : [...l];
+}
+//#endregion
+//#region src/core/courseHelper.ts
+function p(e) {
 	let t = (e.courseName || "").trim(), n = (e.courseCode || "").trim(), r = (e.title || "").trim();
 	if (/measuring\s*density/i.test(t) || /measuring\s*density/i.test(r) || /free\s*fall/i.test(t) || /free\s*fall/i.test(r) || /vectors?\s*exp/i.test(t) || /vectors?\s*exp/i.test(r) || /lab\.?\s*report/i.test(t) || /student's\s*lab/i.test(t) ? (t = "Physics 1 Lab", n = "1430116") : /topic\s*of\s*a\s*paragraph/i.test(t) || /topic\s*of\s*a\s*paragraph/i.test(r) ? (t = "English for Academic Purposes", n = "0202112") : t = t.replace(/(?:Report)?Due\s*date:.*$/gi, "").replace(/New\s*Group\s*\d+/gi, "").replace(/\(UTC[+-]?\d+\)/gi, "").replace(/^[:\-–—|\s]+|[:\-–—|\s]+$/g, "").trim(), !t || t.toLowerCase() === "uos" || t.toLowerCase() === "course" || t.toLowerCase() === "general course" || t === n) {
-		let i = `${n} ${t} ${r} ${e.description || ""} ${e.sourceSnippet || ""} ${e.notes || ""}`;
-		/(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101)/i.test(i) ? (t = "Introduction to Computer Eng.", n = "1502101") : /(?:calculus|calc\b|حسبان|1440133|1440131|0401101)/i.test(i) ? (t = "Calculus I for Engineering", n = "1440133") : /(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112)/i.test(i) ? (t = "English for Academic Purposes", n = "0202112") : /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1|1430115)/i.test(i) ? (t = "Physics 1", n = "1430115") : /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(i) ? (t = "Physics 1 Lab", n = "1430116") : /(?:islamic|إسلام|اسلام|ثقافة|0104100)/i.test(i) && (t = "Islamic Culture", n = "0104100");
+		let i = `${n} ${t} ${r} ${e.description || ""} ${e.sourceSnippet || ""} ${e.notes || ""}`, a = d(), o = !1;
+		if (/(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(i)) {
+			let e = a.find((e) => e.id === "phy1lab" || /lab/i.test(e.courseName));
+			e && (t = e.courseName, n = e.courseCode, o = !0);
+		}
+		if (!o) {
+			for (let e of a) if (!(e.id === "phy1" && /(?:lab|مختبر|عملي)/i.test(i)) && c(e).test(i)) {
+				t = e.courseName, n = e.courseCode, o = !0;
+				break;
+			}
+		}
+		o || (/(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101)/i.test(i) ? (t = "Introduction to Computer Eng.", n = "1502101") : /(?:calculus|calc\b|حسبان|1440133|1440131|0401101)/i.test(i) ? (t = "Calculus I for Engineering", n = "1440133") : /(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112)/i.test(i) ? (t = "English for Academic Purposes", n = "0202112") : /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(i) ? (t = "Physics 1 Lab", n = "1430116") : /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1|1430115)/i.test(i) ? (t = "Physics 1", n = "1430115") : /(?:islamic|إسلام|اسلام|ثقافة|0104100)/i.test(i) && (t = "Islamic Culture", n = "0104100"));
 	}
 	let i = !t || t.toLowerCase() === "uos" ? "General Course" : t;
 	return {
@@ -165,10 +700,10 @@ function s(e) {
 }
 //#endregion
 //#region src/utils/taskMerge.ts
-function c(e) {
+function m(e) {
 	return new Date(e.updatedAt || e.createdAt || 0).getTime() || 0;
 }
-function l(e = {}, t = {}) {
+function h(e = {}, t = {}) {
 	let n = { ...e };
 	for (let [e, r] of Object.entries(t)) {
 		let t = n[e];
@@ -176,19 +711,19 @@ function l(e = {}, t = {}) {
 	}
 	return n;
 }
-function u(e, t) {
+function g(e, t) {
 	let n = t[e.id];
 	if (!n) return !1;
 	let r = new Date(n).getTime();
-	return !isNaN(r) && r >= c(e);
+	return !isNaN(r) && r >= m(e);
 }
-var d = [
+var _ = [
 	"room",
 	"notes",
 	"weight",
 	"weightDisplay",
 	"syllabusNote"
-], f = [
+], ee = [
 	"courseName",
 	"courseCode",
 	"notes",
@@ -199,7 +734,7 @@ var d = [
 	"weightDisplay",
 	"syllabusNote"
 ];
-function p(e, t) {
+function te(e, t) {
 	let n = {
 		...e,
 		...t,
@@ -213,57 +748,57 @@ function p(e, t) {
 		updatedAt: t.updatedAt || e.updatedAt
 	};
 	(t.userEdited || e.userEdited) && (n.userEdited = !0);
-	for (let e of d) t[e] === void 0 && (n[e] = void 0);
+	for (let e of _) t[e] === void 0 && (n[e] = void 0);
 	return n;
 }
-function m(e, t, n) {
+function ne(e, t, n) {
 	let r = { ...e };
 	(e.userEdited || t.userEdited) && (r.userEdited = !0);
-	for (let n of f) {
+	for (let n of ee) {
 		let i = e[n], a = t[n];
 		(i == null || i === "") && a != null && a !== "" && (r[n] = a);
 	}
 	return n && t.status && t.status !== e.status && (r.status = t.status), r;
 }
-function h(e, t, n = {}) {
+function re(e, t, n = {}) {
 	let r = /* @__PURE__ */ new Map(), i = !1;
 	for (let t of e) {
-		if (u(t, n)) {
+		if (g(t, n)) {
 			i = !0;
 			continue;
 		}
 		r.set(t.id, t);
 	}
 	for (let e of t) {
-		if (u(e, n)) continue;
+		if (g(e, n)) continue;
 		let t = r.get(e.id);
 		if (!t) {
 			r.set(e.id, e), i = !0;
 			continue;
 		}
-		let a = c(t), o = c(e), s = o > a ? p(t, e) : m(t, e, o === a);
+		let a = m(t), o = m(e), s = o > a ? te(t, e) : ne(t, e, o === a);
 		JSON.stringify(s) !== JSON.stringify(t) && (r.set(e.id, s), i = !0);
 	}
-	let a = Array.from(r.values()), o = te(a);
+	let a = Array.from(r.values()), o = se(a);
 	return o.length !== a.length && (i = !0), {
 		tasks: o.sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime()),
 		changed: i
 	};
 }
-function g(e) {
+function ie(e) {
 	let t = (e || "assignment").toLowerCase().trim();
 	return t === "hw" || t === "homework" || t === "assignment" ? "assignment" : t === "quiz" || t === "test" ? "quiz" : t === "exam" || t === "midterm" || t === "final" ? "exam" : t === "lab" ? "lab" : t === "project" ? "project" : t;
 }
-function _(e, t) {
+function ae(e, t) {
 	if (!e || !t) return !1;
 	if (e.id === t.id || e.announcementId && t.announcementId && e.announcementId === t.announcementId) return !0;
-	if (s(e).courseName.toLowerCase() !== s(t).courseName.toLowerCase()) return !1;
+	if (p(e).courseName.toLowerCase() !== p(t).courseName.toLowerCase()) return !1;
 	let n = new Date(e.dueDate).getTime(), r = new Date(t.dueDate).getTime();
 	if (isNaN(n) || isNaN(r)) return !1;
-	let i = Math.abs(n - r), a = g(e.type), o = g(t.type), c = (e.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, ""), l = (t.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, ""), u = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(e.title.trim()), d = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(t.title.trim());
-	return !!(i <= 3e5 && (u || d || a === o || c && l && (c === l || c.includes(l) || l.includes(c))) || new Date(e.dueDate).toISOString().slice(0, 10) === new Date(t.dueDate).toISOString().slice(0, 10) && c && l && (c === l || c.includes(l) || l.includes(c)) && (a === o || u || d));
+	let i = Math.abs(n - r), a = ie(e.type), o = ie(t.type), s = (e.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, ""), c = (t.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, ""), l = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(e.title.trim()), u = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(t.title.trim());
+	return !!(i <= 3e5 && (l || u || a === o || s && c && (s === c || s.includes(c) || c.includes(s))) || new Date(e.dueDate).toISOString().slice(0, 10) === new Date(t.dueDate).toISOString().slice(0, 10) && s && c && (s === c || s.includes(c) || c.includes(s)) && (a === o || l || u));
 }
-function ee(e, t) {
+function oe(e, t) {
 	let n = !!(e.userEdited || t.userEdited), r = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(e.title.trim()), i = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(t.title.trim()), a = e.title;
 	r && !i ? a = t.title : !r && !i && (a = e.title.length >= t.title.length ? e.title : t.title);
 	let o = e.dueDate, s = e.hasSpecificTime;
@@ -288,19 +823,19 @@ function ee(e, t) {
 		updatedAt: new Date(Math.max(new Date(e.updatedAt || e.createdAt || 0).getTime(), new Date(t.updatedAt || t.createdAt || 0).getTime(), Date.now())).toISOString()
 	};
 }
-function te(e) {
+function se(e) {
 	if (!e || e.length <= 1) return e || [];
 	let t = [];
 	for (let n of e) {
 		if (!n || !n.title) continue;
-		let e = t.findIndex((e) => _(e, n));
-		e === -1 ? t.push({ ...n }) : t[e] = ee(t[e], n);
+		let e = t.findIndex((e) => ae(e, n));
+		e === -1 ? t.push({ ...n }) : t[e] = oe(t[e], n);
 	}
 	return t.sort((e, t) => new Date(e.dueDate).getTime() - new Date(t.dueDate).getTime());
 }
 //#endregion
 //#region node_modules/@typesafe-ai/sdk/dist/index.mjs
-var v = (e) => e.get("x-typesafe-request-id") ?? void 0, ne = class e extends Promise {
+var v = (e) => e.get("x-typesafe-request-id") ?? void 0, ce = class e extends Promise {
 	#e;
 	#t;
 	#n;
@@ -356,7 +891,7 @@ var v = (e) => e.get("x-typesafe-request-id") ?? void 0, ne = class e extends Pr
 	apiTimeoutError: !0
 };
 S.maxRetries;
-var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
+var le = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	let n = Number(e.get("retry-after-ms"));
 	if (e.has("retry-after-ms") && Number.isFinite(n) && n >= 0) return n;
 	let r = e.get("retry-after");
@@ -365,14 +900,14 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	if (Number.isFinite(i)) return i >= 0 ? i * 1e3 : void 0;
 	let a = Date.parse(r);
 	if (!Number.isNaN(a)) return Math.max(0, a - t);
-}, ie = (e, t, n = S, r = Math.random) => {
+}, ue = (e, t, n = S, r = Math.random) => {
 	if (n.respectRetryAfter && t !== void 0) {
 		let e = C(t);
 		if (e !== void 0 && e <= n.maxRetryAfterMs) return e;
 	}
 	let i = Math.min(n.backoffInitialMs * 2 ** e, n.backoffMaxMs);
 	return Math.round(i * (1 - r() * n.backoffJitter));
-}, ae = (e, t) => new Promise((n, r) => {
+}, de = (e, t) => new Promise((n, r) => {
 	if (t?.aborted) return r(t.reason);
 	let i = () => {
 		clearTimeout(a), r(t?.reason);
@@ -384,7 +919,7 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	constructor(e, t) {
 		super(e, t), this.name = new.target.name;
 	}
-}, T = (e) => typeof e == "object" && !!e, oe = (e) => {
+}, T = (e) => typeof e == "object" && !!e, fe = (e) => {
 	if (typeof e == "string") return e || void 0;
 	if (!T(e)) return;
 	let { error: t, message: n, detail: r } = e;
@@ -393,8 +928,8 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	if (typeof n == "string") return n;
 	if (typeof r == "string") return r;
 	if (T(r) && typeof r.message == "string") return r.message;
-	if (Array.isArray(r)) return se(r);
-}, se = (e) => {
+	if (Array.isArray(r)) return pe(r);
+}, pe = (e) => {
 	let t = e.flatMap((e) => {
 		if (!T(e) || typeof e.msg != "string") return [];
 		let t = Array.isArray(e.loc) ? e.loc.filter((e) => e !== "body").join(".") : "";
@@ -410,18 +945,18 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 		super(i ?? e.describe(t, n)), this.status = t, this.body = n, this.headers = r, this.requestId = v(r);
 	}
 	static describe(e, t) {
-		let n = oe(t);
+		let n = fe(t);
 		if (n) return `${e} ${n}`;
 		if (t === void 0) return `${e} status code (no body)`;
 		let r = typeof t == "string" ? t : JSON.stringify(t);
 		return `${e} ${r.length > E ? `${r.slice(0, E)}…` : r}`;
 	}
 	static fromResponse(t, n, r) {
-		return t === 400 ? new ce(t, n, r) : t === 401 ? new le(t, n, r) : t === 403 ? new ue(t, n, r) : t === 404 ? new de(t, n, r) : t === 422 ? new fe(t, n, r) : t === 429 ? new pe(t, n, r) : t >= 500 ? new me(t, n, r) : new e(t, n, r);
+		return t === 400 ? new me(t, n, r) : t === 401 ? new he(t, n, r) : t === 403 ? new ge(t, n, r) : t === 404 ? new _e(t, n, r) : t === 422 ? new ve(t, n, r) : t === 429 ? new ye(t, n, r) : t >= 500 ? new be(t, n, r) : new e(t, n, r);
 	}
-}, ce = class extends D {}, le = class extends D {}, ue = class extends D {}, de = class extends D {}, fe = class extends D {}, pe = class extends D {
+}, me = class extends D {}, he = class extends D {}, ge = class extends D {}, _e = class extends D {}, ve = class extends D {}, ye = class extends D {
 	retryAfterMs = C(this.headers);
-}, me = class extends D {}, O = class extends w {
+}, be = class extends D {}, O = class extends w {
 	constructor(e = "Connection error.", t) {
 		super(e, t);
 	}
@@ -440,10 +975,10 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	"warn",
 	"error",
 	"off"
-], he = "warn", ge = (e) => j.includes(e), M = (e, t) => {
-	if (ge(e)) return e;
+], xe = "warn", Se = (e) => j.includes(e), M = (e, t) => {
+	if (Se(e)) return e;
 	throw new w(`Invalid log level "${e}" from ${t}. Expected one of: ${j.join(", ")}.`);
-}, N = "[typesafe-sdk]", _e = {
+}, N = "[typesafe-sdk]", Ce = {
 	debug: (e, ...t) => console.debug(`${N} ${e}`, ...t),
 	info: (e, ...t) => console.info(`${N} ${e}`, ...t),
 	warn: (e, ...t) => console.warn(`${N} ${e}`, ...t),
@@ -454,7 +989,7 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	warn: 2,
 	error: 3,
 	off: 4
-}, F = () => {}, I = (e, t) => {
+}, F = () => {}, we = (e, t) => {
 	let n = (e) => P[e] >= P[t];
 	return {
 		debug: n("debug") ? (t, ...n) => e.debug(t, ...n) : F,
@@ -462,97 +997,97 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 		warn: n("warn") ? (t, ...n) => e.warn(t, ...n) : F,
 		error: n("error") ? (t, ...n) => e.error(t, ...n) : F
 	};
-}, ve = /* @__PURE__ */ new Set([
+}, Te = /* @__PURE__ */ new Set([
 	"authorization",
 	"proxy-authorization",
 	"x-api-key"
-]), ye = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), be = (e) => {
+]), Ee = /* @__PURE__ */ new Set(["cookie", "set-cookie"]), De = (e) => {
 	let [t, n] = e.includes(" ") ? e.split(/\s+/, 2) : [void 0, e], r = n && n.length > 8 ? n.slice(-4) : "";
 	return `${t ? `${t} ` : ""}***${r}`;
-}, xe = (e, t) => {
+}, Oe = (e, t) => {
 	let n = e.toLowerCase();
-	return ve.has(n) ? be(t) : ye.has(n) ? "***" : t;
-}, Se = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, xe(e, t)])), L = (e = null, t) => ({
+	return Te.has(n) ? De(t) : Ee.has(n) ? "***" : t;
+}, ke = (e) => Object.fromEntries(Object.entries(e).map(([e, t]) => [e, Oe(e, t)])), I = (e = null, t) => ({
 	type: "noul",
 	instructions: e,
 	criteria: t
-}), Ce = (e, t) => {
+}), Ae = (e, t) => {
 	if (!Array.isArray(t)) throw new w("Score criteria must be a list of descriptions indexed by score from zero, not a map.");
 	return {
 		type: "score",
 		instructions: e,
 		criteria: t
 	};
-}, we = (e, t) => {
+}, je = (e, t) => {
 	if (Array.isArray(t)) throw new w("Choice criteria must be a map of labels to descriptions, not a list.");
 	return {
 		type: "choice",
 		instructions: e,
 		criteria: t
 	};
-}, Te = (e) => {
+}, Me = (e) => {
 	if (Object.keys(e).length === 0) throw new w("At least one question is required.");
 	for (let [t, n] of Object.entries(e)) if (n.type === "score") {
 		if (!Array.isArray(n.criteria)) throw new w(`Score question "${t}" has criteria that are not a list; score criteria must be a list of descriptions indexed by score from zero.`);
 		if (n.criteria.length < 2) throw new w(`Score question "${t}" has ${n.criteria.length} criteria; at least two scores are required.`);
 	}
-}, Ee = class {
+}, Ne = class {
 	#e;
 	constructor(e) {
 		this.#e = e;
 	}
 	list(e = {}) {
-		return this.#e.request("GET", "/v1/models", e).map(De);
+		return this.#e.request("GET", "/v1/models", e).map(Pe);
 	}
-}, De = (e) => {
+}, Pe = (e) => {
 	if (Array.isArray(e?.models)) return e.models;
 	throw new w("Unexpected response shape from GET /v1/models; expected { models: [...] }.");
-}, R = globalThis, z = () => R.window !== void 0 && R.window.document !== void 0 && R.navigator !== void 0, Oe = () => {
-	let e = R.process?.platform && R.process?.arch ? ` (${R.process.platform}; ${R.process.arch})` : "";
-	return R.Bun?.version ? `bun/${R.Bun.version}${e}` : R.Deno?.version?.deno ? `deno/${R.Deno.version.deno}${e}` : R.EdgeRuntime === void 0 ? R.navigator?.userAgent === "Cloudflare-Workers" ? "cloudflare-workers" : R.process?.versions?.node ? `node/${R.process.versions.node}${e}` : z() ? "browser" : "unknown" : "vercel-edge";
-}, B = "0.6.0", ke = () => {
+}, L = globalThis, R = () => L.window !== void 0 && L.window.document !== void 0 && L.navigator !== void 0, Fe = () => {
+	let e = L.process?.platform && L.process?.arch ? ` (${L.process.platform}; ${L.process.arch})` : "";
+	return L.Bun?.version ? `bun/${L.Bun.version}${e}` : L.Deno?.version?.deno ? `deno/${L.Deno.version.deno}${e}` : L.EdgeRuntime === void 0 ? L.navigator?.userAgent === "Cloudflare-Workers" ? "cloudflare-workers" : L.process?.versions?.node ? `node/${L.process.versions.node}${e}` : R() ? "browser" : "unknown" : "vercel-edge";
+}, z = "0.6.0", Ie = () => {
 	throw new w(`No API key was provided. Pass \`apiKey\` to the TypeSafeClient constructor or set the ${y.apiKey} environment variable.`);
-}, Ae = () => {
+}, Le = () => {
 	throw new w("No global `fetch` is available in this runtime. Pass a `fetch` implementation to the TypeSafeClient constructor.");
-}, je = () => {
+}, Re = () => {
 	throw new w("TypeSafeClient is running in a browser, which would expose your API key to anyone using the page. Call the API from a server instead, or pass `dangerouslyAllowBrowser: true` if you understand the risk.");
-}, Me = (e, t) => globalThis.fetch(e, t), Ne = (e, t) => {
+}, ze = (e, t) => globalThis.fetch(e, t), Be = (e, t) => {
 	if (!Number.isInteger(t) || t < 0) throw new w(`\`${e}\` must be a non-negative integer, got ${String(t)}.`);
 	return t;
-}, V = (e, t) => {
+}, B = (e, t) => {
 	if (!Number.isFinite(t) || t <= 0) throw new w(`\`${e}\` must be a positive number of milliseconds, got ${String(t)}.`);
 	return t;
-}, H = (e, t) => {
+}, V = (e, t) => {
 	if (!Number.isFinite(t) || t < 0) throw new w(`\`${e}\` must be a non-negative number of milliseconds, got ${String(t)}.`);
 	return t;
-}, Pe = (e, t) => {
+}, Ve = (e, t) => {
 	if (!Number.isFinite(t) || t < 0 || t > 1) throw new w(`\`${e}\` must be between 0 and 1, got ${String(t)}.`);
 	return t;
-}, Fe = (e, t) => {
+}, He = (e, t) => {
 	for (let n of t) if (!Number.isInteger(n) || n < 100 || n > 999) throw new w(`\`${e}\` must contain HTTP status codes, got ${String(n)}.`);
 	return t;
-}, U = (e, t) => {
+}, H = (e, t) => {
 	let n = t ?? {};
 	return {
-		maxRetries: n.maxRetries === void 0 ? e.maxRetries : Ne("retry.maxRetries", n.maxRetries),
-		backoffInitialMs: n.backoffInitialMs === void 0 ? e.backoffInitialMs : H("retry.backoffInitialMs", n.backoffInitialMs),
-		backoffMaxMs: n.backoffMaxMs === void 0 ? e.backoffMaxMs : H("retry.backoffMaxMs", n.backoffMaxMs),
-		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : Pe("retry.backoffJitter", n.backoffJitter),
-		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : Fe("retry.httpStatuses", n.httpStatuses)),
+		maxRetries: n.maxRetries === void 0 ? e.maxRetries : Be("retry.maxRetries", n.maxRetries),
+		backoffInitialMs: n.backoffInitialMs === void 0 ? e.backoffInitialMs : V("retry.backoffInitialMs", n.backoffInitialMs),
+		backoffMaxMs: n.backoffMaxMs === void 0 ? e.backoffMaxMs : V("retry.backoffMaxMs", n.backoffMaxMs),
+		backoffJitter: n.backoffJitter === void 0 ? e.backoffJitter : Ve("retry.backoffJitter", n.backoffJitter),
+		httpStatuses: new Set(n.httpStatuses === void 0 ? e.httpStatuses : He("retry.httpStatuses", n.httpStatuses)),
 		respectRetryAfter: n.respectRetryAfter ?? e.respectRetryAfter,
-		maxRetryAfterMs: n.maxRetryAfterMs === void 0 ? e.maxRetryAfterMs : H("retry.maxRetryAfterMs", n.maxRetryAfterMs),
+		maxRetryAfterMs: n.maxRetryAfterMs === void 0 ? e.maxRetryAfterMs : V("retry.maxRetryAfterMs", n.maxRetryAfterMs),
 		apiConnectionError: n.apiConnectionError ?? e.apiConnectionError,
 		apiTimeoutError: n.apiTimeoutError ?? e.apiTimeoutError
 	};
-}, Ie = (e, t) => e instanceof k ? t.apiTimeoutError : e instanceof O && t.apiConnectionError, Le = (e) => {
+}, Ue = (e, t) => e instanceof k ? t.apiTimeoutError : e instanceof O && t.apiConnectionError, We = (e) => {
 	if (e !== void 0) return M(e, "the `logLevel` option");
 	let t = b(y.logLevel);
-	return t === void 0 ? he : M(t, y.logLevel);
-}, Re = (e) => e.replace(/\/+$/, ""), W = (...e) => {
+	return t === void 0 ? xe : M(t, y.logLevel);
+}, Ge = (e) => e.replace(/\/+$/, ""), U = (...e) => {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e) for (let [e, r] of Object.entries(n)) r === void 0 ? t.delete(e.toLowerCase()) : t.set(e.toLowerCase(), [e, r]);
 	return Object.fromEntries(t.values());
-}, ze = async (e, t) => {
+}, Ke = async (e, t) => {
 	let n = e.clone().body?.getReader();
 	if (!n) return;
 	let r = () => {
@@ -565,7 +1100,7 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	} finally {
 		t.removeEventListener("abort", r), n.releaseLock();
 	}
-}, Be = Oe(), Ve = class {
+}, qe = Fe(), Je = class {
 	#e;
 	baseURL;
 	defaultModel;
@@ -578,15 +1113,15 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 	models;
 	#t = 0;
 	constructor(e = {}) {
-		z() && !e.dangerouslyAllowBrowser && je(), this.#e = x(e.apiKey, y.apiKey) ?? ke(), this.baseURL = Re(x(e.baseURL, y.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = x(e.defaultModel, y.defaultModel) ?? "jev-latest", this.logLevel = Le(e.logLevel), this.logger = I(e.logger ?? _e, this.logLevel), this.retry = U(S, e.retry), this.timeout = V("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && Ae(), this.fetch = e.fetch ?? Me;
+		R() && !e.dangerouslyAllowBrowser && Re(), this.#e = x(e.apiKey, y.apiKey) ?? Ie(), this.baseURL = Ge(x(e.baseURL, y.baseURL) ?? "https://api.typesafe.ai"), this.defaultModel = x(e.defaultModel, y.defaultModel) ?? "jev-latest", this.logLevel = We(e.logLevel), this.logger = we(e.logger ?? Ce, this.logLevel), this.retry = H(S, e.retry), this.timeout = B("timeout", e.timeout ?? 1e4), this.defaultHeaders = { ...e.defaultHeaders }, e.fetch === void 0 && typeof globalThis.fetch != "function" && Le(), this.fetch = e.fetch ?? ze;
 		let t = {
 			request: (e, t, n) => this.#n(e, t, n),
 			defaultModel: this.defaultModel
 		};
-		this.models = new Ee(t);
+		this.models = new Ne(t);
 	}
 	systemOne(e, t = {}) {
-		Te(e.questions);
+		Me(e.questions);
 		let n = {
 			...e,
 			model: e.model ?? this.defaultModel
@@ -601,23 +1136,23 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 			method: e,
 			path: t,
 			body: n.body,
-			headers: W(this.defaultHeaders, n.headers ?? {}),
+			headers: U(this.defaultHeaders, n.headers ?? {}),
 			signal: n.signal,
-			timeout: n.timeout === void 0 ? this.timeout : V("timeout", n.timeout),
-			retry: U(this.retry, n.retry)
+			timeout: n.timeout === void 0 ? this.timeout : B("timeout", n.timeout),
+			retry: H(this.retry, n.retry)
 		}, i = `#${++this.#t} ${e} ${t}`;
-		return new ne(this.fetchWithRetries(i, r), async (e) => {
-			let t = await G(e);
+		return new ce(this.fetchWithRetries(i, r), async (e) => {
+			let t = await W(e);
 			return this.logger.debug(`${i} <- body`, t), t;
 		});
 	}
 	async fetchWithRetries(e, t) {
-		let n = `${this.baseURL}${t.path}`, r = W(t.headers, {
+		let n = `${this.baseURL}${t.path}`, r = U(t.headers, {
 			Authorization: `Bearer ${this.#e}`,
 			Accept: "application/json",
-			"User-Agent": `typesafe-sdk/${B}`,
-			"X-TypeSafe-SDK": `typesafe-sdk/${B}`,
-			"X-TypeSafe-Runtime": Be,
+			"User-Agent": `typesafe-sdk/${z}`,
+			"X-TypeSafe-SDK": `typesafe-sdk/${z}`,
+			"X-TypeSafe-Runtime": qe,
 			"Content-Type": t.body === void 0 ? void 0 : "application/json",
 			"X-TypeSafe-Retry-Count": void 0
 		}), i = t.body === void 0 ? void 0 : JSON.stringify(t.body);
@@ -627,7 +1162,7 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 				"X-TypeSafe-Retry-Count": String(a)
 			};
 			this.logger.debug(`${e} -> ${n}`, {
-				headers: Se(s),
+				headers: ke(s),
 				body: t.body
 			});
 			let c = Date.now(), l;
@@ -638,16 +1173,16 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 					body: i
 				}, t);
 			} catch (n) {
-				if (n instanceof A || o <= 0 || !Ie(n, t.retry)) throw n;
+				if (n instanceof A || o <= 0 || !Ue(n, t.retry)) throw n;
 				await this.backOff(e, a, o, n.message, void 0, t);
 				continue;
 			}
 			let u = v(l.headers);
 			if (this.logger.info(`${e} <- ${l.status} in ${Date.now() - c}ms${u ? ` (request ${u})` : ""}`), l.ok) return l;
-			let d = await G(l);
+			let d = await W(l);
 			this.logger.debug(`${e} <- error body`, d);
 			let f = D.fromResponse(l.status, d, l.headers);
-			if (o <= 0 || !re(l.status, t.retry)) throw f;
+			if (o <= 0 || !le(l.status, t.retry)) throw f;
 			await this.backOff(e, a, o, `${l.status}`, l.headers, t);
 		}
 	}
@@ -662,7 +1197,7 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 				...n,
 				signal: a.signal
 			});
-			return await ze(e, a.signal), e;
+			return await Ke(e, a.signal), e;
 		} catch (t) {
 			throw r?.aborted ? (this.logger.info(`${e} aborted by caller after ${u()}`), new A(void 0, { cause: t })) : s ? (this.logger.info(`${e} timed out after ${u()}`), new k(i, { cause: t })) : (this.logger.info(`${e} connection error after ${u()}`, t), new O(t instanceof Error ? `Connection error: ${t.message}` : void 0, { cause: t }));
 		} finally {
@@ -670,15 +1205,15 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 		}
 	}
 	async backOff(e, t, n, r, i, { retry: a, signal: o }) {
-		let s = ie(t, i, a), c = t + 1, l = t + n;
+		let s = ue(t, i, a), c = t + 1, l = t + n;
 		this.logger.info(`${e} retrying in ${s}ms (retry ${c}/${l}) after ${r}`);
 		try {
-			await ae(s, o);
+			await de(s, o);
 		} catch (t) {
 			throw this.logger.info(`${e} aborted by caller while waiting to retry`), new A(void 0, { cause: t });
 		}
 	}
-}, G = async (e) => {
+}, W = async (e) => {
 	let t = await e.text();
 	if (t.length !== 0) {
 		if ((e.headers.get("content-type") ?? "").includes("application/json")) try {
@@ -692,10 +1227,125 @@ var re = (e, t = S) => t.httpStatuses.has(e), C = (e, t = Date.now()) => {
 			return t;
 		}
 	}
+}, G = {
+	TASKS: "bbs_tasks",
+	ANNOUNCEMENTS: "bbs_announcements",
+	SETTINGS: "bbs_settings",
+	LAST_SCANNED: "bbs_last_scanned",
+	QUICK_LINKS: "bbs_quick_links",
+	COURSES: "bbs_user_courses",
+	COURSES_UPDATED_AT: "bbs_courses_updated_at"
 };
+function K() {
+	try {
+		return typeof chrome < "u" && !!chrome.runtime?.id && !!chrome.storage?.local;
+	} catch {
+		return !1;
+	}
+}
+var Ye = /* @__PURE__ */ new Map();
+function Xe() {
+	try {
+		return !(!(typeof localStorage < "u") || typeof window < "u" && typeof chrome < "u" && chrome.runtime?.id && (window.location?.protocol === "http:" || window.location?.protocol === "https:"));
+	} catch {
+		return !1;
+	}
+}
+function q(e) {
+	try {
+		if (Xe()) return localStorage.getItem(e);
+	} catch {}
+	return Ye.get(e) || null;
+}
+function J(e, t) {
+	try {
+		if (Xe()) {
+			localStorage.setItem(e, t);
+			return;
+		}
+	} catch {}
+	Ye.set(e, t);
+}
+function Ze() {
+	let e = q(G.COURSES);
+	if (e) try {
+		let t = JSON.parse(e);
+		if (Array.isArray(t) && t.length > 0) return t;
+	} catch {}
+	return l;
+}
+async function Y() {
+	if (K()) try {
+		return await new Promise((e) => {
+			try {
+				chrome.storage.local.get([G.COURSES], (t) => {
+					try {
+						if (chrome.runtime?.lastError) {
+							let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+							f(r), e(r);
+							return;
+						}
+						let n = t?.[G.COURSES], r = Array.isArray(n) && n.length > 0 ? n : l;
+						J(G.COURSES, JSON.stringify(r)), f(r), e(r);
+					} catch {
+						let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+						f(r), e(r);
+					}
+				});
+			} catch {
+				let t = q(G.COURSES), n = t ? JSON.parse(t) : l, r = Array.isArray(n) && n.length > 0 ? n : l;
+				f(r), e(r);
+			}
+		});
+	} catch {}
+	let e = q(G.COURSES);
+	if (e) try {
+		let t = JSON.parse(e);
+		if (Array.isArray(t) && t.length > 0) return f(t), t;
+	} catch {}
+	return f(l), l;
+}
+async function Qe() {
+	if (K()) try {
+		return await new Promise((e) => {
+			try {
+				chrome.storage.local.get([G.COURSES_UPDATED_AT], (t) => {
+					if (chrome.runtime?.lastError) {
+						e(q(G.COURSES_UPDATED_AT));
+						return;
+					}
+					e(t?.[G.COURSES_UPDATED_AT] || q(G.COURSES_UPDATED_AT) || null);
+				});
+			} catch {
+				e(q(G.COURSES_UPDATED_AT));
+			}
+		});
+	} catch {}
+	return q(G.COURSES_UPDATED_AT);
+}
+async function $e(e, t) {
+	let n = Array.isArray(e) && e.length > 0 ? e : l, r = t || (/* @__PURE__ */ new Date()).toISOString();
+	if (J(G.COURSES, JSON.stringify(n)), J(G.COURSES_UPDATED_AT, r), f(n), K()) try {
+		await new Promise((e) => {
+			try {
+				chrome.storage.local.set({
+					[G.COURSES]: n,
+					[G.COURSES_UPDATED_AT]: r
+				}, () => e());
+			} catch {
+				e();
+			}
+		});
+		return;
+	} catch {}
+}
+try {
+	let e = Ze();
+	Array.isArray(e) && e.length > 0 && f(e);
+} catch {}
 //#endregion
 //#region src/engine/jevClassifier.ts
-async function K(e, t, n = 6e3) {
+async function et(e, t, n = 6e3) {
 	let r = {
 		isDeadline: !0,
 		deadlineProbability: .5,
@@ -732,15 +1382,15 @@ async function K(e, t, n = 6e3) {
 		}
 	} catch {}
 	try {
-		let r = new Ve({
+		let r = new Je({
 			apiKey: t.trim(),
 			dangerouslyAllowBrowser: !0,
 			timeout: n
 		}), i = e.length > 1200 ? e.slice(0, 1200) : e, a = (await r.systemOne({
 			state: i,
 			questions: {
-				is_deadline: L("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
-				category: we("What type of academic task or event is described?", {
+				is_deadline: I("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
+				category: je("What type of academic task or event is described?", {
 					quiz: "A quiz, pop quiz, short assessment, or test",
 					exam: "A midterm exam, final exam, or major examination",
 					assignment: "A homework assignment, problem set, essay, paper, or exercise",
@@ -748,15 +1398,15 @@ async function K(e, t, n = 6e3) {
 					project: "A semester project, group project, milestone, presentation, or term project",
 					not_a_task: "General announcement, lecture slides notice, office hours, syllabus info, or greetings with no upcoming assessment"
 				}),
-				urgency: Ce("How urgent or high-priority is this academic event?", [
+				urgency: Ae("How urgent or high-priority is this academic event?", [
 					"Low priority or non-mandatory notice",
 					"Standard homework or recurring reading",
 					"Medium priority assignment or lab report",
 					"High priority quiz or milestone",
 					"Critical high-stakes midterm or final exam"
 				]),
-				has_room: L("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
-				has_time: L("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
+				has_room: I("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
+				has_time: I("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
 			}
 		})).answers, o = a.is_deadline?.noul ?? .5, s = a.category?.choice ?? "not_a_task", c = a.category?.confidence ?? .5, l = a.urgency?.score ?? 2, u = a.has_room?.noul ?? .5, d = a.has_time?.noul ?? .5, f = u >= .5, p = d >= .5, m = "medium";
 		l >= 2.8 ? m = "high" : l < 1.3 && (m = "low");
@@ -779,29 +1429,33 @@ async function K(e, t, n = 6e3) {
 }
 //#endregion
 //#region src/background/serviceWorker.ts
-var q = "bbs_check_deadlines", J = "bbs_midnight_sync";
-function Y() {
+var X = "bbs_check_deadlines", tt = "bbs_midnight_sync";
+function nt() {
 	let e = /* @__PURE__ */ new Date(), t = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1, 0, 0, 5).getTime();
-	chrome.alarms.create(J, {
+	chrome.alarms.create(tt, {
 		when: t,
 		periodInMinutes: 1440
 	}), console.log(`[Auto-Sync] Scheduled daily midnight sync for ${new Date(t).toLocaleString()}`);
 }
-async function X() {
+async function Z() {
 	try {
 		let e = await chrome.storage.local.get(["bbs_settings", "bbs_tombstones"]), t = e.bbs_settings?.syncKey, n = await o(t);
 		if (!n.success || !Array.isArray(n.tasks)) return !1;
-		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = e.bbs_tombstones || {}, a = l(i, n.tombstones || {});
+		if (n.courses && Array.isArray(n.courses) && n.courses.length > 0) {
+			let e = await Qe(), t = n.coursesUpdatedAt ? new Date(n.coursesUpdatedAt).getTime() : 0, r = e ? new Date(e).getTime() : 0;
+			(!e || t > r) && await $e(n.courses, n.coursesUpdatedAt);
+		}
+		let r = (await chrome.storage.local.get(["bbs_tasks"])).bbs_tasks || [], i = e.bbs_tombstones || {}, a = h(i, n.tombstones || {});
 		JSON.stringify(a) !== JSON.stringify(i) && await chrome.storage.local.set({ bbs_tombstones: a });
-		let { tasks: s, changed: c } = h(r, n.tasks, a);
+		let { tasks: s, changed: c } = re(r, n.tasks, a);
 		return c ? (await chrome.storage.local.set({ bbs_tasks: s }), await Q(), console.log("[Background Sync] Pulled and merged latest deadlines & course changes from Firebase into storage"), !0) : !1;
 	} catch (e) {
 		return console.warn("[Background Sync] Failed pulling tasks from Firebase:", e), !1;
 	}
 }
-async function Z() {
+async function rt() {
 	try {
-		await X();
+		await Z();
 		let t = await chrome.storage.local.get([
 			"bbs_tasks",
 			"bbs_settings",
@@ -811,11 +1465,11 @@ async function Z() {
 			ok: !1,
 			reason: "disabled"
 		};
-		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, [s, c] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, t.bbs_quick_links, o), n(r, i, t.bbs_quick_links)]);
-		return console.log("[Auto-Sync] Firebase Result:", s, "Server Result:", c), {
-			ok: s.success || c.success,
-			fbResult: s,
-			serverResult: c
+		let o = (await chrome.storage.local.get(["bbs_tombstones"])).bbs_tombstones || {}, s = await Y(), c = await Qe(), [l, u] = await Promise.all([a(r, "Midnight Extension Sync", i.syncKey, t.bbs_quick_links, o, s, c || void 0), n(r, i, t.bbs_quick_links)]);
+		return console.log("[Auto-Sync] Firebase Result:", l, "Server Result:", u), {
+			ok: l.success || u.success,
+			fbResult: l,
+			serverResult: u
 		};
 	} catch (e) {
 		return console.error("[Auto-Sync] Failed syncing to mobile server:", e), {
@@ -866,10 +1520,12 @@ async function $() {
 	}
 }
 chrome.runtime.onInstalled.addListener(() => {
-	chrome.alarms.create(q, { periodInMinutes: 30 }), Y(), X().then(() => Q());
+	chrome.alarms.create(X, { periodInMinutes: 30 }), nt(), Y().catch(() => {}), Z().then(() => Q());
+}), chrome.storage.onChanged.addListener((e, t) => {
+	t === "local" && e.bbs_user_courses && Y().catch(() => {});
 }), chrome.alarms.onAlarm.addListener((e) => {
-	e.name === q ? X().then(() => $()) : e.name === J && (Z(), Y());
-}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? (K(e.text, e.apiKey, e.timeoutMs).then((e) => n({
+	e.name === X ? Z().then(() => $()) : e.name === tt && (rt(), nt());
+}), chrome.runtime.onMessage.addListener((e, t, n) => e.type === "PROXY_JEV_CLASSIFY" || e.type === "CLASSIFY_JEV" ? (et(e.text, e.apiKey, e.timeoutMs).then((e) => n({
 	ok: !0,
 	result: e,
 	data: e
@@ -897,7 +1553,7 @@ chrome.runtime.onInstalled.addListener(() => {
 		ok: !1,
 		error: String(e)
 	});
-}), !0) : e.type === "PULL_FIREBASE" ? (X().then((e) => n({
+}), !0) : e.type === "PULL_FIREBASE" ? (Z().then((e) => n({
 	ok: !0,
 	changed: e
 })).catch((e) => n({
@@ -909,9 +1565,9 @@ chrome.runtime.onInstalled.addListener(() => {
 })), !0) : e.type === "CHECK_DEADLINES" ? ($().then(() => n({ ok: !0 })).catch((e) => n({
 	ok: !1,
 	error: String(e)
-})), !0) : e.type === "SYNC_TO_SERVER" ? (Z().then((e) => n(e)).catch((e) => n({
+})), !0) : e.type === "SYNC_TO_SERVER" ? (rt().then((e) => n(e)).catch((e) => n({
 	ok: !1,
 	error: String(e)
 })), !0) : e.type === "OPEN_POPUP" && (chrome.action.openPopup?.().catch(() => {}), n({ ok: !0 }), !0));
 //#endregion
-export { X as pullTasksFromFirebaseToLocal };
+export { Z as pullTasksFromFirebaseToLocal };

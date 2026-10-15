@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-B3iPl2fA.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-C1gevwl4.css">
+  <script type="module" crossorigin src="../../assets/popup-DL7e9lm3.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-hVZbvr9x.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -747,47 +747,45 @@
         </details>
       </div>
 
-      <!-- Card 5: Syllabi & Grade Distributions Reference -->
-      <div class="settings-card">
+      <!-- Card 5: My Courses, Schedule & Grading (Unified Interactive Manager) -->
+      <div class="settings-card" id="card-my-courses">
         <div class="settings-card-header">
           <div class="settings-icon-title">
             <span class="card-icon"><svg class="ui-icon"><use href="#icon-book"></use></svg></span>
             <div>
-              <h3 class="settings-card-title">Syllabi &amp; Grade Distributions</h3>
-              <p class="settings-card-subtitle">Course component weights extracted from official syllabi</p>
+              <h3 class="settings-card-title">My Courses, Schedule &amp; Grading</h3>
+              <p class="settings-card-subtitle">Manage class times, room locations, and syllabus mark allocations</p>
             </div>
           </div>
-          <span class="settings-pill pill-blue">Syllabus Database</span>
+          <span class="settings-pill pill-blue" id="pill-course-count">6 Active</span>
         </div>
 
         <p class="settings-card-desc">
-          Percentages extracted from course syllabi in <code>syllabus/</code>. Used to automatically calculate the weight of every assignment.
+          Configure your enrolled courses, weekly lecture slots, and grade distributions. Deadlines auto-calculate marks and lecture rooms based on these settings.
         </p>
 
-        <div id="syllabus-reference-container" class="syllabus-reference-list">
-          <!-- Rendered dynamically from DEFAULT_SYLLABUS_DATABASE -->
+        <!-- Course Manager Action Toolbar -->
+        <div class="courses-toolbar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center;">
+          <button type="button" class="btn-primary" id="btn-add-course" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;">
+            <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+            <span>Add Course</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-import-courses" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="Import from Banner SSB schedule text or JSON backup">
+            <svg class="ui-icon"><use href="#icon-upload"></use></svg>
+            <span>Import / Paste</span>
+          </button>
+          <button type="button" class="btn-outline-action" id="btn-export-courses" style="font-size: 11px; padding: 5px 9px; width: auto; min-height: 28px; display: inline-flex; align-items: center; gap: 4px;" title="Download JSON course configuration backup">
+            <svg class="ui-icon"><use href="#icon-download"></use></svg>
+            <span>Export JSON</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-reset-courses" style="font-size: 11px; padding: 5px 9px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px;" title="Reset to standard 6 UOS courses">
+            <span>Reset Defaults</span>
+          </button>
         </div>
-      </div>
 
-      <!-- Card 6: Weekly Class Schedule Reference -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-schedule"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Weekly Class Schedule</h3>
-              <p class="settings-card-subtitle">Official lecture meeting times and classrooms</p>
-            </div>
-          </div>
-          <span class="settings-pill pill-green">schedule.pdf</span>
-        </div>
-
-        <p class="settings-card-desc">
-          Your official UOS lecture meeting times. Deadlines are automatically scheduled at these exact class times unless the instructor specifies a home task.
-        </p>
-
-        <div id="schedule-reference-container" class="syllabus-reference-list">
-          <!-- Rendered dynamically from STUDENT_CLASS_SCHEDULE -->
+        <!-- Dynamic Courses List -->
+        <div id="user-courses-list" class="user-courses-container" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Populated dynamically by renderUserCoursesManager() -->
         </div>
       </div>
 
@@ -1127,6 +1125,193 @@
         <!-- Quick Links List Container -->
         <div class="quick-links-manager-list" id="quick-links-manager-list" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Course, Schedule & Syllabus Editor -->
+  <div id="modal-course-editor" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="course-editor-title">
+    <div class="modal-dialog course-editor-dialog">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="editor-header-dot" class="course-color-preview-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #2563eb; display: inline-block;"></span>
+          <h3 id="course-editor-title" class="modal-title">Edit Course</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-course-editor" aria-label="Close Course Editor">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 12px 14px; max-height: calc(85vh - 110px); overflow-y: auto;">
+        <form id="form-course-editor">
+          <input type="hidden" id="editor-course-id" value="">
+
+          <!-- Basic Course Info -->
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 8px; margin-bottom: 8px;">
+            <div class="form-group">
+              <label class="form-label" for="editor-course-code">Course Code</label>
+              <input type="text" id="editor-course-code" class="form-input" placeholder="e.g. 1502101" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="editor-course-name">Course Name</label>
+              <input type="text" id="editor-course-name" class="form-input" placeholder="e.g. Intro to Comp Eng" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="editor-course-crn">CRN <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+              <input type="text" id="editor-course-crn" class="form-input" placeholder="e.g. 12345">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="editor-color-hex">Color Theme</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="color" id="editor-color-picker" value="#2563eb" style="width: 28px; height: 28px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                <input type="text" id="editor-color-hex" class="form-input" placeholder="#2563eb" pattern="^#([A-Fa-f0-9]{6})$" required style="font-family: monospace; font-size: 11px;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Color Palette Quick Swatches -->
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" style="font-size: 10.5px;">Preset Palette Swatches</label>
+            <div class="color-swatches-grid" id="editor-color-swatches" style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <!-- 8 presets populated dynamically or statically -->
+              <button type="button" class="swatch-btn" data-color="#dc2626" style="width: 22px; height: 22px; border-radius: 4px; background: #dc2626; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Red"></button>
+              <button type="button" class="swatch-btn" data-color="#4b99d2" style="width: 22px; height: 22px; border-radius: 4px; background: #4b99d2; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Sky Blue"></button>
+              <button type="button" class="swatch-btn" data-color="#489160" style="width: 22px; height: 22px; border-radius: 4px; background: #489160; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Green"></button>
+              <button type="button" class="swatch-btn" data-color="#7c7c7c" style="width: 22px; height: 22px; border-radius: 4px; background: #7c7c7c; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Gray"></button>
+              <button type="button" class="swatch-btn" data-color="#525252" style="width: 22px; height: 22px; border-radius: 4px; background: #525252; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Charcoal"></button>
+              <button type="button" class="swatch-btn" data-color="#7c3aed" style="width: 22px; height: 22px; border-radius: 4px; background: #7c3aed; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Purple"></button>
+              <button type="button" class="swatch-btn" data-color="#d97706" style="width: 22px; height: 22px; border-radius: 4px; background: #d97706; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Amber"></button>
+              <button type="button" class="swatch-btn" data-color="#2563eb" style="width: 22px; height: 22px; border-radius: 4px; background: #2563eb; border: 1px solid rgba(0,0,0,0.15); cursor: pointer;" title="Blue"></button>
+            </div>
+          </div>
+
+          <!-- Aliases / Keywords -->
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label" for="editor-course-aliases">Keywords &amp; Aliases <span style="font-weight: normal; color: var(--text-muted);">(comma-separated)</span></label>
+            <input type="text" id="editor-course-aliases" class="form-input" placeholder="e.g. comp eng, computer engineering, حاسوب">
+            <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px;">Used to auto-match announcements and Blackboard posts to this course.</span>
+          </div>
+
+          <!-- Section 1: Weekly Class Schedule Slots -->
+          <div class="editor-section" style="border-top: 1px solid var(--surface-border); padding-top: 10px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" style="font-size: 11.5px; font-weight: 700; margin: 0;">Weekly Class Meeting Times</label>
+              <button type="button" class="btn-secondary" id="btn-add-schedule-slot" style="font-size: 10.5px; padding: 3px 8px;">
+                <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+                <span>Add Meeting Time</span>
+              </button>
+            </div>
+            <div id="course-editor-slots" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Dynamic rows of slots -->
+            </div>
+          </div>
+
+          <!-- Section 2: Syllabus Grade Breakdown -->
+          <div class="editor-section" style="border-top: 1px solid var(--surface-border); padding-top: 10px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" style="font-size: 11.5px; font-weight: 700; margin: 0;">Syllabus Mark Allocations</label>
+              <button type="button" class="btn-secondary" id="btn-add-syllabus-row" style="font-size: 10.5px; padding: 3px 8px;">
+                <svg class="ui-icon mr-1"><use href="#icon-plus"></use></svg>
+                <span>Add Component</span>
+              </button>
+            </div>
+
+            <!-- Quick Syllabus Paste Helper (<details>) -->
+            <details class="syllabus-paste-helper" style="background: var(--surface-hover); border: 1px dashed var(--surface-border); border-radius: var(--radius-sm); padding: 6px 8px; margin-bottom: 8px;">
+              <summary style="font-size: 10.5px; font-weight: 600; cursor: pointer; color: var(--text-main);">
+                Quick Syllabus Text Paste (Auto-Parse)
+              </summary>
+              <div style="margin-top: 6px;">
+                <textarea id="editor-syllabus-paste-text" class="form-textarea" rows="2" placeholder="Paste mark breakdown lines (e.g. Midterm 30%, Quizzes (4) 20%, Final Exam 40%, Lab Reports 10%)..." style="font-size: 11px;"></textarea>
+                <button type="button" class="btn-secondary" id="btn-parse-syllabus-paste" style="font-size: 10.5px; padding: 3px 8px; margin-top: 4px;">
+                  Parse Breakdown Text
+                </button>
+              </div>
+            </details>
+
+            <div id="course-editor-syllabus" style="display: flex; flex-direction: column; gap: 6px;">
+              <!-- Dynamic rows of syllabus components -->
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="editor-modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--surface-border); padding-top: 10px; margin-top: 8px;">
+            <div id="editor-syllabus-total-badge" class="settings-pill pill-blue" style="font-weight: 700; font-size: 11px;">
+              Total: 0% / 100%
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn-secondary" id="btn-cancel-course-editor" style="font-size: 11px; padding: 5px 12px;">Cancel</button>
+              <button type="submit" class="btn-primary" id="btn-save-course" style="font-size: 11px; padding: 5px 14px;">Save Course</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Smart Course & Schedule Importer -->
+  <div id="modal-course-import" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="course-import-title">
+    <div class="modal-dialog course-import-dialog">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg class="ui-icon" style="color: #2563eb;"><use href="#icon-upload"></use></svg>
+          <h3 id="course-import-title" class="modal-title">Import Courses &amp; Schedule</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-course-import" aria-label="Close Importer">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 12px 14px; max-height: calc(85vh - 100px); overflow-y: auto;">
+        <!-- Tab Navigation -->
+        <div class="importer-tabs" style="display: flex; border-bottom: 1px solid var(--surface-border); margin-bottom: 12px;">
+          <button type="button" class="importer-tab-btn active" id="tab-import-banner" style="flex: 1; padding: 7px; font-size: 11.5px; font-weight: 600; background: none; border: none; border-bottom: 2px solid var(--text-main); cursor: pointer; color: var(--text-main);">
+            Banner SSB Schedule
+          </button>
+          <button type="button" class="importer-tab-btn" id="tab-import-json" style="flex: 1; padding: 7px; font-size: 11.5px; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text-muted);">
+            JSON Backup
+          </button>
+        </div>
+
+        <!-- Tab Content 1: Banner SSB Paste -->
+        <div id="tab-content-banner">
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+            Paste schedule text from Banner Self-Service (SSB) or your student portal. Course titles, codes, CRNs, meeting days, class times, and lecture rooms are detected automatically.
+          </p>
+          <textarea id="import-banner-text" class="form-textarea" rows="5" placeholder="Paste Banner schedule table or text here...&#10;e.g.&#10;1502 101 - Introduction to Computer Engineering&#10;CRN: 12345&#10;Days: M W Time: 11:00 am - 12:15 pm Room: A8-103&#10;1440 133 - Calculus I for Engineering&#10;CRN: 14210&#10;Days: T R Time: 09:30 am - 10:45 am Room: A12-110" style="font-size: 11px;"></textarea>
+
+          <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px;">
+            <button type="button" class="btn-primary" id="btn-preview-banner" style="font-size: 11.5px; padding: 5px 12px;">
+              Preview Detected Courses
+            </button>
+          </div>
+
+          <div id="import-banner-preview-container" style="display: none; margin-top: 12px; border-top: 1px dashed var(--surface-border); padding-top: 8px;">
+            <h4 style="font-size: 11.5px; margin: 0 0 6px 0; font-weight: 700;">Detected Courses Preview:</h4>
+            <div id="import-banner-preview-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
+              <!-- Dynamic preview cards -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px;">
+              <button type="button" class="btn-secondary" id="btn-cancel-banner-import" style="font-size: 11px; padding: 5px 10px;">Cancel</button>
+              <button type="button" class="btn-primary" id="btn-confirm-banner-import" style="font-size: 11px; padding: 5px 14px;">
+                Import &amp; Merge Courses
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Content 2: JSON Import -->
+        <div id="tab-content-json" style="display: none;">
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+            Upload a <code>blackboarder-courses.json</code> file or paste a JSON course configuration array.
+          </p>
+          <div style="margin-bottom: 10px;">
+            <input type="file" id="input-import-json-file" accept=".json" style="font-size: 11px;">
+          </div>
+          <textarea id="import-json-text" class="form-textarea" rows="5" placeholder='Paste JSON courses array here... e.g. [{"courseCode": "1502101", "courseName": "Intro to Comp Eng", ...}]' style="font-size: 11px; font-family: monospace;"></textarea>
+          <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px;">
+            <button type="button" class="btn-primary" id="btn-confirm-json-import" style="font-size: 11.5px; padding: 5px 14px;">
+              Import Courses JSON
+            </button>
+          </div>
         </div>
       </div>
     </div>

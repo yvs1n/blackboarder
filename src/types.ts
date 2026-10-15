@@ -43,6 +43,18 @@ export interface UserCourseConfig {
   syllabus: CustomSyllabusComponent[];
 }
 
+export interface FirebaseSyncPayload {
+  tasks: DeadlineTask[];
+  lastSync: string;
+  device?: string;
+  count: number;
+  syncKey?: string;
+  quickLinks?: QuickLink[];
+  courses?: UserCourseConfig[];
+  coursesUpdatedAt?: string;
+  tombstones?: Record<string, string>;
+}
+
 export interface Announcement {
   id: string;
   courseCode: string;

@@ -2144,6 +2144,7 @@ const state = {
   tasks: [],
   quickLinks: [],
   userCourses: initialMobileCourses,
+  coursesUpdatedAt: localStorage.getItem('bbs_mobile_courses_updated_at') || null,
   lastSync: null,
   currentDate: new Date(),
   displayedMonth: new Date(),
@@ -3246,6 +3247,7 @@ async function fetchTasksFromServer(isManual = false) {
     }
 
     let fetchedCourses = null;
+    let fetchedCoursesUpdatedAt = null;
 
     // 1. Fetch directly from Firebase Realtime Database (24/7 online even if laptop is off)
     try {
@@ -3257,6 +3259,7 @@ async function fetchTasksFromServer(isManual = false) {
           if (fbData) {
             if (Array.isArray(fbData.courses) && fbData.courses.length > 0) {
               fetchedCourses = fbData.courses;
+              fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
             if (Array.isArray(fbData.tasks)) {
               fetchedTasks = fbData.tasks;
@@ -3287,6 +3290,7 @@ async function fetchTasksFromServer(isManual = false) {
         if (data) {
           if (Array.isArray(data.courses) && data.courses.length > 0) {
             fetchedCourses = data.courses;
+            fetchedCoursesUpdatedAt = data.coursesUpdatedAt || null;
           }
           if (data.ok && Array.isArray(data.tasks)) {
             fetchedTasks = data.tasks;
@@ -3303,18 +3307,32 @@ async function fetchTasksFromServer(isManual = false) {
     // 3. Process courses if updated from cloud
     let coursesChanged = false;
     if (fetchedCourses && Array.isArray(fetchedCourses) && fetchedCourses.length > 0) {
-      const prevCoursesJson = JSON.stringify(state.userCourses || []);
-      const newCoursesJson = JSON.stringify(fetchedCourses);
-      if (prevCoursesJson !== newCoursesJson) {
-        state.userCourses = fetchedCourses;
-        localStorage.setItem('bbs_mobile_courses', newCoursesJson);
-        recompileDynamicCourseData(state.userCourses);
-        recalculateAllTaskWeightsAndRooms();
-        initLegend();
-        initScheduleAndSyllabus();
-        renderGradeTracker();
-        updateCourseDatalist();
-        coursesChanged = true;
+      const localCoursesUpdatedAt = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at');
+      const cloudTime = fetchedCoursesUpdatedAt ? new Date(fetchedCoursesUpdatedAt).getTime() : 0;
+      const localTime = localCoursesUpdatedAt ? new Date(localCoursesUpdatedAt).getTime() : 0;
+
+      // Only overwrite local courses if cloud timestamp is newer, or if local has no timestamp yet
+      if (!localCoursesUpdatedAt || cloudTime > localTime) {
+        const prevCoursesJson = JSON.stringify(state.userCourses || []);
+        const newCoursesJson = JSON.stringify(fetchedCourses);
+        if (prevCoursesJson !== newCoursesJson) {
+          state.userCourses = fetchedCourses;
+          state.coursesUpdatedAt = fetchedCoursesUpdatedAt;
+          localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+          if (fetchedCoursesUpdatedAt) {
+            localStorage.setItem('bbs_mobile_courses_updated_at', fetchedCoursesUpdatedAt);
+          }
+          recompileDynamicCourseData(state.userCourses);
+          recalculateAllTaskWeightsAndRooms();
+          initLegend();
+          initScheduleAndSyllabus();
+          renderGradeTracker();
+          updateCourseDatalist();
+          coursesChanged = true;
+        } else if (fetchedCoursesUpdatedAt && fetchedCoursesUpdatedAt !== localCoursesUpdatedAt) {
+          state.coursesUpdatedAt = fetchedCoursesUpdatedAt;
+          localStorage.setItem('bbs_mobile_courses_updated_at', fetchedCoursesUpdatedAt);
+        }
       }
     }
 
@@ -6618,11 +6636,57 @@ async function syncToCloudAndLocal() {
   syncTasksToServiceWorker();
   checkUpcomingDeadlines(false);
 
+  // Preserve latest courses and coursesUpdatedAt from cloud snapshot
+  let coursesToSync = state.userCourses || undefined;
+  let coursesUpdatedAtToSync = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at') || undefined;
+
+  try {
+    const fbUrl = getFirebaseDataUrl();
+    if (fbUrl) {
+      const snapRes = await fetch(fbUrl, { cache: 'no-store' });
+      if (snapRes.ok) {
+        const snap = await snapRes.json();
+        if (snap && Array.isArray(snap.courses) && snap.courses.length > 0) {
+          const snapTime = snap.coursesUpdatedAt ? new Date(snap.coursesUpdatedAt).getTime() : 0;
+          const localTime = coursesUpdatedAtToSync ? new Date(coursesUpdatedAtToSync).getTime() : 0;
+
+          if (snapTime >= localTime) {
+            coursesToSync = snap.courses;
+            coursesUpdatedAtToSync = snap.coursesUpdatedAt || undefined;
+
+            // Update mobile local state if cloud snapshot had newer courses
+            if (snapTime > localTime) {
+              const prevCoursesJson = JSON.stringify(state.userCourses || []);
+              const newCoursesJson = JSON.stringify(snap.courses);
+              if (prevCoursesJson !== newCoursesJson) {
+                state.userCourses = snap.courses;
+                state.coursesUpdatedAt = snap.coursesUpdatedAt || null;
+                localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+                if (snap.coursesUpdatedAt) {
+                  localStorage.setItem('bbs_mobile_courses_updated_at', snap.coursesUpdatedAt);
+                }
+                recompileDynamicCourseData(state.userCourses);
+                recalculateAllTaskWeightsAndRooms();
+                initLegend();
+                initScheduleAndSyllabus();
+                renderGradeTracker();
+                updateCourseDatalist();
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (snapErr) {
+    // If snapshot check fails, proceed with local courses
+  }
+
   const tombstones = getLocalTombstones();
   const payload = {
     tasks: state.tasks,
     quickLinks: state.quickLinks,
-    courses: state.userCourses || undefined,
+    courses: coursesToSync,
+    coursesUpdatedAt: coursesUpdatedAtToSync,
     lastSync: state.lastSync,
     device: 'Mobile Web App',
     count: state.tasks.length,

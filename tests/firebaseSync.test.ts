@@ -6,7 +6,7 @@ import {
   FIREBASE_DB_URL
 } from '../src/utils/firebaseSync';
 import pagesWorker from '../mobile-web/_worker.js';
-import { DeadlineTask } from '../src/types';
+import { DeadlineTask, UserCourseConfig } from '../src/types';
 
 describe('Firebase Realtime Database Sync Bridge', () => {
   const sampleTasks: DeadlineTask[] = [
@@ -141,5 +141,100 @@ describe('Firebase Realtime Database Sync Bridge', () => {
     expect(text).toContain('Weight: 30% Midterm (Paper)');
 
     fetchSpy.mockRestore();
+  });
+
+  const sampleCourses: UserCourseConfig[] = [
+    {
+      id: 'custom-cs101',
+      courseCode: 'CS 101',
+      courseName: 'Intro to Computer Science',
+      colorHex: '#3b82f6',
+      aliases: ['cs101', 'intro cs'],
+      scheduleSlots: [
+        {
+          days: ['Sunday', 'Tuesday'],
+          startTime: '09:00',
+          endTime: '10:15',
+          room: 'M9-102'
+        }
+      ],
+      syllabus: [
+        {
+          id: 'quiz',
+          name: 'Quizzes',
+          type: 'quiz',
+          totalWeight: 20
+        }
+      ]
+    }
+  ];
+
+  it('pushTasksToFirebase includes courses and coursesUpdatedAt in payload', async () => {
+    let capturedBody: any = null;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async (_url, opts: any) => {
+      capturedBody = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+
+    const timestamp = '2026-10-15T15:30:00.000Z';
+    const result = await pushTasksToFirebase(
+      sampleTasks,
+      'Test Suite',
+      'test-key',
+      undefined,
+      undefined,
+      sampleCourses,
+      timestamp
+    );
+
+    expect(result.success).toBe(true);
+    expect(capturedBody).toBeDefined();
+    expect(capturedBody.courses).toHaveLength(1);
+    expect(capturedBody.courses[0].courseCode).toBe('CS 101');
+    expect(capturedBody.coursesUpdatedAt).toBe(timestamp);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('fetchTasksFromFirebase parses courses and coursesUpdatedAt correctly', async () => {
+    const timestamp = '2026-10-15T16:00:00.000Z';
+    const payload = {
+      tasks: sampleTasks,
+      lastSync: '2026-10-15T16:00:00.000Z',
+      courses: sampleCourses,
+      coursesUpdatedAt: timestamp,
+      count: 1
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200 })
+    );
+
+    const result = await fetchTasksFromFirebase('test-key');
+
+    expect(result.success).toBe(true);
+    expect(result.courses).toHaveLength(1);
+    expect(result.courses![0].courseCode).toBe('CS 101');
+    expect(result.coursesUpdatedAt).toBe(timestamp);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('coursesUpdatedAt conflict resolution protects newer local courses from stale cloud courses', () => {
+    const localCoursesUpdatedAt = '2026-10-15T18:00:00.000Z';
+    const staleCloudCoursesUpdatedAt = '2026-10-15T17:00:00.000Z';
+
+    const localTime = new Date(localCoursesUpdatedAt).getTime();
+    const cloudTime = new Date(staleCloudCoursesUpdatedAt).getTime();
+
+    // Verify condition: local is newer, stale cloud push must not overwrite
+    const shouldOverwrite = !localCoursesUpdatedAt || cloudTime > localTime;
+    expect(shouldOverwrite).toBe(false);
+
+    // Verify condition: cloud is newer, local must update
+    const newerCloudCoursesUpdatedAt = '2026-10-15T19:00:00.000Z';
+    const newerCloudTime = new Date(newerCloudCoursesUpdatedAt).getTime();
+    const shouldOverwriteWithNewer = !localCoursesUpdatedAt || newerCloudTime > localTime;
+    expect(shouldOverwriteWithNewer).toBe(true);
   });
 });

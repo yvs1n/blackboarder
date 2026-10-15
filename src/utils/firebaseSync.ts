@@ -30,6 +30,7 @@ export interface FirebaseSyncPayload {
   syncKey?: string;
   quickLinks?: QuickLink[];
   courses?: UserCourseConfig[];
+  coursesUpdatedAt?: string;
   tombstones?: Record<string, string>;
 }
 
@@ -49,7 +50,8 @@ export async function pushTasksToFirebase(
   syncKey?: string,
   quickLinks?: QuickLink[],
   tombstones?: Record<string, string>,
-  courses?: UserCourseConfig[]
+  courses?: UserCourseConfig[],
+  coursesUpdatedAt?: string
 ): Promise<{ success: boolean; message: string; lastSync?: string; count?: number }> {
   try {
     const lastSync = new Date().toISOString();
@@ -61,6 +63,7 @@ export async function pushTasksToFirebase(
       syncKey: syncKey || undefined,
       quickLinks: quickLinks || undefined,
       courses: courses || undefined,
+      coursesUpdatedAt: coursesUpdatedAt || undefined,
       tombstones: tombstones || undefined
     };
 
@@ -102,6 +105,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
   error?: string;
   quickLinks?: QuickLink[];
   courses?: UserCourseConfig[];
+  coursesUpdatedAt?: string;
   tombstones?: Record<string, string>;
 }> {
   try {
@@ -122,6 +126,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
         lastSync: undefined,
         quickLinks: data?.quickLinks,
         courses: data?.courses,
+        coursesUpdatedAt: data?.coursesUpdatedAt,
         tombstones: data?.tombstones
       };
     }
@@ -133,6 +138,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       device: data.device,
       quickLinks: data.quickLinks,
       courses: data.courses,
+      coursesUpdatedAt: data.coursesUpdatedAt,
       tombstones: data.tombstones
     };
   } catch (err: any) {

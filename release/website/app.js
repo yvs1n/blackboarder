@@ -43,28 +43,603 @@ function getFirebaseDataUrl() {
   return key ? `${FIREBASE_DB_URL}/users/${key}/data.json` : null;
 }
 
-// Permanent Subject Colors (matching University of Sharjah curriculum)
-const PERMANENT_COURSE_LEGEND = [
-  { code: '1502101', name: 'Intro to Comp Eng.', color: '#7c7c7c', pattern: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101|0402102|0401102)/i },
-  { code: '1440133', name: 'Calculus I for Engineering', color: '#dc2626', pattern: /(?:calculus|calc\b|حسبان|1440133|1440131|0401101|0401201)/i },
-  { code: '1430115', name: 'Physics 1', color: '#4b99d2', pattern: /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1(?!\s*عملي)|فيزياء\s*عامة\s*1|1430115|1430111|0401115)/i },
-  { code: '1430116', name: 'Physics 1 Lab', color: '#4b99d2', pattern: /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|فيزياء.*عملي|1430116|1430117|0401116)/i },
-  { code: '0202112', name: 'English for Academic Purposes', color: '#525252', pattern: /(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112|0202111)/i },
-  { code: '0104100', name: 'Islamic Culture', color: '#489160', pattern: /(?:islamic|إسلام|اسلام|ثقافة|0104100|0104101)/i }
+// ==========================================================================
+// Dynamic Course Configurations, Schedules & Syllabus Mark Allocations
+// ==========================================================================
+
+function escapeRegex(str) {
+  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function compileCoursePattern(course) {
+  const parts = [];
+
+  if (course.courseCode) {
+    const rawCode = course.courseCode.trim();
+    parts.push(escapeRegex(rawCode));
+    const noSpaces = rawCode.replace(/\s+/g, '');
+    if (noSpaces !== rawCode) {
+      parts.push(escapeRegex(noSpaces));
+    }
+  }
+
+  if (course.courseName) {
+    const name = course.courseName.trim();
+    if (course.id === 'phy1' || name.toLowerCase() === 'physics 1') {
+      parts.push(`${escapeRegex(name)}(?!\\s*lab)`);
+    } else {
+      parts.push(escapeRegex(name));
+    }
+  }
+
+  if (Array.isArray(course.aliases)) {
+    for (const a of course.aliases) {
+      const trimmed = String(a || '').trim();
+      if (!trimmed) continue;
+      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
+        parts.push(trimmed);
+      } else {
+        parts.push(escapeRegex(trimmed));
+      }
+    }
+  }
+
+  if (parts.length === 0) {
+    return new RegExp(escapeRegex(course.id || 'general'), 'i');
+  }
+
+  return new RegExp(`(?:${parts.join('|')})`, 'i');
+}
+
+function compileSyllabusComponentMatcher(comp) {
+  const parts = [];
+
+  if (Array.isArray(comp.keywords) && comp.keywords.length > 0) {
+    for (const kw of comp.keywords) {
+      const trimmed = String(kw || '').trim();
+      if (!trimmed) continue;
+      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
+        parts.push(trimmed);
+      } else {
+        parts.push(escapeRegex(trimmed));
+      }
+    }
+  }
+
+  if (comp.name && parts.length === 0) {
+    parts.push(escapeRegex(comp.name.trim()));
+  }
+
+  if (parts.length === 0) {
+    return new RegExp(escapeRegex(comp.id || 'item'), 'i');
+  }
+
+  return new RegExp(`(?:${parts.join('|')})`, 'i');
+}
+
+function format12Hour(hour, minute) {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  const padH = String(h12).padStart(2, '0');
+  const padM = String(minute).padStart(2, '0');
+  return `${padH}:${padM} ${period}`;
+}
+
+const DAY_ABBR = {
+  Sunday: 'Sun',
+  Monday: 'Mon',
+  Tuesday: 'Tue',
+  Wednesday: 'Wed',
+  Thursday: 'Thu',
+  Friday: 'Fri',
+  Saturday: 'Sat'
+};
+
+const DEFAULT_USER_COURSES = [
+  // 1. Introduction to Computer Eng.
+  {
+    id: 'compeng',
+    courseCode: '1502101',
+    courseName: 'Introduction to Computer Eng.',
+    crn: '12056',
+    colorHex: '#7c7c7c',
+    aliases: [
+      'intro.*comp',
+      'comp(?:uter)?\\s*eng',
+      'هندسة.*حاسوب',
+      'حاسوب',
+      '1502 101 01',
+      '1502 101',
+      '1502101',
+      '0402101',
+      '0402102'
+    ],
+    scheduleSlots: [
+      {
+        days: ['Tuesday', 'Thursday'],
+        startTime: '11:00',
+        endTime: '12:15',
+        room: 'A8-103',
+        location: "UOS Men's Campus, A8, 103",
+        instructor: 'Arain, Bilal'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'compeng_final',
+        name: 'Final Exam',
+        type: 'exam',
+        totalWeight: 45,
+        unitWeight: 45,
+        note: 'TBA (45%)',
+        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
+      },
+      {
+        id: 'compeng_midterm',
+        name: 'Midterm Exam',
+        type: 'exam',
+        totalWeight: 30,
+        unitWeight: 30,
+        note: 'TBA (30%)',
+        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
+      },
+      {
+        id: 'compeng_quizzes',
+        name: 'Quizzes',
+        type: 'quiz',
+        totalWeight: 25,
+        count: 3,
+        unitWeight: 8.33,
+        note: 'Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)',
+        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
+      }
+    ]
+  },
+
+  // 2. Calculus I for Engineering
+  {
+    id: 'calc1',
+    courseCode: '1440133',
+    courseName: 'Calculus I for Engineering',
+    crn: '10806',
+    colorHex: '#dc2626',
+    aliases: [
+      'calculus',
+      'calc\\b',
+      'حسبان',
+      '1440 133 02',
+      '1440 133',
+      '1440133',
+      '1440131',
+      '0401101',
+      '0401201'
+    ],
+    scheduleSlots: [
+      {
+        days: ['Tuesday', 'Thursday'],
+        startTime: '12:30',
+        endTime: '13:45',
+        room: 'A12-110',
+        location: "UOS Men's Campus, A12, 110",
+        instructor: 'Al-Teraifi, Randa'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'calc1_final',
+        name: 'Final Exam',
+        type: 'exam',
+        totalWeight: 40,
+        unitWeight: 40,
+        note: 'On paper (40%)',
+        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
+      },
+      {
+        id: 'calc1_midterm',
+        name: 'Midterm Exam',
+        type: 'exam',
+        totalWeight: 30,
+        unitWeight: 30,
+        note: 'On paper (30%)',
+        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
+      },
+      {
+        id: 'calc1_quizzes',
+        name: 'Quizzes',
+        type: 'quiz',
+        totalWeight: 20,
+        count: 2,
+        unitWeight: 10,
+        note: 'On paper, best 2 of 3 quizzes (10% each, 20% total)',
+        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
+      },
+      {
+        id: 'calc1_assignments',
+        name: 'Homeworks',
+        type: 'assignment',
+        totalWeight: 10,
+        count: 3,
+        unitWeight: 3.33,
+        note: 'Online, best 3 of 4 homeworks (~3.33% each, 10% total)',
+        keywords: ['assignment', 'hw', 'homework', 'واجب', 'connect']
+      }
+    ]
+  },
+
+  // 3. English for Academic Purposes
+  {
+    id: 'eap',
+    courseCode: '0202112',
+    courseName: 'English for Academic Purposes',
+    crn: '10175',
+    colorHex: '#525252',
+    aliases: [
+      'english',
+      'eap\\b',
+      'academic\\s*purposes',
+      'academic\\s*english',
+      'إنجليزي',
+      'انجليزي',
+      '0202 112 09',
+      '0202 112',
+      '0202112',
+      '0202111'
+    ],
+    scheduleSlots: [
+      {
+        days: ['Tuesday', 'Thursday'],
+        startTime: '14:00',
+        endTime: '15:15',
+        room: 'A3-184',
+        location: "UOS Men's Campus, A3, 184",
+        instructor: 'Manzol, Mutwakil'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'eap_final',
+        name: 'Final Exam',
+        type: 'exam',
+        totalWeight: 40,
+        unitWeight: 40,
+        note: 'Week 16 (40%)',
+        keywords: ['final\\s*exam', 'final', 'نهائي']
+      },
+      {
+        id: 'eap_midterm',
+        name: 'Midterm Exam',
+        type: 'exam',
+        totalWeight: 20,
+        unitWeight: 20,
+        note: 'Week 8 (20%)',
+        keywords: ['midterm\\s*exam', 'midterm', 'نصفي', 'منتصف']
+      },
+      {
+        id: 'eap_quizzes',
+        name: 'Quizzes',
+        type: 'quiz',
+        totalWeight: 20,
+        count: 2,
+        unitWeight: 10,
+        note: '2 Quizzes: Quiz 1 in Wk 4, Quiz 2 in Wk 7 (10% each, 20% total)',
+        keywords: ['quiz', 'كويز']
+      },
+      {
+        id: 'eap_essay',
+        name: 'Cause-Effect Essay',
+        type: 'assignment',
+        totalWeight: 10,
+        unitWeight: 10,
+        note: 'Week 12 Writing Assignment (10%)',
+        keywords: ['essay', 'cause.*effect', 'writing\\s*assignment', 'مقال']
+      },
+      {
+        id: 'eap_employability',
+        name: 'Employability Skills',
+        type: 'assignment',
+        totalWeight: 10,
+        count: 5,
+        unitWeight: 2,
+        note: '5 Employability Tasks across Weeks 2-13 (2% each, 10% total)',
+        keywords: ['employability', 'skill', 'task', 'مهام', 'مهارات']
+      }
+    ]
+  },
+
+  // 4. Physics 1 Lab
+  {
+    id: 'phy1lab',
+    courseCode: '1430116',
+    courseName: 'Physics 1 Lab',
+    crn: '10708',
+    colorHex: '#4b99d2',
+    aliases: [
+      'physics.*lab',
+      'phy(?:sics)?\\s*1\\s*lab',
+      'مختبر.*فيزياء',
+      'فيزياء.*عملي',
+      '1430 116 11L',
+      '1430 116',
+      '1430116',
+      '1430117',
+      '0401116',
+      'measuring\\s*density',
+      'free\\s*fall',
+      "student'?s\\s*lab"
+    ],
+    scheduleSlots: [
+      {
+        days: ['Wednesday'],
+        startTime: '14:00',
+        endTime: '16:45',
+        room: 'Central Lab Men - 105',
+        location: "UOS Men's Campus, Central Laboratories (Men), 105",
+        instructor: 'Khudada Mohamed, Abdulraheem'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'phy1lab_final',
+        name: 'Final Examination',
+        type: 'exam',
+        totalWeight: 40,
+        unitWeight: 40,
+        note: 'Practical Final Exam during last week (40%)',
+        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي', 'عملي']
+      },
+      {
+        id: 'phy1lab_quizzes',
+        name: 'Lab Quizzes',
+        type: 'quiz',
+        totalWeight: 30,
+        count: 3,
+        unitWeight: 10,
+        note: '4 scheduled, top 3 counted (10% each, 30% total)',
+        keywords: ['quiz', 'كويز']
+      },
+      {
+        id: 'phy1lab_reports',
+        name: 'Experiments & Lab Reports',
+        type: 'lab',
+        totalWeight: 30,
+        count: 9,
+        unitWeight: 3.33,
+        note: '9 Weekly lab reports (approx 3.33% each, 30% total)',
+        keywords: ['report', 'experiment', 'تقرير', 'تجربة', 'مختبر']
+      }
+    ]
+  },
+
+  // 5. Physics 1
+  {
+    id: 'phy1',
+    courseCode: '1430115',
+    courseName: 'Physics 1',
+    crn: '10668',
+    colorHex: '#4b99d2',
+    aliases: [
+      'physics\\s*1(?!\\s*lab)',
+      'general\\s*physics\\s*1',
+      'فيزياء\\s*1(?!\\s*عملي)',
+      'فيزياء\\s*عامة\\s*1',
+      '1430 115 02',
+      '1430 115',
+      '1430115',
+      '1430111',
+      '0401115'
+    ],
+    scheduleSlots: [
+      {
+        days: ['Monday', 'Wednesday'],
+        startTime: '11:00',
+        endTime: '12:15',
+        room: 'A8-110',
+        location: "UOS Men's Campus, A8, 110",
+        instructor: 'Ahriche, Amine'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'phy1_final',
+        name: 'Final Exam',
+        type: 'exam',
+        totalWeight: 45,
+        unitWeight: 45,
+        note: 'Final Examination (45 marks)',
+        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
+      },
+      {
+        id: 'phy1_midterm',
+        name: 'Midterm Exam',
+        type: 'exam',
+        totalWeight: 25,
+        unitWeight: 25,
+        note: 'Midterm Exam (25 marks)',
+        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
+      },
+      {
+        id: 'phy1_quizzes',
+        name: 'Quizzes',
+        type: 'quiz',
+        totalWeight: 20,
+        unitWeight: 20,
+        note: 'Quizzes throughout semester (average = 20 marks)',
+        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
+      },
+      {
+        id: 'phy1_assignments',
+        name: 'Assignments',
+        type: 'assignment',
+        totalWeight: 10,
+        unitWeight: 10,
+        note: 'Assignments / Homework (10 marks total)',
+        keywords: ['assignment', 'hw', 'homework', 'واجب']
+      }
+    ]
+  },
+
+  // 6. Islamic Culture
+  {
+    id: 'islamic',
+    courseCode: '0104100',
+    courseName: 'Islamic Culture',
+    crn: '10475',
+    colorHex: '#489160',
+    aliases: [
+      'islamic',
+      'ثقافة\\s*إسلامية',
+      'ثقافة\\s*اسلامية',
+      'إسلام',
+      'اسلام',
+      '0104 100 13A',
+      '0104 100',
+      '0104100',
+      '0104101'
+    ],
+    scheduleSlots: [
+      {
+        days: ['Monday', 'Wednesday'],
+        startTime: '17:00',
+        endTime: '18:15',
+        room: 'A8-TH005',
+        location: "UOS Men's Campus, A8, TH005",
+        instructor: 'Haq, Zia Ul'
+      }
+    ],
+    syllabus: [
+      {
+        id: 'islamic_final',
+        name: 'Final Exam',
+        type: 'exam',
+        totalWeight: 50,
+        unitWeight: 50,
+        note: 'Comprehensive final exam (50%)',
+        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
+      },
+      {
+        id: 'islamic_midterm',
+        name: 'Midterm Exam',
+        type: 'exam',
+        totalWeight: 25,
+        unitWeight: 25,
+        note: 'Midterm exam (25%)',
+        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
+      },
+      {
+        id: 'islamic_coursework',
+        name: 'Coursework & Research',
+        type: 'project',
+        totalWeight: 25,
+        unitWeight: 15,
+        note: 'Coursework and reports (25% total)',
+        keywords: ['بحث', 'مشروع', 'تقرير', 'واجب', 'عرض', 'project', 'research', 'assignment', 'report', 'quiz', 'كويز']
+      }
+    ]
+  }
 ];
+
+// Runtime dynamic arrays consumed across mobile views
+let PERMANENT_COURSE_LEGEND = [];
+let STUDENT_CLASS_SCHEDULE = [];
+let DEFAULT_SYLLABUS_DATABASE = [];
+let SYLLABUS_INFO = [];
 
 // Fallback palette for any unexpected courses
 const FALLBACK_PALETTE = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#db2777', '#0891b2'];
 
-// Student Class Schedule (from schedule.pdf with student room assignments)
-const STUDENT_CLASS_SCHEDULE = [
-  { courseCode: '1502 101 01', courseName: 'Introduction to Computer Engineering', days: 'Tue / Thu', time: '11:00 AM - 12:15 PM', room: 'A8-103', matcher: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101|0402102|0401102)/i },
-  { courseCode: '1440 133 02', courseName: 'Calculus I for Engineering', days: 'Tue / Thu', time: '12:30 PM - 01:45 PM', room: 'A12-110', matcher: /(?:calculus|calc\b|حسبان|1440133|1440131|0401101|0401201)/i },
-  { courseCode: '0202 112 09', courseName: 'English for Academic Purposes', days: 'Tue / Thu', time: '02:00 PM - 03:15 PM', room: 'A3-184', matcher: /(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112|0202111)/i },
-  { courseCode: '1430 115 02', courseName: 'Physics 1', days: 'Mon / Wed', time: '11:00 AM - 12:15 PM', room: 'A8-110', matcher: /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1(?!\s*عملي)|فيزياء\s*عامة\s*1|1430115|1430111|0401115)/i },
-  { courseCode: '1430 116 04', courseName: 'Physics 1 Lab', days: 'Wed', time: '02:00 PM - 04:45 PM', room: 'Central Lab Men - 105', matcher: /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|فيزياء.*عملي|1430116|1430117|0401116|measuring\s*density|free\s*fall|student'?s\s*lab)/i },
-  { courseCode: '0104 100', courseName: 'Islamic Culture', days: 'Mon / Wed', time: '05:00 PM - 06:15 PM', room: 'A8-TH005', matcher: /(?:islamic|إسلام|اسلام|ثقافة|0104100|0104101)/i }
-];
+function recompileDynamicCourseData(courses) {
+  const courseList = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+
+  // 1. Recompile PERMANENT_COURSE_LEGEND
+  const newLegend = courseList.map(course => ({
+    code: course.courseCode,
+    name: course.courseName,
+    color: course.colorHex || '#2563eb',
+    pattern: compileCoursePattern(course)
+  }));
+  PERMANENT_COURSE_LEGEND.length = 0;
+  PERMANENT_COURSE_LEGEND.push(...newLegend);
+
+  // 2. Recompile STUDENT_CLASS_SCHEDULE
+  const newSchedule = [];
+  for (const course of courseList) {
+    const matcher = compileCoursePattern(course);
+    for (const slot of (course.scheduleSlots || [])) {
+      const [sh, sm] = (slot.startTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
+      const [eh, em] = (slot.endTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
+      const daysStr = (slot.days || []).map(d => DAY_ABBR[d] || d).join(' / ');
+      const timeStr = `${format12Hour(sh, sm)} - ${format12Hour(eh, em)}`;
+
+      newSchedule.push({
+        courseCode: course.courseCode,
+        courseName: course.courseName,
+        days: daysStr,
+        time: timeStr,
+        room: slot.room,
+        location: slot.location || slot.room,
+        instructor: slot.instructor || '',
+        matcher
+      });
+    }
+  }
+  STUDENT_CLASS_SCHEDULE.length = 0;
+  STUDENT_CLASS_SCHEDULE.push(...newSchedule);
+
+  // 3. Recompile DEFAULT_SYLLABUS_DATABASE
+  const newSyllabusDb = courseList.map(course => {
+    const components = (course.syllabus || []).map(comp => ({
+      id: comp.id,
+      name: comp.name,
+      type: comp.type,
+      totalWeight: comp.totalWeight,
+      count: comp.count,
+      unitWeight: comp.unitWeight !== undefined ? comp.unitWeight : (comp.count && comp.count > 0 ? Number((comp.totalWeight / comp.count).toFixed(2)) : comp.totalWeight),
+      note: comp.note,
+      matcher: compileSyllabusComponentMatcher(comp)
+    }));
+
+    const totalWeight = components.reduce((acc, c) => acc + (c.totalWeight || 0), 0) || 100;
+
+    return {
+      courseId: course.id,
+      courseName: course.courseName,
+      courseCodePattern: compileCoursePattern(course),
+      sourcePdf: `${course.id}.pdf`,
+      totalWeight,
+      components
+    };
+  });
+  DEFAULT_SYLLABUS_DATABASE.length = 0;
+  DEFAULT_SYLLABUS_DATABASE.push(...newSyllabusDb);
+
+  // 4. Recompile SYLLABUS_INFO
+  const newSyllabusInfo = courseList.map(course => ({
+    courseCode: course.courseCode,
+    courseName: course.courseName,
+    breakdown: (course.syllabus || []).map(comp => comp.note || `${comp.name}: ${comp.totalWeight}%${comp.count ? ` (${comp.count}x${comp.unitWeight}%)` : ''}`).join(', ')
+  }));
+  SYLLABUS_INFO.length = 0;
+  SYLLABUS_INFO.push(...newSyllabusInfo);
+}
+
+function loadInitialUserCourses() {
+  try {
+    const raw = localStorage.getItem('bbs_mobile_courses');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse cached mobile courses:', e);
+  }
+  return DEFAULT_USER_COURSES;
+}
+
+// Initialize active courses and dynamic data immediately on startup
+const initialMobileCourses = loadInitialUserCourses();
+recompileDynamicCourseData(initialMobileCourses);
 
 /**
  * Extracts explicit room/hall/lab numbers mentioned by professors in announcement text.
@@ -236,94 +811,9 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
   return text.trim();
 }
 
-// Syllabus Database
-const SYLLABUS_INFO = [
-  { courseCode: '1440 133 02', courseName: 'Calculus I for Engineering', breakdown: 'Midterm 30% (Paper), Quizzes 20% (Best 2 of 3), HWs 10% (Best 3 of 4 Online), Final 40% (Paper)' },
-  { courseCode: '1430 115 02', courseName: 'Physics 1 & Lab', breakdown: 'Final Exam 45%, Quizzes 20% (Average), Assignments 10%, Lab Practical 25%' },
-  { courseCode: '1502 101 01', courseName: 'Introduction to Computer Engineering', breakdown: 'Quizzes (Best 3 of 4 Average), Midterm Exam, Projects & Final Exam. No home homeworks' },
-  { courseCode: '0202 112 09', courseName: 'English for Academic Purposes', breakdown: 'Writing Portfolios, Reading Comprehension Quizzes, Speaking Presentations, Final Exam' },
-  { courseCode: '0104 100', courseName: 'Islamic Culture', breakdown: 'Midterm Exam 30%, Quizzes & Activities 20%, Final Exam 50%' }
-];
+// Note: SYLLABUS_INFO and DEFAULT_SYLLABUS_DATABASE are dynamically compiled above
+// from active user courses and re-synced on startup and cloud updates.
 
-// Exact syllabus grade distributions extracted from course PDFs in syllabus/
-const DEFAULT_SYLLABUS_DATABASE = [
-  {
-    courseId: 'calc1',
-    courseName: 'Calculus 1 for Engineering',
-    courseCodePattern: /(?:calculus|calc\b|حسبان|1440133|1440131|0401101|0401201)/i,
-    sourcePdf: 'calc_1.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'calc1_final', name: 'Final Exam', type: 'exam', totalWeight: 40, unitWeight: 40, note: 'On paper (40%)', matcher: /(?:final\s*exam|final|امتحان\s*نهائي|نهائي)/i },
-      { id: 'calc1_midterm', name: 'Midterm Exam', type: 'exam', totalWeight: 30, unitWeight: 30, note: 'On paper (30%)', matcher: /(?:midterm\s*exam|midterm|امتحان\s*نصفي|نصفي|منتصف)/i },
-      { id: 'calc1_quizzes', name: 'Quizzes', type: 'quiz', totalWeight: 20, count: 2, unitWeight: 10, note: 'Best 2 of 3 quizzes (10% each, 20% total)', matcher: /(?:quiz|كويز|امتحان\s*قصير)/i },
-      { id: 'calc1_assignments', name: 'Homeworks', type: 'assignment', totalWeight: 10, count: 3, unitWeight: 3.33, note: 'Online, best 3 of 4 homeworks (~3.33% each, 10% total)', matcher: /(?:assignment|hw|homework|واجب|connect)/i }
-    ]
-  },
-  {
-    courseId: 'eap',
-    courseName: 'English for Academic Purposes',
-    courseCodePattern: /(?:english|eap\b|academic\s*english|إنجليز|انجليز|0202112|0202111)/i,
-    sourcePdf: 'eap.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'eap_final', name: 'Final Exam', type: 'exam', totalWeight: 40, unitWeight: 40, note: 'Week 16 (40%)', matcher: /(?:final\s*exam|final|نهائي)/i },
-      { id: 'eap_midterm', name: 'Midterm Exam', type: 'exam', totalWeight: 20, unitWeight: 20, note: 'Week 8 (20%)', matcher: /(?:midterm\s*exam|midterm|نصفي|منتصف)/i },
-      { id: 'eap_quizzes', name: 'Quizzes', type: 'quiz', totalWeight: 20, count: 2, unitWeight: 10, note: '2 Quizzes (10% each, 20% total)', matcher: /(?:quiz|كويز)/i },
-      { id: 'eap_essay', name: 'Cause-Effect Essay', type: 'assignment', totalWeight: 10, unitWeight: 10, note: 'Week 12 Writing Assignment (10%)', matcher: /(?:essay|cause.*effect|writing\s*assignment|مقال)/i },
-      { id: 'eap_employability', name: 'Employability Skills', type: 'assignment', totalWeight: 10, count: 5, unitWeight: 2, note: '5 Employability Tasks (2% each, 10% total)', matcher: /(?:employability|skill|task|مهام|مهارات)/i }
-    ]
-  },
-  {
-    courseId: 'compeng',
-    courseName: 'Intro to Computer Engineering',
-    courseCodePattern: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101|0402102)/i,
-    sourcePdf: 'introtocompeng.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'compeng_final', name: 'Final Exam', type: 'exam', totalWeight: 45, unitWeight: 45, note: 'TBA (45%)', matcher: /(?:final\s*exam|final|امتحان\s*نهائي|نهائي)/i },
-      { id: 'compeng_midterm', name: 'Midterm Exam', type: 'exam', totalWeight: 30, unitWeight: 30, note: 'TBA (30%)', matcher: /(?:midterm\s*exam|midterm|امتحان\s*نصفي|نصفي|منتصف)/i },
-      { id: 'compeng_quizzes', name: 'Quizzes', type: 'quiz', totalWeight: 25, count: 3, unitWeight: 8.33, note: 'Best 3 of 4 quizzes (~8.33% each, 25% total, no HWs)', matcher: /(?:quiz|كويز|امتحان\s*قصير)/i }
-    ]
-  },
-  {
-    courseId: 'islamic',
-    courseName: 'Islamic Culture',
-    courseCodePattern: /(?:islamic|إسلام|اسلام|0104100|0104101)/i,
-    sourcePdf: 'islamicculture.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'islamic_final', name: 'Final Exam', type: 'exam', totalWeight: 50, unitWeight: 50, note: 'امتحان نهائي (50%)', matcher: /(?:final\s*exam|final|امتحان\s*نهائي|نهائي)/i },
-      { id: 'islamic_midterm', name: 'Midterm Exam', type: 'exam', totalWeight: 25, unitWeight: 25, note: 'امتحان المنتصف (25%)', matcher: /(?:midterm\s*exam|midterm|امتحان\s*نصفي|نصفي|منتصف)/i },
-      { id: 'islamic_coursework', name: 'Coursework & Research', type: 'project', totalWeight: 25, unitWeight: 15, note: 'واجبات وتقارير وبحوث (25% total)', matcher: /(?:بحث|مشروع|تقرير|واجب|عرض|project|research|assignment|report|quiz|كويز)/i }
-    ]
-  },
-  {
-    courseId: 'phy1lab',
-    courseName: 'Physics 1 Lab',
-    courseCodePattern: /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116|1430117|0401116)/i,
-    sourcePdf: 'phy1lab.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'phy1lab_final', name: 'Final Examination', type: 'exam', totalWeight: 40, unitWeight: 40, note: 'Practical Final Exam (40%)', matcher: /(?:final\s*exam|final|امتحان\s*نهائي|نهائي|عملي)/i },
-      { id: 'phy1lab_quizzes', name: 'Lab Quizzes', type: 'quiz', totalWeight: 30, count: 3, unitWeight: 10, note: 'Top 3 counted (10% each, 30% total)', matcher: /(?:quiz|كويز)/i },
-      { id: 'phy1lab_reports', name: 'Experiments & Lab Reports', type: 'lab', totalWeight: 30, count: 9, unitWeight: 3.33, note: '9 Lab reports (~3.33% each, 30% total)', matcher: /(?:report|experiment|تقرير|تجربة|مختبر)/i }
-    ]
-  },
-  {
-    courseId: 'phy1',
-    courseName: 'Physics 1',
-    courseCodePattern: /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1(?!\s*عملي)|فيزياء\s*عامة\s*1|1430115|1430\s*115)/i,
-    sourcePdf: 'phy1.pdf',
-    totalWeight: 100,
-    components: [
-      { id: 'phy1_final', name: 'Final Exam', type: 'exam', totalWeight: 45, unitWeight: 45, note: 'Final Examination (45 marks)', matcher: /(?:final\s*exam|final|امتحان\s*نهائي|نهائي)/i },
-      { id: 'phy1_midterm', name: 'Midterm Exam', type: 'exam', totalWeight: 25, unitWeight: 25, note: 'Midterm Exam (25 marks)', matcher: /(?:midterm\s*exam|midterm|امتحان\s*نصفي|نصفي|منتصف)/i },
-      { id: 'phy1_quizzes', name: 'Quizzes', type: 'quiz', totalWeight: 20, unitWeight: 20, note: 'Quizzes throughout semester (average = 20 marks)', matcher: /(?:quiz|كويز|امتحان\s*قصير)/i },
-      { id: 'phy1_assignments', name: 'Assignments', type: 'assignment', totalWeight: 10, unitWeight: 10, note: 'Assignments / Homework (10 marks total)', matcher: /(?:assignment|hw|homework|واجب)/i }
-    ]
-  }
-];
 
 function extractExplicitPoints(text) {
   if (!text) return null;
@@ -1653,6 +2143,8 @@ const DEFAULT_QUICK_LINKS = [
 const state = {
   tasks: [],
   quickLinks: [],
+  userCourses: initialMobileCourses,
+  coursesUpdatedAt: localStorage.getItem('bbs_mobile_courses_updated_at') || null,
   lastSync: null,
   currentDate: new Date(),
   displayedMonth: new Date(),
@@ -2214,6 +2706,7 @@ function initApp() {
   initCalendar();
   initLegend();
   initScheduleAndSyllabus();
+  updateCourseDatalist();
   initDeadlinesControls();
   initSettings();
   initDaySheet();
@@ -2628,6 +3121,56 @@ function initTabs() {
 // ==========================================================================
 // Data Fetching & Sync
 // ==========================================================================
+function updateCourseDatalist() {
+  const datalist = document.getElementById('course-datalist-options');
+  if (!datalist) return;
+  const optionsHtml = (state.userCourses || []).map(c =>
+    `<option value="${escapeHtml(c.courseName)}">${escapeHtml(c.courseCode)}</option>`
+  ).join('');
+  datalist.innerHTML = optionsHtml;
+}
+
+function recalculateAllTaskWeightsAndRooms() {
+  if (!Array.isArray(state.tasks) || state.tasks.length === 0) return;
+  state.tasks.forEach(t => {
+    if (t.courseCode === 'UOS') t.courseCode = '';
+    const resolved = resolveCourseInfo(t);
+    if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
+      t.courseName = resolved.courseName;
+    }
+    if (resolved.courseCode && !t.courseCode) {
+      t.courseCode = resolved.courseCode;
+    }
+    const cleanT = (t.type || '').toLowerCase();
+    const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
+    if (isHwOrProj) {
+      t.room = undefined;
+    } else if (!t.room) {
+      const r = resolveTaskRoom(t);
+      if (r) t.room = r;
+    }
+    if (t.description) {
+      t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
+    }
+    if (t.sourceSnippet) {
+      t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
+    }
+    const seriesInfo = getTaskSeriesInfo(t, state.tasks);
+    const wInfo = resolveTaskWeight(
+      t.courseName || t.courseCode,
+      t.title,
+      t.type,
+      t.sourceSnippet || t.description || t.notes || '',
+      seriesInfo?.index
+    );
+    if (wInfo.weight !== undefined) {
+      t.weight = wInfo.weight;
+      t.weightDisplay = wInfo.weightDisplay;
+      t.syllabusNote = wInfo.syllabusNote;
+    }
+  });
+}
+
 function loadCachedTasks() {
   try {
     const cachedRaw = localStorage.getItem('bbs_mobile_tasks');
@@ -2637,39 +3180,7 @@ function loadCachedTasks() {
       state.tasks.sort(compareTasksByTime);
       state.lastSync = cachedSync;
 
-      // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
-      state.tasks.forEach(t => {
-        if (t.courseCode === 'UOS') t.courseCode = '';
-        const resolved = resolveCourseInfo(t);
-        if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
-          t.courseName = resolved.courseName;
-        }
-        if (resolved.courseCode && !t.courseCode) {
-          t.courseCode = resolved.courseCode;
-        }
-        const cleanT = (t.type || '').toLowerCase();
-        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
-        if (isHwOrProj) {
-          t.room = undefined;
-        } else if (!t.room) {
-          const r = resolveTaskRoom(t);
-          if (r) t.room = r;
-        }
-        if (t.description) {
-          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
-        }
-        if (t.sourceSnippet) {
-          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
-        }
-        if (t.weight === undefined || t.weight === null) {
-          const wInfo = resolveTaskWeight(t.courseName || t.courseCode, t.title, t.type, t.sourceSnippet || t.description || t.notes || '');
-          if (wInfo.weight !== undefined) {
-            t.weight = wInfo.weight;
-            t.weightDisplay = wInfo.weightDisplay;
-            t.syllabusNote = wInfo.syllabusNote;
-          }
-        }
-      });
+      recalculateAllTaskWeightsAndRooms();
 
       syncTasksToServiceWorker();
       checkUpcomingDeadlines(false);
@@ -2735,6 +3246,9 @@ async function fetchTasksFromServer(isManual = false) {
       return;
     }
 
+    let fetchedCourses = null;
+    let fetchedCoursesUpdatedAt = null;
+
     // 1. Fetch directly from Firebase Realtime Database (24/7 online even if laptop is off)
     try {
       const fbUrl = getFirebaseDataUrl();
@@ -2742,17 +3256,23 @@ async function fetchTasksFromServer(isManual = false) {
         const fbRes = await fetch(fbUrl, { cache: 'no-store' });
         if (fbRes.ok) {
           const fbData = await fbRes.json();
-          if (fbData && Array.isArray(fbData.tasks)) {
-            fetchedTasks = fbData.tasks;
-            fetchedSync = fbData.lastSync || new Date().toISOString();
-            tasksLoaded = true;
-            if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
-              fetchedQuickLinks = fbData.quickLinks;
+          if (fbData) {
+            if (Array.isArray(fbData.courses) && fbData.courses.length > 0) {
+              fetchedCourses = fbData.courses;
+              fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
-            if (fbData.tombstones && typeof fbData.tombstones === 'object') {
-              const tombs = getLocalTombstones();
-              Object.assign(tombs, fbData.tombstones);
-              localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+            if (Array.isArray(fbData.tasks)) {
+              fetchedTasks = fbData.tasks;
+              fetchedSync = fbData.lastSync || new Date().toISOString();
+              tasksLoaded = true;
+              if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
+                fetchedQuickLinks = fbData.quickLinks;
+              }
+              if (fbData.tombstones && typeof fbData.tombstones === 'object') {
+                const tombs = getLocalTombstones();
+                Object.assign(tombs, fbData.tombstones);
+                localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
+              }
             }
           }
         }
@@ -2767,15 +3287,57 @@ async function fetchTasksFromServer(isManual = false) {
       const res = await fetch(edgeUrl, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (data.ok && Array.isArray(data.tasks)) {
-          fetchedTasks = data.tasks;
-          fetchedSync = data.lastSync || new Date().toISOString();
-          tasksLoaded = true;
-          if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
-            fetchedQuickLinks = data.quickLinks;
+        if (data) {
+          if (Array.isArray(data.courses) && data.courses.length > 0) {
+            fetchedCourses = data.courses;
+            fetchedCoursesUpdatedAt = data.coursesUpdatedAt || null;
+          }
+          if (data.ok && Array.isArray(data.tasks)) {
+            fetchedTasks = data.tasks;
+            fetchedSync = data.lastSync || new Date().toISOString();
+            tasksLoaded = true;
+            if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
+              fetchedQuickLinks = data.quickLinks;
+            }
           }
         }
       }
+    }
+
+    // 3. Process courses if updated from cloud
+    let coursesChanged = false;
+    if (fetchedCourses && Array.isArray(fetchedCourses) && fetchedCourses.length > 0) {
+      const localCoursesUpdatedAt = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at');
+      const cloudTime = fetchedCoursesUpdatedAt ? new Date(fetchedCoursesUpdatedAt).getTime() : 0;
+      const localTime = localCoursesUpdatedAt ? new Date(localCoursesUpdatedAt).getTime() : 0;
+
+      // Only overwrite local courses if cloud timestamp is newer, or if local has no timestamp yet
+      if (!localCoursesUpdatedAt || cloudTime > localTime) {
+        const prevCoursesJson = JSON.stringify(state.userCourses || []);
+        const newCoursesJson = JSON.stringify(fetchedCourses);
+        if (prevCoursesJson !== newCoursesJson) {
+          state.userCourses = fetchedCourses;
+          state.coursesUpdatedAt = fetchedCoursesUpdatedAt;
+          localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+          if (fetchedCoursesUpdatedAt) {
+            localStorage.setItem('bbs_mobile_courses_updated_at', fetchedCoursesUpdatedAt);
+          }
+          recompileDynamicCourseData(state.userCourses);
+          recalculateAllTaskWeightsAndRooms();
+          initLegend();
+          initScheduleAndSyllabus();
+          renderGradeTracker();
+          updateCourseDatalist();
+          coursesChanged = true;
+        } else if (fetchedCoursesUpdatedAt && fetchedCoursesUpdatedAt !== localCoursesUpdatedAt) {
+          state.coursesUpdatedAt = fetchedCoursesUpdatedAt;
+          localStorage.setItem('bbs_mobile_courses_updated_at', fetchedCoursesUpdatedAt);
+        }
+      }
+    }
+
+    if (!tasksLoaded && coursesChanged) {
+      updateAllViews();
     }
 
     if (tasksLoaded) {
@@ -2888,7 +3450,7 @@ async function fetchTasksFromServer(isManual = false) {
       const tasksChanged = JSON.stringify(validatedTasks) !== prevTasksJson;
       const linksChanged = Boolean(fetchedQuickLinks && Array.isArray(fetchedQuickLinks) && fetchedQuickLinks.length > 0 && JSON.stringify(fetchedQuickLinks) !== prevLinksJson);
 
-      let viewsNeedUpdate = false;
+      let viewsNeedUpdate = coursesChanged;
 
       if (tasksChanged) {
         state.tasks = validatedTasks;
@@ -3141,14 +3703,24 @@ function initOnlineListeners() {
   try {
     const syncChannel = new BroadcastChannel('bbs_sync_channel');
     syncChannel.onmessage = (event) => {
-      if (event.data?.type === 'TASKS_UPDATED') {
+      if (event.data?.type === 'TASKS_UPDATED' || event.data?.type === 'COURSES_UPDATED') {
         fetchTasksFromServer();
       }
     };
   } catch (e) {}
 
   window.addEventListener('storage', (e) => {
-    if (e.key === 'bbs_mobile_tasks' || e.key === 'bbs_sync_key') {
+    if (e.key === 'bbs_mobile_courses') {
+      const updated = loadInitialUserCourses();
+      state.userCourses = updated;
+      recompileDynamicCourseData(state.userCourses);
+      recalculateAllTaskWeightsAndRooms();
+      initLegend();
+      initScheduleAndSyllabus();
+      renderGradeTracker();
+      updateCourseDatalist();
+      updateAllViews();
+    } else if (e.key === 'bbs_mobile_tasks' || e.key === 'bbs_sync_key') {
       loadCachedTasks();
       updateAllViews();
     }
@@ -4546,28 +5118,38 @@ function initGradeTracker() {
 function initScheduleAndSyllabus() {
   const scheduleContainer = document.getElementById('schedule-timeline-container');
   if (scheduleContainer) {
-    scheduleContainer.innerHTML = STUDENT_CLASS_SCHEDULE.map(s => {
-      const color = getCourseColor(s.courseCode, s.courseName);
-      return `
-        <div class="schedule-row" style="border-left-color: ${color};">
-          <div class="schedule-course-info">
-            <div class="schedule-course-name">${s.courseCode}: ${s.courseName}</div>
-            <div class="schedule-days-badge">${s.days} • ${s.room}</div>
+    if (STUDENT_CLASS_SCHEDULE.length === 0) {
+      scheduleContainer.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:12px 4px;">No class meeting times configured. Add courses in the Chrome extension to display your schedule here.</div>';
+    } else {
+      scheduleContainer.innerHTML = STUDENT_CLASS_SCHEDULE.map(s => {
+        const color = getCourseColor(s.courseCode, s.courseName);
+        const codePrefix = s.courseCode ? `${escapeHtml(s.courseCode)}: ` : '';
+        const dayRoom = [s.days, s.room].filter(Boolean).map(escapeHtml).join(' • ');
+        return `
+          <div class="schedule-row" style="border-left-color: ${color};">
+            <div class="schedule-course-info">
+              <div class="schedule-course-name">${codePrefix}${escapeHtml(s.courseName)}</div>
+              <div class="schedule-days-badge">${dayRoom || 'TBA'}</div>
+            </div>
+            <div class="schedule-time-badge">${escapeHtml(s.time || 'TBA')}</div>
           </div>
-          <div class="schedule-time-badge">${s.time}</div>
-        </div>
-      `;
-    }).join('');
+        `;
+      }).join('');
+    }
   }
 
   const syllabusContainer = document.getElementById('syllabus-distribution-container');
   if (syllabusContainer) {
-    syllabusContainer.innerHTML = SYLLABUS_INFO.map(item => `
-      <div class="syllabus-item-card">
-        <div class="syllabus-item-title">${item.courseCode} - ${item.courseName}</div>
-        <div class="syllabus-item-details">${item.breakdown}</div>
-      </div>
-    `).join('');
+    if (SYLLABUS_INFO.length === 0) {
+      syllabusContainer.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:12px 4px;">No syllabus mark allocations configured. Add course syllabi in the Chrome extension to display weight distributions here.</div>';
+    } else {
+      syllabusContainer.innerHTML = SYLLABUS_INFO.map(item => `
+        <div class="syllabus-item-card">
+          <div class="syllabus-item-title">${escapeHtml(item.courseCode ? `${item.courseCode} - ` : '')}${escapeHtml(item.courseName)}</div>
+          <div class="syllabus-item-details">${escapeHtml(item.breakdown || 'No components specified')}</div>
+        </div>
+      `).join('');
+    }
   }
 }
 
@@ -5710,7 +6292,15 @@ function openRoomPicker(taskId) {
   if (customInput) customInput.value = currentRoom;
 
   // Render presets from STUDENT_CLASS_SCHEDULE
-  presetsContainer.innerHTML = STUDENT_CLASS_SCHEDULE.map(s => {
+  const uniquePresets = [];
+  const seenRooms = new Set();
+  for (const s of STUDENT_CLASS_SCHEDULE) {
+    if (!s.room || seenRooms.has(s.room.trim().toLowerCase())) continue;
+    seenRooms.add(s.room.trim().toLowerCase());
+    uniquePresets.push(s);
+  }
+
+  presetsContainer.innerHTML = uniquePresets.map(s => {
     const isCurrent = currentRoom.toLowerCase() === s.room.toLowerCase();
     return `
       <button type="button" class="room-preset-btn ${isCurrent ? 'is-active' : ''}" data-room="${escapeHtml(s.room)}">
@@ -6046,10 +6636,57 @@ async function syncToCloudAndLocal() {
   syncTasksToServiceWorker();
   checkUpcomingDeadlines(false);
 
+  // Preserve latest courses and coursesUpdatedAt from cloud snapshot
+  let coursesToSync = state.userCourses || undefined;
+  let coursesUpdatedAtToSync = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at') || undefined;
+
+  try {
+    const fbUrl = getFirebaseDataUrl();
+    if (fbUrl) {
+      const snapRes = await fetch(fbUrl, { cache: 'no-store' });
+      if (snapRes.ok) {
+        const snap = await snapRes.json();
+        if (snap && Array.isArray(snap.courses) && snap.courses.length > 0) {
+          const snapTime = snap.coursesUpdatedAt ? new Date(snap.coursesUpdatedAt).getTime() : 0;
+          const localTime = coursesUpdatedAtToSync ? new Date(coursesUpdatedAtToSync).getTime() : 0;
+
+          if (snapTime >= localTime) {
+            coursesToSync = snap.courses;
+            coursesUpdatedAtToSync = snap.coursesUpdatedAt || undefined;
+
+            // Update mobile local state if cloud snapshot had newer courses
+            if (snapTime > localTime) {
+              const prevCoursesJson = JSON.stringify(state.userCourses || []);
+              const newCoursesJson = JSON.stringify(snap.courses);
+              if (prevCoursesJson !== newCoursesJson) {
+                state.userCourses = snap.courses;
+                state.coursesUpdatedAt = snap.coursesUpdatedAt || null;
+                localStorage.setItem('bbs_mobile_courses', newCoursesJson);
+                if (snap.coursesUpdatedAt) {
+                  localStorage.setItem('bbs_mobile_courses_updated_at', snap.coursesUpdatedAt);
+                }
+                recompileDynamicCourseData(state.userCourses);
+                recalculateAllTaskWeightsAndRooms();
+                initLegend();
+                initScheduleAndSyllabus();
+                renderGradeTracker();
+                updateCourseDatalist();
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (snapErr) {
+    // If snapshot check fails, proceed with local courses
+  }
+
   const tombstones = getLocalTombstones();
   const payload = {
     tasks: state.tasks,
     quickLinks: state.quickLinks,
+    courses: coursesToSync,
+    coursesUpdatedAt: coursesUpdatedAtToSync,
     lastSync: state.lastSync,
     device: 'Mobile Web App',
     count: state.tasks.length,

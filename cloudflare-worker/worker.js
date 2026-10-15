@@ -380,6 +380,7 @@ export default {
           ok: true,
           tasks: taskData.tasks || [],
           courses: taskData.courses || undefined,
+          coursesUpdatedAt: taskData.coursesUpdatedAt || undefined,
           quickLinks: taskData.quickLinks || undefined,
           lastSync: taskData.lastSync,
           count: (taskData.tasks || []).length,
@@ -398,6 +399,7 @@ export default {
         const payload = {
           tasks: body.tasks,
           courses: body.courses || undefined,
+          coursesUpdatedAt: body.coursesUpdatedAt || undefined,
           quickLinks: body.quickLinks || undefined,
           lastSync: syncTimestamp,
           device: body.device || 'Chrome Extension',

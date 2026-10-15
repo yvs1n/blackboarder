@@ -310,6 +310,9 @@ export default {
       return jsonResponse({
         ok: true,
         tasks: taskData.tasks || [],
+        courses: taskData.courses || undefined,
+        coursesUpdatedAt: taskData.coursesUpdatedAt || undefined,
+        quickLinks: taskData.quickLinks || undefined,
         lastSync: taskData.lastSync,
         count: (taskData.tasks || []).length,
         syncKey: syncKey || 'default'
@@ -333,6 +336,8 @@ export default {
         syncKey: activeKey || undefined,
         // Keep quick links and deletion tombstones; dropping them here made deleted tasks reappear
         quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : undefined,
+        courses: Array.isArray(body.courses) ? body.courses : undefined,
+        coursesUpdatedAt: body.coursesUpdatedAt || undefined,
         tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : undefined
       };
 

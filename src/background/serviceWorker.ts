@@ -3,7 +3,7 @@ import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
-import { getUserCourses } from '../utils/storage';
+import { getUserCourses, getCoursesUpdatedAt, saveUserCourses } from '../utils/storage';
 
 const ALARM_NAME = 'bbs_check_deadlines';
 const MIDNIGHT_ALARM_NAME = 'bbs_midnight_sync';
@@ -37,10 +37,13 @@ export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
     }
 
     if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
-      const stored = await chrome.storage.local.get(['bbs_user_courses']) as { bbs_user_courses?: UserCourseConfig[] };
-      if (JSON.stringify(stored.bbs_user_courses) !== JSON.stringify(res.courses)) {
-        await chrome.storage.local.set({ bbs_user_courses: res.courses });
-        await getUserCourses();
+      const localUpdatedAt = await getCoursesUpdatedAt();
+      const cloudTime = res.coursesUpdatedAt ? new Date(res.coursesUpdatedAt).getTime() : 0;
+      const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
+
+      // Only overwrite local courses if cloud timestamp is newer, or if local has no timestamp yet
+      if (!localUpdatedAt || cloudTime > localTime) {
+        await saveUserCourses(res.courses, res.coursesUpdatedAt);
       }
     }
 
@@ -88,9 +91,10 @@ async function syncDeadlinesToMobileServer() {
     const tombstonesData = await chrome.storage.local.get(['bbs_tombstones']) as { bbs_tombstones?: Record<string, string> };
     const tombstones = tombstonesData.bbs_tombstones || {};
     const userCourses = await getUserCourses();
+    const coursesUpdatedAt = await getCoursesUpdatedAt();
 
     const [fbResult, serverResult] = await Promise.all([
-      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, data.bbs_quick_links, tombstones, userCourses),
+      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, data.bbs_quick_links, tombstones, userCourses, coursesUpdatedAt || undefined),
       pushTasksToSyncServer(tasks, settings, data.bbs_quick_links)
     ]);
     console.log('[Auto-Sync] Firebase Result:', fbResult, 'Server Result:', serverResult);
