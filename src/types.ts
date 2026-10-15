@@ -10,6 +10,39 @@ export type TaskType =
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type TaskStatus = 'pending' | 'completed' | 'dismissed';
 
+export type Weekday = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
+
+export interface CustomScheduleSlot {
+  days: Weekday[];
+  startTime: string; // 24-hour "HH:MM", e.g. "11:00"
+  endTime: string;   // 24-hour "HH:MM", e.g. "12:15"
+  room: string;      // e.g. "A8-103", "Central Lab Men - 105"
+  location?: string; // e.g. "UOS Men's Campus, A8, 103"
+  instructor?: string;
+}
+
+export interface CustomSyllabusComponent {
+  id: string;
+  name: string;
+  type: TaskType;
+  totalWeight: number; // e.g. 20 for 20%
+  count?: number;      // e.g. 4 for 4 quizzes
+  unitWeight?: number; // e.g. 5 for 5% each
+  note?: string;
+  keywords?: string[]; // e.g. ["quiz", "test", "كويز"]
+}
+
+export interface UserCourseConfig {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  crn?: string;
+  colorHex: string;
+  aliases: string[];
+  scheduleSlots: CustomScheduleSlot[];
+  syllabus: CustomSyllabusComponent[];
+}
+
 export interface Announcement {
   id: string;
   courseCode: string;

@@ -1,4 +1,4 @@
-import { DeadlineTask, TaskStatus, QuickLink } from '../types';
+import { DeadlineTask, TaskStatus, QuickLink, UserCourseConfig } from '../types';
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyD2cEybk7VtkON7-Q5p7YM5q5Dr9Znri9E',
@@ -29,6 +29,7 @@ export interface FirebaseSyncPayload {
   count: number;
   syncKey?: string;
   quickLinks?: QuickLink[];
+  courses?: UserCourseConfig[];
   tombstones?: Record<string, string>;
 }
 
@@ -47,7 +48,8 @@ export async function pushTasksToFirebase(
   device: string = 'Chrome Extension',
   syncKey?: string,
   quickLinks?: QuickLink[],
-  tombstones?: Record<string, string>
+  tombstones?: Record<string, string>,
+  courses?: UserCourseConfig[]
 ): Promise<{ success: boolean; message: string; lastSync?: string; count?: number }> {
   try {
     const lastSync = new Date().toISOString();
@@ -58,6 +60,7 @@ export async function pushTasksToFirebase(
       count: tasks.length,
       syncKey: syncKey || undefined,
       quickLinks: quickLinks || undefined,
+      courses: courses || undefined,
       tombstones: tombstones || undefined
     };
 
@@ -98,6 +101,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
   device?: string;
   error?: string;
   quickLinks?: QuickLink[];
+  courses?: UserCourseConfig[];
   tombstones?: Record<string, string>;
 }> {
   try {
@@ -112,7 +116,14 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
 
     const data: FirebaseSyncPayload = await res.json();
     if (!data || !Array.isArray(data.tasks)) {
-      return { success: true, tasks: [], lastSync: undefined, quickLinks: data?.quickLinks, tombstones: data?.tombstones };
+      return {
+        success: true,
+        tasks: [],
+        lastSync: undefined,
+        quickLinks: data?.quickLinks,
+        courses: data?.courses,
+        tombstones: data?.tombstones
+      };
     }
 
     return {
@@ -121,6 +132,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       lastSync: data.lastSync,
       device: data.device,
       quickLinks: data.quickLinks,
+      courses: data.courses,
       tombstones: data.tombstones
     };
   } catch (err: any) {

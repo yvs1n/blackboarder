@@ -1,4 +1,5 @@
 import { TaskType } from '../types';
+import { getActiveSyllabi } from './userCourses';
 
 export interface SyllabusComponent {
   id: string;
@@ -342,9 +343,17 @@ function extractExplicitPoints(text: string): number | null {
  */
 export function findCourseSyllabus(courseName: string = '', courseCode: string = ''): CourseSyllabus | null {
   const combined = `${courseName} ${courseCode}`.trim();
+  if (!combined) return null;
+
+  const syllabi = getActiveSyllabi();
 
   // Physics 1 Lab must match before Physics 1
-  for (const s of DEFAULT_SYLLABUS_DATABASE) {
+  if (/(?:lab|مختبر|عملي)/i.test(combined) && /(?:physics|فيزياء)/i.test(combined)) {
+    const lab = syllabi.find(s => s.courseId === 'phy1lab' || /lab/i.test(s.courseName));
+    if (lab) return lab;
+  }
+
+  for (const s of syllabi) {
     if (s.courseCodePattern.test(combined)) {
       return s;
     }
@@ -519,5 +528,5 @@ export function resolveTaskWeight(
  * Returns all configured syllabi for display in the UI reference guide.
  */
 export function getAllSyllabi(): CourseSyllabus[] {
-  return DEFAULT_SYLLABUS_DATABASE;
+  return getActiveSyllabi();
 }

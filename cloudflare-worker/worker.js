@@ -379,6 +379,8 @@ export default {
         return jsonResponse({
           ok: true,
           tasks: taskData.tasks || [],
+          courses: taskData.courses || undefined,
+          quickLinks: taskData.quickLinks || undefined,
           lastSync: taskData.lastSync,
           count: (taskData.tasks || []).length,
           token: token || undefined
@@ -395,6 +397,8 @@ export default {
         const syncTimestamp = new Date().toISOString();
         const payload = {
           tasks: body.tasks,
+          courses: body.courses || undefined,
+          quickLinks: body.quickLinks || undefined,
           lastSync: syncTimestamp,
           device: body.device || 'Chrome Extension',
           count: body.tasks.length

@@ -1,8 +1,9 @@
-import { DeadlineTask, UserSettings, DEFAULT_SETTINGS } from '../types';
+import { DeadlineTask, UserSettings, DEFAULT_SETTINGS, UserCourseConfig } from '../types';
 import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
+import { getUserCourses } from '../utils/storage';
 
 const ALARM_NAME = 'bbs_check_deadlines';
 const MIDNIGHT_ALARM_NAME = 'bbs_midnight_sync';
@@ -33,6 +34,14 @@ export async function pullTasksFromFirebaseToLocal(): Promise<boolean> {
     const res = await fetchTasksFromFirebase(syncKey);
     if (!res.success || !Array.isArray(res.tasks)) {
       return false;
+    }
+
+    if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
+      const stored = await chrome.storage.local.get(['bbs_user_courses']) as { bbs_user_courses?: UserCourseConfig[] };
+      if (JSON.stringify(stored.bbs_user_courses) !== JSON.stringify(res.courses)) {
+        await chrome.storage.local.set({ bbs_user_courses: res.courses });
+        await getUserCourses();
+      }
     }
 
     const data = await chrome.storage.local.get(['bbs_tasks']) as { bbs_tasks?: DeadlineTask[] };
@@ -78,9 +87,10 @@ async function syncDeadlinesToMobileServer() {
 
     const tombstonesData = await chrome.storage.local.get(['bbs_tombstones']) as { bbs_tombstones?: Record<string, string> };
     const tombstones = tombstonesData.bbs_tombstones || {};
+    const userCourses = await getUserCourses();
 
     const [fbResult, serverResult] = await Promise.all([
-      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, data.bbs_quick_links, tombstones),
+      pushTasksToFirebase(tasks, 'Midnight Extension Sync', settings.syncKey, data.bbs_quick_links, tombstones, userCourses),
       pushTasksToSyncServer(tasks, settings, data.bbs_quick_links)
     ]);
     console.log('[Auto-Sync] Firebase Result:', fbResult, 'Server Result:', serverResult);
@@ -169,7 +179,14 @@ async function checkUpcomingDeadlines() {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 30 });
   scheduleMidnightAlarm();
+  getUserCourses().catch(() => {});
   pullTasksFromFirebaseToLocal().then(() => updateExtensionBadge());
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.bbs_user_courses) {
+    getUserCourses().catch(() => {});
+  }
 });
 
 chrome.alarms.onAlarm.addListener(alarm => {

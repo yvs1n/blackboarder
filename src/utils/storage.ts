@@ -1,13 +1,17 @@
-import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS } from '../types';
+import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS, UserCourseConfig } from '../types';
 import { isValidTask } from './courseHelper';
 import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './taskMerge';
+import { DEFAULT_USER_COURSES, setActiveUserCourses } from '../core/userCourses';
+import { resolveTaskWeight } from '../core/syllabusWeights';
+import { resolveTaskRoom, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
 
 const STORAGE_KEYS = {
   TASKS: 'bbs_tasks',
   ANNOUNCEMENTS: 'bbs_announcements',
   SETTINGS: 'bbs_settings',
   LAST_SCANNED: 'bbs_last_scanned',
-  QUICK_LINKS: 'bbs_quick_links'
+  QUICK_LINKS: 'bbs_quick_links',
+  COURSES: 'bbs_user_courses'
 };
 
 /**
@@ -547,4 +551,179 @@ export async function resetQuickLinksToDefault(): Promise<QuickLink[]> {
   await saveQuickLinks(DEFAULT_QUICK_LINKS);
   return DEFAULT_QUICK_LINKS;
 }
+
+export function getCachedCoursesSync(): UserCourseConfig[] {
+  const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch {}
+  }
+  return DEFAULT_USER_COURSES;
+}
+
+export async function getUserCourses(): Promise<UserCourseConfig[]> {
+  if (isExtensionContextValid()) {
+    try {
+      return await new Promise<UserCourseConfig[]>(resolve => {
+        try {
+          chrome.storage.local.get([STORAGE_KEYS.COURSES], (result: { [key: string]: any }) => {
+            try {
+              if (chrome.runtime?.lastError) {
+                const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
+                const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
+                const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+                setActiveUserCourses(finalCourses);
+                resolve(finalCourses);
+                return;
+              }
+              const courses = result?.[STORAGE_KEYS.COURSES];
+              const resolved = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+              safeSetLocalStorage(STORAGE_KEYS.COURSES, JSON.stringify(resolved));
+              setActiveUserCourses(resolved);
+              resolve(resolved);
+            } catch {
+              const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
+              const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
+              const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+              setActiveUserCourses(finalCourses);
+              resolve(finalCourses);
+            }
+          });
+        } catch {
+          const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
+          const courses = raw ? JSON.parse(raw) : DEFAULT_USER_COURSES;
+          const finalCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+          setActiveUserCourses(finalCourses);
+          resolve(finalCourses);
+        }
+      });
+    } catch {
+      // Fall through to localStorage
+    }
+  }
+
+  const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setActiveUserCourses(parsed);
+        return parsed;
+      }
+    } catch {}
+  }
+  setActiveUserCourses(DEFAULT_USER_COURSES);
+  return DEFAULT_USER_COURSES;
+}
+
+export async function saveUserCourses(courses: UserCourseConfig[]): Promise<void> {
+  const safeCourses = Array.isArray(courses) && courses.length > 0 ? courses : DEFAULT_USER_COURSES;
+  safeSetLocalStorage(STORAGE_KEYS.COURSES, JSON.stringify(safeCourses));
+  setActiveUserCourses(safeCourses);
+
+  if (isExtensionContextValid()) {
+    try {
+      await new Promise<void>(resolve => {
+        try {
+          chrome.storage.local.set({ [STORAGE_KEYS.COURSES]: safeCourses }, () => resolve());
+        } catch {
+          resolve();
+        }
+      });
+      return;
+    } catch {
+      // Fall through
+    }
+  }
+}
+
+export async function resetUserCoursesToDefault(): Promise<UserCourseConfig[]> {
+  await saveUserCourses(DEFAULT_USER_COURSES);
+  return DEFAULT_USER_COURSES;
+}
+
+export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[]> {
+  const tasks = await getTasks();
+  let changed = false;
+
+  const updatedTasks = tasks.map(task => {
+    // 1. Recalculate syllabus weight
+    const resolvedWeight = resolveTaskWeight(task);
+    let newWeight = task.weight;
+    let newWeightDisplay = task.weightDisplay;
+
+    if (resolvedWeight.weight !== undefined) {
+      newWeight = resolvedWeight.weight;
+      newWeightDisplay = resolvedWeight.weightDisplay;
+    }
+
+    // 2. Room recalculation (only if user hasn't manually edited the task)
+    let newRoom = task.room;
+    if (!task.userEdited) {
+      const roomRes = resolveTaskRoom({
+        courseNameOrCode: task.courseName || task.courseCode,
+        announcementText: task.description || task.sourceSnippet || '',
+        title: task.title,
+        type: task.type
+      });
+      if (roomRes.room) {
+        newRoom = roomRes.room;
+      }
+    }
+
+    // 3. Time recalculation if no specific time was provided
+    let newDueDate = task.dueDate;
+    let newHasSpecificTime = task.hasSpecificTime;
+    if (!task.userEdited && task.hasSpecificTime === false && task.dueDate) {
+      const timeRes = resolveTaskTimeWithSchedule({
+        dueDate: new Date(task.dueDate),
+        courseNameOrCode: task.courseName || task.courseCode,
+        hasSpecificTime: false,
+        announcementText: task.description || task.sourceSnippet || '',
+        title: task.title
+      });
+      if (timeRes.appliedSchedule) {
+        newDueDate = timeRes.dueDate.toISOString();
+        newHasSpecificTime = true;
+      }
+    }
+
+    if (
+      newWeight !== task.weight ||
+      newWeightDisplay !== task.weightDisplay ||
+      newRoom !== task.room ||
+      newDueDate !== task.dueDate ||
+      newHasSpecificTime !== task.hasSpecificTime
+    ) {
+      changed = true;
+      return {
+        ...task,
+        weight: newWeight,
+        weightDisplay: newWeightDisplay,
+        room: newRoom,
+        dueDate: newDueDate,
+        hasSpecificTime: newHasSpecificTime,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return task;
+  });
+
+  if (changed) {
+    await saveTasks(updatedTasks);
+  }
+  return updatedTasks;
+}
+
+// Automatically sync cached courses into active state on module load
+try {
+  const cachedInitialCourses = getCachedCoursesSync();
+  if (Array.isArray(cachedInitialCourses) && cachedInitialCourses.length > 0) {
+    setActiveUserCourses(cachedInitialCourses);
+  }
+} catch {}
 

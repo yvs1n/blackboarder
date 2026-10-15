@@ -50,11 +50,21 @@ const FALLBACK_PALETTE = [
   '#0891b2'  // Cyan
 ];
 
+import { getActiveCourseLegend } from './userCourses';
+
 /**
  * Returns the permanent hex color for a given course name/code or task context.
  */
 export function getCourseHex(courseName: string = '', courseCode: string = '', extraContext: string = ''): string {
   const combined = `${courseName} ${courseCode} ${extraContext}`.trim();
+
+  // First check active course legend (from UserCourseConfig or defaults)
+  const activeLegend = getActiveCourseLegend();
+  for (const item of activeLegend) {
+    if (item.pattern.test(combined)) {
+      return item.hex;
+    }
+  }
 
   for (const item of PERMANENT_COLORS) {
     if (item.pattern.test(combined)) {

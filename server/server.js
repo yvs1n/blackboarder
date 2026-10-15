@@ -161,6 +161,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         ok: true,
         tasks: data.tasks || [],
+        courses: data.courses || [],
         lastSync: data.lastSync,
         count: (data.tasks || []).length,
         quickLinks: data.quickLinks || []
@@ -178,6 +179,7 @@ const server = http.createServer(async (req, res) => {
       const existing = loadTasksData();
       const payload = {
         tasks: body.tasks,
+        courses: Array.isArray(body.courses) ? body.courses : (existing.courses || []),
         lastSync: syncTimestamp,
         device: body.device || 'Chrome Extension',
         count: body.tasks.length,

@@ -16,20 +16,27 @@ describe('Mobile Web App Sorting Verification', () => {
     String,
     isNaN,
     Infinity,
-    RegExp
+    RegExp,
+    Array,
+    Number,
+    Math,
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {}
+    }
   };
   vm.createContext(sandbox);
 
   // Extract the necessary definitions from appJsCode
-  const matchSchedule = appJsCode.match(/const STUDENT_CLASS_SCHEDULE = \[[\s\S]*?\];/);
+  const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
   const matchGetSort = appJsCode.match(/function getTaskSortTimestamp\(task\) \{[\s\S]*?\n\}/);
   const matchCompare = appJsCode.match(/function compareTasksByTime\(a, b\) \{[\s\S]*?\n\}/);
 
-  if (!matchSchedule || !matchGetSort || !matchCompare) {
+  if (!matchCourseBlock || !matchGetSort || !matchCompare) {
     throw new Error('Could not extract sorting functions from mobile-web/app.js');
   }
 
-  vm.runInContext(matchSchedule[0], sandbox);
+  vm.runInContext(matchCourseBlock[0], sandbox);
   vm.runInContext(matchGetSort[0], sandbox);
   vm.runInContext(matchCompare[0], sandbox);
 

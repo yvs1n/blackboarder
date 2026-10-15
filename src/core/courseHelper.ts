@@ -1,4 +1,5 @@
 import { PERMANENT_COURSE_LEGEND } from './courseColors';
+import { getActiveCourseLegend, getActiveUserCourses, compileCoursePattern } from './userCourses';
 
 /**
  * Utility to extract clean course names and course codes from Blackboard text.
@@ -258,24 +259,54 @@ export function resolveCourseInfo(task: {
 
   if (isGeneric) {
     const combined = `${courseCode} ${courseName} ${title} ${task.description || ''} ${task.sourceSnippet || ''} ${task.notes || ''}`;
-    if (/(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101)/i.test(combined)) {
-      courseName = 'Introduction to Computer Eng.';
-      courseCode = '1502101';
-    } else if (/(?:calculus|calc\b|حسبان|1440133|1440131|0401101)/i.test(combined)) {
-      courseName = 'Calculus I for Engineering';
-      courseCode = '1440133';
-    } else if (/(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112)/i.test(combined)) {
-      courseName = 'English for Academic Purposes';
-      courseCode = '0202112';
-    } else if (/(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1|1430115)/i.test(combined)) {
-      courseName = 'Physics 1';
-      courseCode = '1430115';
-    } else if (/(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(combined)) {
-      courseName = 'Physics 1 Lab';
-      courseCode = '1430116';
-    } else if (/(?:islamic|إسلام|اسلام|ثقافة|0104100)/i.test(combined)) {
-      courseName = 'Islamic Culture';
-      courseCode = '0104100';
+    const userCourses = getActiveUserCourses();
+    let matched = false;
+
+    // First check Physics 1 Lab specifically if lab is mentioned
+    if (/(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(combined)) {
+      const labCourse = userCourses.find(c => c.id === 'phy1lab' || /lab/i.test(c.courseName));
+      if (labCourse) {
+        courseName = labCourse.courseName;
+        courseCode = labCourse.courseCode;
+        matched = true;
+      }
+    }
+
+    if (!matched) {
+      for (const uc of userCourses) {
+        if (uc.id === 'phy1' && /(?:lab|مختبر|عملي)/i.test(combined)) {
+          continue;
+        }
+        const pat = compileCoursePattern(uc);
+        if (pat.test(combined)) {
+          courseName = uc.courseName;
+          courseCode = uc.courseCode;
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    if (!matched) {
+      if (/(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101)/i.test(combined)) {
+        courseName = 'Introduction to Computer Eng.';
+        courseCode = '1502101';
+      } else if (/(?:calculus|calc\b|حسبان|1440133|1440131|0401101)/i.test(combined)) {
+        courseName = 'Calculus I for Engineering';
+        courseCode = '1440133';
+      } else if (/(?:english|eap\b|academic\s*purposes|academic\s*english|إنجليزي|انجليزي|0202112)/i.test(combined)) {
+        courseName = 'English for Academic Purposes';
+        courseCode = '0202112';
+      } else if (/(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116)/i.test(combined)) {
+        courseName = 'Physics 1 Lab';
+        courseCode = '1430116';
+      } else if (/(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1|1430115)/i.test(combined)) {
+        courseName = 'Physics 1';
+        courseCode = '1430115';
+      } else if (/(?:islamic|إسلام|اسلام|ثقافة|0104100)/i.test(combined)) {
+        courseName = 'Islamic Culture';
+        courseCode = '0104100';
+      }
     }
   }
 
@@ -334,7 +365,9 @@ export function matchesSelectedCourseFilter(task: {
   ) {
     return true;
   }
-  const legendItem = PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
+  const activeLegend = getActiveCourseLegend();
+  const legendItem = activeLegend.find(c => c.name === filter || c.code === filter) ||
+                     PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
   if (legendItem) {
     const combined = `${task.courseName || ''} ${task.courseCode || ''} ${courseName || ''} ${courseCode || ''} ${task.title || ''}`;
     if (legendItem.pattern.test(combined)) {

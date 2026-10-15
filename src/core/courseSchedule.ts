@@ -2,8 +2,10 @@
  * Course Schedule Database & Class Time Resolution Engine
  * Source: schedule.pdf (Fall 2026/2027 Schedule - University of Sharjah)
  */
+import type { Weekday } from '../types';
+import { getActiveScheduleEntries } from './userCourses';
 
-export type Weekday = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
+export type { Weekday };
 
 export interface CourseScheduleEntry {
   courseId: string;
@@ -147,13 +149,15 @@ export function findCourseSchedule(courseNameOrCode: string, extraContext?: stri
   const combined = `${courseNameOrCode || ''} ${extraContext || ''}`.trim();
   if (!combined) return null;
 
+  const entries = getActiveScheduleEntries();
+
   // First check Physics Lab specifically so it doesn't get hijacked by Physics 1
   if (/(?:lab|مختبر|عملي)/i.test(combined) && /(?:physics|فيزياء)/i.test(combined)) {
-    const labEntry = STUDENT_CLASS_SCHEDULE.find(s => s.courseId === 'phy1lab');
+    const labEntry = entries.find(s => s.courseId === 'phy1lab' || /lab/i.test(s.courseName));
     if (labEntry) return labEntry;
   }
 
-  for (const entry of STUDENT_CLASS_SCHEDULE) {
+  for (const entry of entries) {
     if (entry.matcher.test(combined)) {
       return entry;
     }
@@ -229,7 +233,7 @@ export function resolveTaskTimeWithSchedule(params: {
  * Returns all courses in the student schedule for UI display in Settings.
  */
 export function getAllCourseSchedules(): CourseScheduleEntry[] {
-  return STUDENT_CLASS_SCHEDULE;
+  return getActiveScheduleEntries();
 }
 
 /**

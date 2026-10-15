@@ -1,5 +1,5 @@
-import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS } from '../types';
-import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync } from '../utils/storage';
+import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
+import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -10,10 +10,13 @@ import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule,
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase, FIREBASE_DB_URL } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from '../utils/taskMerge';
+import { parseBannerScheduleText, parseSyllabusWeightsText, parseCoursesFromJson, mergeImportedCourses } from '../core/courseImporter';
+import { getActiveCourseLegend, getActiveUserCourses } from '../core/userCourses';
 
 // State
 let currentTasks: DeadlineTask[] = [];
 let currentQuickLinks: QuickLink[] = [];
+let currentUserCourses: UserCourseConfig[] = [];
 let currentFilterStatus: 'all' | 'pending' | 'completed' = 'pending';
 let currentFilterCourse: string = 'all';
 let currentFilterType: string = 'all';
@@ -188,12 +191,10 @@ const editWeightHint = document.getElementById('edit-weight-hint') as HTMLElemen
 const editDescInput = document.getElementById('edit-desc') as HTMLTextAreaElement;
 const editNotesInput = document.getElementById('edit-notes') as HTMLTextAreaElement;
 
-// Backup / Restore & Syllabus Reference Elements
+// Backup / Restore
 const btnBackupJson = document.getElementById('btn-backup-json') as HTMLButtonElement;
 const btnRestoreJsonTrigger = document.getElementById('btn-restore-json-trigger') as HTMLButtonElement;
 const inputRestoreJson = document.getElementById('input-restore-json') as HTMLInputElement;
-const syllabusReferenceContainer = document.getElementById('syllabus-reference-container') as HTMLDivElement;
-const scheduleReferenceContainer = document.getElementById('schedule-reference-container') as HTMLDivElement;
 
 // ============================================================================
 // View Navigation
@@ -724,8 +725,8 @@ function renderLegend() {
   });
   legendChipsContainer.appendChild(allChip);
 
-  // 2. Individual Course chips
-  PERMANENT_COURSE_LEGEND.forEach(course => {
+  // 2. Individual Course chips (dynamically from active courses)
+  getActiveCourseLegend().forEach(course => {
     const chip = document.createElement('div');
     const isActive = selectedCourseFilter === course.name;
     chip.className = `legend-chip ${isActive ? 'is-active' : ''}`;
@@ -747,79 +748,579 @@ function renderLegend() {
   });
 }
 
-// Render course syllabi and grade distributions reference in Settings
-function renderSyllabusReference() {
-  if (!syllabusReferenceContainer) return;
-  const syllabi = getAllSyllabi();
-  syllabusReferenceContainer.innerHTML = '';
+// ============================================================================
+// My Courses, Schedule & Syllabus Manager
+// ============================================================================
 
-  syllabi.forEach(s => {
-    const hex = getCourseHex(s.courseName);
+function renderUserCoursesManager() {
+  const container = document.getElementById('user-courses-list');
+  const countPill = document.getElementById('pill-course-count');
+  if (!container) return;
+
+  if (countPill) {
+    countPill.textContent = `${currentUserCourses.length} Active`;
+  }
+
+  container.innerHTML = '';
+
+  if (currentUserCourses.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 20px 10px; color: var(--text-muted); background: var(--surface-hover); border-radius: var(--radius-sm); border: 1px dashed var(--surface-border);">
+        <p style="font-size: 12px; margin-bottom: 8px;">No courses configured yet.</p>
+        <button type="button" class="btn-primary" id="btn-empty-add-course" style="font-size: 11px; padding: 4px 10px;">
+          + Add Your First Course
+        </button>
+      </div>
+    `;
+    container.querySelector('#btn-empty-add-course')?.addEventListener('click', () => openCourseEditor());
+    return;
+  }
+
+  currentUserCourses.forEach(course => {
     const card = document.createElement('div');
-    card.className = 'syllabus-course-card';
-    card.style.borderLeft = `3px solid ${hex}`;
+    card.className = 'user-course-card';
+    card.style.borderLeft = `3px solid ${course.colorHex}`;
 
-    const compHtml = s.components.map(c => {
-      const weightDesc = c.count && c.count > 1 && c.unitWeight !== undefined
-        ? `${c.totalWeight}% (${c.count}x ${c.unitWeight}%)`
-        : `${c.totalWeight}%`;
-      return `
-        <div class="syllabus-comp-item" title="${escapeHtml(c.note || '')}">
-          <span>${escapeHtml(c.name)}</span>
-          <span class="syllabus-comp-pct">${weightDesc}</span>
-        </div>
-      `;
-    }).join('');
+    // Total weight calculation
+    const totalWeight = (course.syllabus || []).reduce((acc, c) => acc + (Number(c.totalWeight) || 0), 0);
+
+    // Schedule badges
+    let scheduleHtml = '';
+    if (course.scheduleSlots && course.scheduleSlots.length > 0) {
+      scheduleHtml = course.scheduleSlots.map(slot => {
+        const daysDisplay = slot.days.map(d => d.slice(0, 3).toUpperCase()).join('/');
+        const roomDisplay = slot.room ? `Room ${escapeHtml(slot.room)}` : 'Room TBD';
+        return `
+          <span class="ucc-schedule-badge">
+            ${getSvgIcon('calendar', 'mr-1')} <b>${daysDisplay}</b> • ${escapeHtml(slot.startTime)}–${escapeHtml(slot.endTime)} • ${roomDisplay}
+          </span>
+        `;
+      }).join('');
+    } else {
+      scheduleHtml = `<span style="font-size: 10.5px; color: var(--text-muted); font-style: italic;">No meeting times scheduled</span>`;
+    }
+
+    // Syllabus breakdown pills
+    let syllabusHtml = '';
+    if (course.syllabus && course.syllabus.length > 0) {
+      syllabusHtml = course.syllabus.map(comp => {
+        const unitText = comp.count && comp.count > 1 && comp.unitWeight !== undefined
+          ? ` (${comp.count}x ${comp.unitWeight}%)`
+          : '';
+        return `
+          <span class="ucc-syllabus-pill" title="${escapeHtml(comp.note || comp.name)}">
+            ${escapeHtml(comp.name)}: <span class="weight-bold">${comp.totalWeight}%</span>${unitText}
+          </span>
+        `;
+      }).join('');
+    } else {
+      syllabusHtml = `<span style="font-size: 10.5px; color: var(--text-muted); font-style: italic;">No syllabus breakdown defined</span>`;
+    }
+
+    // Weight status badge
+    let weightStatusBadge = '';
+    if (totalWeight === 100) {
+      weightStatusBadge = `<span class="settings-pill pill-green" style="font-size: 10px;">Total Weight: 100%</span>`;
+    } else if (totalWeight < 100) {
+      weightStatusBadge = `<span class="settings-pill pill-orange" style="font-size: 10px;">Total Weight: ${totalWeight}% (Incomplete)</span>`;
+    } else {
+      weightStatusBadge = `<span class="settings-pill pill-red" style="font-size: 10px; color: var(--danger);">Total Weight: ${totalWeight}% (Exceeds 100%)</span>`;
+    }
+
+    const crnBadge = course.crn ? `<span class="ucc-code" style="margin-left: 4px;" title="CRN">CRN: ${escapeHtml(course.crn)}</span>` : '';
 
     card.innerHTML = `
-      <div class="syllabus-course-header">
-        <div class="syllabus-course-title">
-          <span class="syllabus-course-dot" style="background-color: ${hex};"></span>
-          <span>${escapeHtml(s.courseName)}</span>
+      <div class="ucc-header">
+        <div class="ucc-title-group">
+          <span class="ucc-color-dot" style="background-color: ${course.colorHex};"></span>
+          <span class="ucc-name" title="${escapeHtml(course.courseName)}">${escapeHtml(course.courseName)}</span>
+          <span class="ucc-code">${escapeHtml(course.courseCode)}</span>
+          ${crnBadge}
         </div>
-        <span class="syllabus-course-source" title="Extracted from syllabus/${escapeHtml(s.sourcePdf)}">
-          ${getSvgIcon('file-text', 'mr-1')} ${escapeHtml(s.sourcePdf)}
-        </span>
+        <div class="ucc-actions">
+          <button type="button" class="ucc-action-btn edit" title="Edit course" aria-label="Edit course">
+            <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-edit"></use></svg>
+          </button>
+          <button type="button" class="ucc-action-btn delete" title="Delete course" aria-label="Delete course">
+            <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-trash"></use></svg>
+          </button>
+        </div>
       </div>
-      <div class="syllabus-comp-grid">
-        ${compHtml}
+      <div class="ucc-schedule-list">
+        ${scheduleHtml}
+      </div>
+      <div class="ucc-syllabus-section">
+        <div class="ucc-syllabus-pills">
+          ${syllabusHtml}
+        </div>
+        <div class="ucc-weight-status">
+          <span>Grade Allocation</span>
+          ${weightStatusBadge}
+        </div>
       </div>
     `;
 
-    syllabusReferenceContainer.appendChild(card);
+    card.querySelector('.ucc-action-btn.edit')?.addEventListener('click', () => openCourseEditor(course.id));
+    card.querySelector('.ucc-action-btn.delete')?.addEventListener('click', () => handleDeleteCourse(course.id, course.courseName));
+
+    container.appendChild(card);
   });
 }
 
-// Render student weekly class schedule in Settings
-function renderScheduleReference() {
-  if (!scheduleReferenceContainer) return;
-  const schedules = getAllCourseSchedules();
-  scheduleReferenceContainer.innerHTML = '';
+// ============================================================================
+// Course & Syllabus Editor Modal
+// ============================================================================
+let editingCourseId: string | null = null;
+const ALL_WEEKDAYS: Weekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-  schedules.forEach(s => {
-    const hex = getCourseHex(s.courseName, s.courseCode);
-    const card = document.createElement('div');
-    card.className = 'syllabus-course-card';
-    card.style.borderLeft = `3px solid ${hex}`;
+function openCourseEditor(courseId?: string) {
+  const modal = document.getElementById('modal-course-editor');
+  if (!modal) return;
 
-    card.innerHTML = `
-      <div class="syllabus-course-header">
-        <div class="syllabus-course-title">
-          <span class="syllabus-course-dot" style="background-color: ${hex};"></span>
-          <span>${escapeHtml(s.courseName)}</span>
-        </div>
-        <span class="syllabus-course-source pill-green" style="font-weight: 700; display: inline-flex; align-items: center;">
-          ${getSvgIcon('clock', 'mr-1')} <span>${escapeHtml(s.timeRangeDisplay)}</span>
-        </span>
+  editingCourseId = courseId || null;
+  const titleEl = document.getElementById('course-editor-title');
+  const dotEl = document.getElementById('editor-header-dot');
+  const codeInput = document.getElementById('editor-course-code') as HTMLInputElement;
+  const nameInput = document.getElementById('editor-course-name') as HTMLInputElement;
+  const crnInput = document.getElementById('editor-course-crn') as HTMLInputElement;
+  const colorPicker = document.getElementById('editor-color-picker') as HTMLInputElement;
+  const colorHexInput = document.getElementById('editor-color-hex') as HTMLInputElement;
+  const aliasesInput = document.getElementById('editor-course-aliases') as HTMLInputElement;
+  const slotsContainer = document.getElementById('course-editor-slots');
+  const syllabusContainer = document.getElementById('course-editor-syllabus');
+
+  if (slotsContainer) slotsContainer.innerHTML = '';
+  if (syllabusContainer) syllabusContainer.innerHTML = '';
+
+  const course = courseId ? currentUserCourses.find(c => c.id === courseId) : null;
+
+  if (course) {
+    if (titleEl) titleEl.textContent = 'Edit Course';
+    if (codeInput) codeInput.value = course.courseCode || '';
+    if (nameInput) nameInput.value = course.courseName || '';
+    if (crnInput) crnInput.value = course.crn || '';
+    const color = course.colorHex || '#2563eb';
+    if (colorPicker) colorPicker.value = color;
+    if (colorHexInput) colorHexInput.value = color;
+    if (dotEl) dotEl.style.backgroundColor = color;
+    if (aliasesInput) aliasesInput.value = (course.aliases || []).join(', ');
+
+    if (course.scheduleSlots && course.scheduleSlots.length > 0) {
+      course.scheduleSlots.forEach(slot => addScheduleSlotRow(slot));
+    } else {
+      addScheduleSlotRow();
+    }
+
+    if (course.syllabus && course.syllabus.length > 0) {
+      course.syllabus.forEach(comp => addSyllabusRow(comp));
+    } else {
+      addSyllabusRow();
+    }
+  } else {
+    if (titleEl) titleEl.textContent = 'Add Course';
+    if (codeInput) codeInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (crnInput) crnInput.value = '';
+    const defaultColor = '#2563eb';
+    if (colorPicker) colorPicker.value = defaultColor;
+    if (colorHexInput) colorHexInput.value = defaultColor;
+    if (dotEl) dotEl.style.backgroundColor = defaultColor;
+    if (aliasesInput) aliasesInput.value = '';
+
+    addScheduleSlotRow();
+    addSyllabusRow();
+  }
+
+  updateEditorTotalWeight();
+  modal.style.display = 'flex';
+  modal.classList.remove('hidden');
+}
+
+function closeCourseEditor() {
+  const modal = document.getElementById('modal-course-editor');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.add('hidden');
+  }
+  editingCourseId = null;
+}
+
+function addScheduleSlotRow(slot?: Partial<CustomScheduleSlot>) {
+  const container = document.getElementById('course-editor-slots');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'slot-editor-row';
+
+  const selectedDays = new Set<Weekday>(slot?.days || ['mon', 'wed']);
+  const dayPillsHtml = ALL_WEEKDAYS.map(day => {
+    const isSelected = selectedDays.has(day);
+    const label = day.charAt(0).toUpperCase() + day.slice(1, 3);
+    return `<button type="button" class="day-pill-btn ${isSelected ? 'selected' : ''}" data-day="${day}">${label}</button>`;
+  }).join('');
+
+  row.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Meeting Days</span>
+      <button type="button" class="ucc-action-btn delete btn-remove-slot" title="Remove slot" style="width: 20px; height: 20px;">✕</button>
+    </div>
+    <div class="day-pills-row" style="display: flex; gap: 4px; flex-wrap: wrap;">
+      ${dayPillsHtml}
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 4px;">
+      <div>
+        <label style="font-size: 9.5px; color: var(--text-muted); display: block;">Start</label>
+        <input type="time" class="form-input slot-start-time" value="${slot?.startTime || '11:00'}" required style="font-size: 11px; padding: 4px 6px;">
       </div>
-      <div style="font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between; margin-top: 4px; border-top: 1px dashed var(--surface-border); padding-top: 4px;">
-        <span style="display: inline-flex; align-items: center;">${getSvgIcon('calendar', 'mr-1')} <b>${s.days.join(', ')}</b></span>
-        <span style="display: inline-flex; align-items: center;">${getSvgIcon('pin', 'mr-1')} <span>${escapeHtml(s.location)}</span></span>
+      <div>
+        <label style="font-size: 9.5px; color: var(--text-muted); display: block;">End</label>
+        <input type="time" class="form-input slot-end-time" value="${slot?.endTime || '12:15'}" required style="font-size: 11px; padding: 4px 6px;">
+      </div>
+      <div>
+        <label style="font-size: 9.5px; color: var(--text-muted); display: block;">Room</label>
+        <input type="text" class="form-input slot-room" placeholder="e.g. A8-103" value="${escapeHtml(slot?.room || '')}" style="font-size: 11px; padding: 4px 6px;">
+      </div>
+    </div>
+  `;
+
+  row.querySelectorAll('.day-pill-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('selected');
+    });
+  });
+
+  row.querySelector('.btn-remove-slot')?.addEventListener('click', () => {
+    row.remove();
+  });
+
+  container.appendChild(row);
+}
+
+function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
+  const container = document.getElementById('course-editor-syllabus');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'syllabus-editor-row';
+
+  const compType = comp?.type || 'quiz';
+  const totalWeight = comp?.totalWeight !== undefined ? comp.totalWeight : 20;
+  const count = comp?.count || '';
+  const unitWeight = comp?.unitWeight !== undefined ? `${comp.unitWeight}% each` : '';
+
+  row.innerHTML = `
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <input type="text" class="form-input comp-name" placeholder="Component Name (e.g. Quizzes, Midterm)" value="${escapeHtml(comp?.name || '')}" required style="flex: 2; font-size: 11.5px; padding: 4px 6px;">
+      <select class="form-select comp-type" style="flex: 1.2; font-size: 11px; padding: 4px 6px;">
+        <option value="quiz" ${compType === 'quiz' ? 'selected' : ''}>Quiz</option>
+        <option value="exam" ${compType === 'exam' ? 'selected' : ''}>Exam</option>
+        <option value="assignment" ${compType === 'assignment' ? 'selected' : ''}>Assignment</option>
+        <option value="project" ${compType === 'project' ? 'selected' : ''}>Project</option>
+        <option value="lab" ${compType === 'lab' ? 'selected' : ''}>Lab</option>
+        <option value="other" ${compType === 'other' ? 'selected' : ''}>Other</option>
+      </select>
+      <input type="number" min="0" max="100" class="form-input comp-weight" placeholder="Weight %" value="${totalWeight}" required style="width: 60px; font-size: 11.5px; padding: 4px 6px;">
+      <input type="number" min="1" max="50" class="form-input comp-count" placeholder="Count" value="${count}" title="Optional number of items (e.g. 4 quizzes)" style="width: 52px; font-size: 11.5px; padding: 4px 6px;">
+      <button type="button" class="ucc-action-btn delete btn-remove-syllabus" title="Remove component" style="width: 22px; height: 22px; flex-shrink: 0;">✕</button>
+    </div>
+    <div class="comp-unit-calc" style="font-size: 10px; color: var(--text-muted); text-align: right; padding-right: 28px;">
+      ${unitWeight}
+    </div>
+  `;
+
+  const weightInput = row.querySelector('.comp-weight') as HTMLInputElement;
+  const countInput = row.querySelector('.comp-count') as HTMLInputElement;
+  const unitCalcEl = row.querySelector('.comp-unit-calc') as HTMLElement;
+
+  function recalculateUnit() {
+    const w = parseFloat(weightInput.value) || 0;
+    const c = parseInt(countInput.value, 10) || 0;
+    if (c > 1 && w > 0) {
+      const u = Math.round((w / c) * 10) / 10;
+      unitCalcEl.textContent = `${c} items x ${u}% each`;
+    } else {
+      unitCalcEl.textContent = '';
+    }
+    updateEditorTotalWeight();
+  }
+
+  weightInput.addEventListener('input', recalculateUnit);
+  countInput.addEventListener('input', recalculateUnit);
+
+  row.querySelector('.btn-remove-syllabus')?.addEventListener('click', () => {
+    row.remove();
+    updateEditorTotalWeight();
+  });
+
+  container.appendChild(row);
+}
+
+function updateEditorTotalWeight() {
+  const badge = document.getElementById('editor-syllabus-total-badge');
+  if (!badge) return;
+
+  const container = document.getElementById('course-editor-syllabus');
+  let total = 0;
+  if (container) {
+    const weightInputs = container.querySelectorAll('.comp-weight') as NodeListOf<HTMLInputElement>;
+    weightInputs.forEach(inp => {
+      total += parseFloat(inp.value) || 0;
+    });
+  }
+
+  badge.textContent = `Total: ${total}% / 100%`;
+  badge.classList.remove('pill-green', 'pill-blue', 'pill-orange', 'pill-red');
+  if (total === 100) {
+    badge.classList.add('pill-green');
+  } else if (total < 100) {
+    badge.classList.add('pill-orange');
+  } else {
+    badge.classList.add('pill-red');
+  }
+}
+
+async function handleSaveCourse(e: Event) {
+  e.preventDefault();
+  const code = (document.getElementById('editor-course-code') as HTMLInputElement).value.trim();
+  const name = (document.getElementById('editor-course-name') as HTMLInputElement).value.trim();
+  const crn = (document.getElementById('editor-course-crn') as HTMLInputElement).value.trim();
+  const hex = (document.getElementById('editor-color-hex') as HTMLInputElement).value.trim() || '#2563eb';
+  const aliasesRaw = (document.getElementById('editor-course-aliases') as HTMLInputElement).value;
+  const aliases = aliasesRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (!code || !name) {
+    alert('Please enter both course code and course name.');
+    return;
+  }
+
+  // Collect schedule slots
+  const slots: CustomScheduleSlot[] = [];
+  const slotRows = document.querySelectorAll('#course-editor-slots .slot-editor-row');
+  slotRows.forEach(row => {
+    const days: Weekday[] = [];
+    row.querySelectorAll('.day-pill-btn.selected').forEach(btn => {
+      const d = btn.getAttribute('data-day') as Weekday;
+      if (d) days.push(d);
+    });
+    const startTime = (row.querySelector('.slot-start-time') as HTMLInputElement)?.value || '11:00';
+    const endTime = (row.querySelector('.slot-end-time') as HTMLInputElement)?.value || '12:15';
+    const room = (row.querySelector('.slot-room') as HTMLInputElement)?.value.trim() || '';
+
+    if (days.length > 0) {
+      slots.push({
+        days,
+        startTime,
+        endTime,
+        room
+      });
+    }
+  });
+
+  // Collect syllabus components
+  const syllabus: CustomSyllabusComponent[] = [];
+  const syllabusRows = document.querySelectorAll('#course-editor-syllabus .syllabus-editor-row');
+  syllabusRows.forEach((row, idx) => {
+    const cName = (row.querySelector('.comp-name') as HTMLInputElement)?.value.trim();
+    const cType = ((row.querySelector('.comp-type') as HTMLSelectElement)?.value || 'quiz') as TaskType;
+    const cWeight = parseFloat((row.querySelector('.comp-weight') as HTMLInputElement)?.value) || 0;
+    const cCount = parseInt((row.querySelector('.comp-count') as HTMLInputElement)?.value, 10) || undefined;
+    const uWeight = (cCount && cCount > 1 && cWeight > 0) ? Math.round((cWeight / cCount) * 10) / 10 : undefined;
+
+    if (cName && cWeight > 0) {
+      syllabus.push({
+        id: `comp_${idx + 1}`,
+        name: cName,
+        type: cType,
+        totalWeight: cWeight,
+        count: cCount,
+        unitWeight: uWeight
+      });
+    }
+  });
+
+  const courseId = editingCourseId || `course_${Date.now()}`;
+  const courseConfig: UserCourseConfig = {
+    id: courseId,
+    courseCode: code,
+    courseName: name,
+    crn: crn || undefined,
+    colorHex: hex,
+    aliases,
+    scheduleSlots: slots,
+    syllabus
+  };
+
+  let nextCourses: UserCourseConfig[];
+  if (editingCourseId) {
+    nextCourses = currentUserCourses.map(c => c.id === editingCourseId ? courseConfig : c);
+  } else {
+    nextCourses = [...currentUserCourses, courseConfig];
+  }
+
+  await handleCoursesUpdated(nextCourses);
+  closeCourseEditor();
+  showToast(`Saved course "${name}"`);
+}
+
+async function handleDeleteCourse(courseId: string, courseName: string) {
+  if (!confirm(`Are you sure you want to delete "${courseName}"? Existing deadlines will remain but will no longer match this course schedule.`)) {
+    return;
+  }
+  const nextCourses = currentUserCourses.filter(c => c.id !== courseId);
+  await handleCoursesUpdated(nextCourses);
+  showToast(`Deleted "${courseName}"`);
+}
+
+async function handleCoursesUpdated(courses: UserCourseConfig[]) {
+  currentUserCourses = courses;
+  await saveUserCourses(courses);
+  currentTasks = await recalculateTasksWithActiveCourses();
+  currentTasks.sort(compareTasksByTime);
+
+  renderUserCoursesManager();
+  renderLegend();
+  updateCourseFilterOptions(currentTasks);
+  refreshAllViews();
+
+  // Cloud sync to Firebase & Sync Server
+  const settings = await getSettings();
+  const tombstones = await getLocalTombstones();
+  pushTasksToFirebase(currentTasks, 'Course Configuration Update', settings.syncKey, currentQuickLinks, tombstones, courses).catch(() => {});
+  if (settings.autoSyncOnScan !== false) {
+    pushTasksToSyncServer(currentTasks, settings, currentQuickLinks).catch(() => {});
+  }
+}
+
+// ============================================================================
+// Smart Course & Schedule Importer Modal
+// ============================================================================
+let detectedImportCourses: Partial<UserCourseConfig>[] = [];
+
+function openCourseImporter() {
+  const modal = document.getElementById('modal-course-import');
+  if (!modal) return;
+  detectedImportCourses = [];
+  const previewContainer = document.getElementById('import-banner-preview-container');
+  if (previewContainer) previewContainer.style.display = 'none';
+  const bannerText = document.getElementById('import-banner-text') as HTMLTextAreaElement;
+  if (bannerText) bannerText.value = '';
+  const jsonText = document.getElementById('import-json-text') as HTMLTextAreaElement;
+  if (jsonText) jsonText.value = '';
+
+  switchImporterTab('banner');
+  modal.style.display = 'flex';
+  modal.classList.remove('hidden');
+}
+
+function closeCourseImporter() {
+  const modal = document.getElementById('modal-course-import');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.add('hidden');
+  }
+}
+
+function switchImporterTab(tab: 'banner' | 'json') {
+  const tabBanner = document.getElementById('tab-import-banner');
+  const tabJson = document.getElementById('tab-import-json');
+  const contentBanner = document.getElementById('tab-content-banner');
+  const contentJson = document.getElementById('tab-content-json');
+
+  if (tab === 'banner') {
+    tabBanner?.classList.add('active');
+    tabJson?.classList.remove('active');
+    if (contentBanner) contentBanner.style.display = 'block';
+    if (contentJson) contentJson.style.display = 'none';
+  } else {
+    tabBanner?.classList.remove('active');
+    tabJson?.classList.add('active');
+    if (contentBanner) contentBanner.style.display = 'none';
+    if (contentJson) contentJson.style.display = 'block';
+  }
+}
+
+function handlePreviewBanner() {
+  const text = (document.getElementById('import-banner-text') as HTMLTextAreaElement)?.value || '';
+  if (!text.trim()) {
+    showToast('Please paste Banner schedule text first.');
+    return;
+  }
+  detectedImportCourses = parseBannerScheduleText(text);
+  const container = document.getElementById('import-banner-preview-container');
+  const list = document.getElementById('import-banner-preview-list');
+  if (!container || !list) return;
+
+  if (detectedImportCourses.length === 0) {
+    showToast('No courses detected in text. Please check the Banner schedule format.');
+    container.style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = detectedImportCourses.map(c => {
+    const slots = (c.scheduleSlots || []).map(s => `${s.days.map(d => d.slice(0, 3).toUpperCase()).join('/')} ${s.startTime}–${s.endTime} (${s.room || 'TBD'})`).join(', ');
+    return `
+      <div class="import-preview-card">
+        <div style="font-weight: 700;">${escapeHtml(c.courseName || '')} <span style="font-weight: normal; color: var(--text-muted); font-family: monospace;">(${escapeHtml(c.courseCode || '')})</span></div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+          ${c.crn ? `CRN: ${escapeHtml(c.crn)} • ` : ''}${slots || 'No slots'}
+        </div>
       </div>
     `;
+  }).join('');
 
-    scheduleReferenceContainer.appendChild(card);
-  });
+  container.style.display = 'block';
+}
+
+async function handleConfirmBannerImport() {
+  if (detectedImportCourses.length === 0) return;
+  const merged = mergeImportedCourses(currentUserCourses, detectedImportCourses);
+  await handleCoursesUpdated(merged);
+  closeCourseImporter();
+  showToast(`Imported and merged ${detectedImportCourses.length} courses!`);
+}
+
+async function handleConfirmJsonImport() {
+  const jsonText = (document.getElementById('import-json-text') as HTMLTextAreaElement)?.value || '';
+  if (!jsonText.trim()) {
+    showToast('Please paste JSON course data or select a file.');
+    return;
+  }
+  try {
+    const parsed = parseCoursesFromJson(jsonText);
+    if (parsed.length === 0) {
+      showToast('No valid courses found in JSON.');
+      return;
+    }
+    const merged = mergeImportedCourses(currentUserCourses, parsed);
+    await handleCoursesUpdated(merged);
+    closeCourseImporter();
+    showToast(`Imported ${parsed.length} courses from JSON!`);
+  } catch (err: any) {
+    alert(`Invalid JSON format: ${err.message || err}`);
+  }
+}
+
+function exportCoursesJson() {
+  const jsonStr = JSON.stringify(currentUserCourses, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'blackboarder-courses.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Exported blackboarder-courses.json');
+}
+
+async function handleResetCourses() {
+  if (!confirm('Reset all courses, class schedules, and grading weights to the 6 official UOS defaults?')) {
+    return;
+  }
+  const resetCourses = await resetUserCoursesToDefault();
+  await handleCoursesUpdated(resetCourses);
+  showToast('Reset courses to official UOS defaults!');
 }
 
 // ============================================================================
@@ -1588,7 +2089,7 @@ function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Ex
     const toPush = pulled ?? tasks;
     const [settings, tombstones] = await Promise.all([getSettings(), getLocalTombstones()]);
 
-    pushTasksToFirebase(toPush, actionDescription, settings.syncKey, currentQuickLinks, tombstones).then(res => {
+    pushTasksToFirebase(toPush, actionDescription, settings.syncKey, currentQuickLinks, tombstones, currentUserCourses).then(res => {
       console.log(`[Firebase Cloud Sync] ${actionDescription}:`, res);
     }).catch(err => {
       console.warn('[Firebase Cloud Sync error]:', err);
@@ -1638,6 +2139,18 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
         await saveQuickLinks(currentQuickLinks);
         renderQuickLinksBar();
         renderQuickLinksManager();
+      }
+
+      if (res.courses && Array.isArray(res.courses) && res.courses.length > 0) {
+        if (JSON.stringify(res.courses) !== JSON.stringify(currentUserCourses)) {
+          currentUserCourses = res.courses;
+          await saveUserCourses(currentUserCourses);
+          currentTasks = await recalculateTasksWithActiveCourses();
+          renderUserCoursesManager();
+          renderLegend();
+          updateCourseFilterOptions(currentTasks);
+          refreshAllViews();
+        }
       }
     }
   } catch (err) {
@@ -2621,6 +3134,103 @@ function setupEvents() {
       (e.target as HTMLInputElement).value = '';
     }
   });
+
+  // Course Manager Toolbar
+  document.getElementById('btn-add-course')?.addEventListener('click', () => openCourseEditor());
+  document.getElementById('btn-import-courses')?.addEventListener('click', openCourseImporter);
+  document.getElementById('btn-export-courses')?.addEventListener('click', exportCoursesJson);
+  document.getElementById('btn-reset-courses')?.addEventListener('click', handleResetCourses);
+
+  // Course Editor Modal Events
+  document.getElementById('btn-close-course-editor')?.addEventListener('click', closeCourseEditor);
+  document.getElementById('btn-cancel-course-editor')?.addEventListener('click', closeCourseEditor);
+  document.getElementById('modal-course-editor')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-course-editor')) closeCourseEditor();
+  });
+  document.getElementById('form-course-editor')?.addEventListener('submit', handleSaveCourse);
+  document.getElementById('btn-add-schedule-slot')?.addEventListener('click', () => addScheduleSlotRow());
+  document.getElementById('btn-add-syllabus-row')?.addEventListener('click', () => addSyllabusRow());
+
+  // Quick Syllabus Text Paste
+  document.getElementById('btn-parse-syllabus-paste')?.addEventListener('click', () => {
+    const textarea = document.getElementById('editor-syllabus-paste-text') as HTMLTextAreaElement;
+    if (!textarea || !textarea.value.trim()) return;
+    const comps = parseSyllabusWeightsText(textarea.value);
+    if (comps.length > 0) {
+      const container = document.getElementById('course-editor-syllabus');
+      if (container) container.innerHTML = '';
+      comps.forEach(c => addSyllabusRow(c));
+      updateEditorTotalWeight();
+      showToast(`Parsed ${comps.length} grading components!`);
+    } else {
+      showToast('Could not detect syllabus weights from text.');
+    }
+  });
+
+  // Editor Color Picker & Swatches
+  const colorPickerEl = document.getElementById('editor-color-picker') as HTMLInputElement;
+  const colorHexInputEl = document.getElementById('editor-color-hex') as HTMLInputElement;
+  colorPickerEl?.addEventListener('input', () => {
+    if (colorHexInputEl) colorHexInputEl.value = colorPickerEl.value;
+    const dotEl = document.getElementById('editor-header-dot');
+    if (dotEl) dotEl.style.backgroundColor = colorPickerEl.value;
+  });
+  colorHexInputEl?.addEventListener('input', () => {
+    if (/^#([A-Fa-f0-9]{6})$/.test(colorHexInputEl.value)) {
+      if (colorPickerEl) colorPickerEl.value = colorHexInputEl.value;
+      const dotEl = document.getElementById('editor-header-dot');
+      if (dotEl) dotEl.style.backgroundColor = colorHexInputEl.value;
+    }
+  });
+  document.querySelectorAll('#editor-color-swatches .swatch-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const color = btn.getAttribute('data-color') || '#2563eb';
+      if (colorPickerEl) colorPickerEl.value = color;
+      if (colorHexInputEl) colorHexInputEl.value = color;
+      const dotEl = document.getElementById('editor-header-dot');
+      if (dotEl) dotEl.style.backgroundColor = color;
+    });
+  });
+
+  // Course Importer Modal Events
+  document.getElementById('btn-close-course-import')?.addEventListener('click', closeCourseImporter);
+  document.getElementById('btn-cancel-banner-import')?.addEventListener('click', closeCourseImporter);
+  document.getElementById('modal-course-import')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-course-import')) closeCourseImporter();
+  });
+  document.getElementById('tab-import-banner')?.addEventListener('click', () => switchImporterTab('banner'));
+  document.getElementById('tab-import-json')?.addEventListener('click', () => switchImporterTab('json'));
+  document.getElementById('btn-preview-banner')?.addEventListener('click', handlePreviewBanner);
+  document.getElementById('btn-confirm-banner-import')?.addEventListener('click', handleConfirmBannerImport);
+  document.getElementById('btn-confirm-json-import')?.addEventListener('click', handleConfirmJsonImport);
+  document.getElementById('input-import-json-file')?.addEventListener('change', e => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const content = evt.target?.result as string;
+        const textarea = document.getElementById('import-json-text') as HTMLTextAreaElement;
+        if (textarea && content) {
+          textarea.value = content;
+        }
+      };
+      reader.readAsText(file);
+    }
+  });
+
+  // Global Escape key listener to close modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const editorModal = document.getElementById('modal-course-editor');
+      if (editorModal && editorModal.style.display !== 'none' && !editorModal.classList.contains('hidden')) {
+        closeCourseEditor();
+      }
+      const importModal = document.getElementById('modal-course-import');
+      if (importModal && importModal.style.display !== 'none' && !importModal.classList.contains('hidden')) {
+        closeCourseImporter();
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -3148,6 +3758,13 @@ function setupStorageAndSyncListeners() {
         renderQuickLinksBar();
         renderQuickLinksManager();
       }
+      if (area === 'local' && changes.bbs_user_courses) {
+        currentUserCourses = (changes.bbs_user_courses.newValue as UserCourseConfig[]) || [];
+        renderUserCoursesManager();
+        renderLegend();
+        updateCourseFilterOptions(currentTasks);
+        refreshAllViews();
+      }
     });
   }
 
@@ -3177,7 +3794,16 @@ async function refreshDataInBackground() {
     // 1. Fetch from chrome.storage.local to pick up any background worker or content script additions
     const freshTasks = (await getTasks()).filter(isValidTask);
     const freshLinks = await getQuickLinks();
+    const freshCourses = await getUserCourses();
     let viewsNeedUpdate = false;
+
+    if (freshCourses && freshCourses.length > 0 && JSON.stringify(freshCourses) !== JSON.stringify(currentUserCourses)) {
+      currentUserCourses = freshCourses;
+      renderUserCoursesManager();
+      renderLegend();
+      updateCourseFilterOptions(currentTasks);
+      viewsNeedUpdate = true;
+    }
 
     if (freshLinks && freshLinks.length > 0 && JSON.stringify(freshLinks) !== JSON.stringify(currentQuickLinks)) {
       currentQuickLinks = freshLinks;
@@ -3410,9 +4036,10 @@ function initApp() {
   setupEvents();
   initAiExtractModal();
   initGradeTrackerToggle();
+  // Load and render user courses synchronously from cache
+  currentUserCourses = getCachedCoursesSync();
+  renderUserCoursesManager();
   renderLegend();
-  renderSyllabusReference();
-  renderScheduleReference();
 
   // Load and render academic quick links synchronously from cache
   currentQuickLinks = getCachedQuickLinksSync();
