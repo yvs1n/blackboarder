@@ -79,6 +79,61 @@ const btnThemeToggle = document.getElementById('btn-theme-toggle') as HTMLButton
 const btnCancelAdd = document.getElementById('btn-cancel-add') as HTMLButtonElement;
 const btnCancelSettings = document.getElementById('btn-cancel-settings') as HTMLButtonElement;
 
+// Header Scan Banner Elements (slides down smoothly in header)
+const headerScanBanner = document.getElementById('header-scan-banner') as HTMLDivElement | null;
+const hsbIcon = document.getElementById('hsb-icon') as SVGElement | null;
+const hsbText = document.getElementById('hsb-text') as HTMLSpanElement | null;
+let scanBannerTimer: any = null;
+
+function showScanBanner(
+  text: string,
+  type: 'active' | 'success' | 'info' | 'warning' = 'active',
+  autoHideMs?: number
+) {
+  if (!headerScanBanner || !hsbText) return;
+  if (scanBannerTimer) {
+    clearTimeout(scanBannerTimer);
+    scanBannerTimer = null;
+  }
+
+  hsbText.textContent = text;
+  headerScanBanner.className = `header-scan-banner is-active is-${type}`;
+
+  const spinner = headerScanBanner.querySelector('.hsb-spinner');
+  if (hsbIcon) {
+    if (type === 'active') {
+      spinner?.classList.add('is-spinning');
+      hsbIcon.innerHTML = `<use href="#icon-sparkles"></use>`;
+    } else if (type === 'success') {
+      spinner?.classList.remove('is-spinning');
+      hsbIcon.innerHTML = `<use href="#icon-check"></use>`;
+    } else if (type === 'warning') {
+      spinner?.classList.remove('is-spinning');
+      hsbIcon.innerHTML = `<use href="#icon-urgent"></use>`;
+    } else {
+      spinner?.classList.remove('is-spinning');
+      hsbIcon.innerHTML = `<use href="#icon-sparkles"></use>`;
+    }
+  }
+
+  if (autoHideMs && autoHideMs > 0) {
+    scanBannerTimer = setTimeout(() => {
+      hideScanBanner();
+    }, autoHideMs);
+  }
+}
+
+function hideScanBanner() {
+  if (!headerScanBanner) return;
+  if (scanBannerTimer) {
+    clearTimeout(scanBannerTimer);
+    scanBannerTimer = null;
+  }
+  headerScanBanner.classList.remove('is-active');
+  const spinner = headerScanBanner.querySelector('.hsb-spinner');
+  spinner?.classList.remove('is-spinning');
+}
+
 // Theme Management
 let currentThemeSetting: 'light' | 'dark' | 'system' = 'light';
 
@@ -2379,26 +2434,32 @@ async function loadSettingsForm() {
 async function scanActiveTab(fullRescan: boolean = false) {
   btnScanTab.disabled = true;
   btnScanTab.style.background = '';
-  btnScanTab.innerHTML = fullRescan
-    ? `${getSvgIcon('refresh', 'mr-1')}<span>Full Scan...</span>`
-    : `${getSvgIcon('refresh', 'mr-1')}<span>Scanning Page...</span>`;
+  btnScanTab.innerHTML = `${getSvgIcon('refresh', 'mr-1 is-spinning')}<span>Scan...</span>`;
+  showScanBanner(
+    fullRescan ? 'Full re-scanning Blackboard stream & courses...' : 'Scanning Blackboard page for deadlines...',
+    'active'
+  );
 
   try {
     if (typeof chrome === 'undefined' || !chrome.tabs) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Browser Only</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
+      showScanBanner('Please open Blackboard in an active tab first.', 'warning', 4000);
       setTimeout(() => {
         btnScanTab.disabled = false;
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan Page</span>`;
+        btnScanTab.style.background = '';
+        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
       }, 3000);
       return;
     }
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>No Active Tab</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
+      showScanBanner('No active Blackboard tab detected.', 'warning', 4000);
       setTimeout(() => {
         btnScanTab.disabled = false;
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan Page</span>`;
+        btnScanTab.style.background = '';
+        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
       }, 3000);
       return;
     }
@@ -2443,10 +2504,12 @@ async function scanActiveTab(fullRescan: boolean = false) {
     }
 
     if (!response || (!response.announcements && !response.directTasks)) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Open Blackboard First</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
+      showScanBanner('Please navigate to Blackboard Ultra Stream or Course page first.', 'warning', 4500);
       setTimeout(() => {
         btnScanTab.disabled = false;
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan Page</span>`;
+        btnScanTab.style.background = '';
+        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
       }, 3500);
       return;
     }
@@ -2454,8 +2517,9 @@ async function scanActiveTab(fullRescan: boolean = false) {
     const announcements = response.announcements || [];
     const directTasks: DeadlineTask[] = response.directTasks || [];
 
-    // Keep user informed with real-time button progress
-    btnScanTab.innerHTML = `${getSvgIcon('sparkles', 'mr-1')}<span>Extracting Deadlines...</span>`;
+    // Keep user informed with real-time banner and compact button
+    btnScanTab.innerHTML = `${getSvgIcon('sparkles', 'mr-1 is-spinning')}<span>Parse...</span>`;
+    showScanBanner(`Scanned ${announcements.length} announcements & ${directTasks.length} stream items. Extracting...`, 'active');
 
     const settings = await getSettings();
     const existingTasks = await getTasks();
@@ -2495,7 +2559,7 @@ async function scanActiveTab(fullRescan: boolean = false) {
       }
     }
 
-    const finalTasks = [...newlyAddedDirect, ...mergedAnnTasks].sort(compareTasksByTime);
+    const finalTasks = [...newlyAddedDirect, ...mergedAnnTasks].filter(isValidTask).sort(compareTasksByTime);
     await saveTasks(finalTasks);
 
     // Save scan checkpoint so future scans only scan from where it left off
@@ -2519,38 +2583,43 @@ async function scanActiveTab(fullRescan: boolean = false) {
     const totalFound = newlyAddedDirect.length + extractedTasks.length;
     const totalUpdated = updatedTasks ? updatedTasks.length : 0;
 
-    // Display clear visual results on the button and persist it so user sees the outcome
+    // Display clear visual results on the compact button and in the extended banner
     if (totalFound > 0 && totalUpdated > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound} New, ${totalUpdated} Updated!</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
       btnScanTab.style.background = '#16a34a';
+      showScanBanner(`Found ${totalFound} new deadline${totalFound > 1 ? 's' : ''}, updated ${totalUpdated}!`, 'success', 5000);
       switchView('calendar');
     } else if (totalFound > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound} New Deadlines!</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
       btnScanTab.style.background = '#16a34a';
+      showScanBanner(`Added ${totalFound} new deadline${totalFound > 1 ? 's' : ''} to calendar!`, 'success', 5000);
       switchView('calendar');
     } else if (totalUpdated > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>${totalUpdated} Deadlines Updated!</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Updated</span>`;
       btnScanTab.style.background = '#0284c7';
+      showScanBanner(`Updated ${totalUpdated} existing deadline${totalUpdated > 1 ? 's' : ''}!`, 'success', 5000);
       switchView('calendar');
     } else {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Up to Date (${announcements.length + directTasks.length} Scanned)</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Synced</span>`;
       btnScanTab.style.background = '#059669';
+      showScanBanner(`Up to date. Scanned ${announcements.length + directTasks.length} items with no new deadlines.`, 'info', 4500);
     }
 
     // Keep the completion state visible for 4.5 seconds before returning to default state
     setTimeout(() => {
       btnScanTab.disabled = false;
       btnScanTab.style.background = '';
-      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan Page</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
     }, 4500);
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('Scan failed:', err);
-    btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Scan Failed</span>`;
+    btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Failed</span>`;
+    showScanBanner(err?.message ? `Scan error: ${err.message}` : 'Scan failed. Make sure you are logged into Blackboard.', 'warning', 5000);
     setTimeout(() => {
       btnScanTab.disabled = false;
       btnScanTab.style.background = '';
-      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan Page</span>`;
+      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
     }, 3000);
   }
 }
@@ -4051,11 +4120,15 @@ async function refreshDataInBackground() {
       return task;
     });
 
-    currentTasks = deduplicateTaskList(currentTasks);
+    currentTasks = deduplicateTaskList(currentTasks.filter(isValidTask));
     currentTasks.sort(compareTasksByTime);
+    const rawLocalTasks = await getTasks();
+    if (rawLocalTasks.length !== currentTasks.length) {
+      updatedAny = true;
+    }
     if (updatedAny) {
       await saveTasks(currentTasks);
-      syncTasksToCloud(currentTasks, 'Retroactive Upgrades');
+      syncTasksToCloud(currentTasks, 'Retroactive Upgrades & Cleanup');
       refreshAllViews();
     }
   } catch (err) {
@@ -4086,7 +4159,7 @@ function initApp() {
   initQuickLinksModal();
 
   // Load and render deadlines synchronously from cache (<5ms)
-  currentTasks = deduplicateTaskList(getCachedTasksSync());
+  currentTasks = deduplicateTaskList(getCachedTasksSync().filter(isValidTask));
   currentTasks.sort(compareTasksByTime);
 
   // Render all views immediately so the popup appears instantly populated like on mobile

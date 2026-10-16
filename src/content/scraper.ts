@@ -55,7 +55,7 @@ function scrapeUltraStreamDueItems(knownDirectTaskIds?: Set<string>): DeadlineTa
     if (!card) continue;
 
     const cardText = card.textContent || '';
-    if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText)) {
+    if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number|grade\s+posted|score\s+posted|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة)/i.test(cardText)) {
       continue;
     }
 
@@ -142,6 +142,20 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
     const cardText = card.textContent?.trim() || '';
     // Skip if it's already a direct due date card
     if (/Due Date:\s*\d{1,2}\/\d{1,2}\/\d{2,4}/i.test(cardText)) {
+      continue;
+    }
+
+    // Skip grade notifications, submission confirmations, discussion posts, or score reports
+    if (/(?:grade\s+posted|grades\s+available|score\s+posted|graded|new\s+grade|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة|درجة\s+جديدة|تم\s+تقييم)/i.test(cardText)) {
+      continue;
+    }
+    if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText)) {
+      continue;
+    }
+    if (/(?:discussion\s+board|new\s+post\s+in|someone\s+replied|منتدى\s+النقاش|مشاركة\s+جديدة)/i.test(cardText)) {
+      continue;
+    }
+    if (/^\s*["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?\s*$/m.test(cardText)) {
       continue;
     }
 

@@ -170,5 +170,37 @@ describe('Local NLP Deadline Extractor', () => {
     expect(dueDate.getMonth()).toBe(8); // September (0-indexed)
     expect(task.description).toBe(doctorMessage);
   });
+
+  it('rejects announcements whose content is purely a grade fraction like .25 / 10', () => {
+    const ann: Announcement = {
+      id: 'ann-bogus-fraction',
+      courseCode: '1430116',
+      courseName: 'Physics 1 Lab',
+      title: 'Lab',
+      postedAt: '2026-10-15T10:00:00.000Z',
+      contentText: '.25 / 10',
+      sourceUrl: 'https://elearning.sharjah.ac.ae/ultra/stream',
+      scannedAt: '2026-10-15T10:05:00.000Z'
+    };
+
+    const tasks = extractDeadlinesLocally(ann);
+    expect(tasks).toEqual([]);
+  });
+
+  it('rejects grade posting announcements that lack future deadline actions', () => {
+    const ann: Announcement = {
+      id: 'ann-bogus-grades',
+      courseCode: '1430115',
+      courseName: 'Physics 1',
+      title: 'درجة الكويز الأول',
+      postedAt: '2026-10-15T10:00:00.000Z',
+      contentText: 'السلام عليكم ورحمة الله، تم رصد درجات الكويز الأول على البلاك بورد ويمكنكم الاطلاع على النتائج.',
+      sourceUrl: 'https://elearning.sharjah.ac.ae/ultra/stream',
+      scannedAt: '2026-10-15T10:05:00.000Z'
+    };
+
+    const tasks = extractDeadlinesLocally(ann);
+    expect(tasks).toEqual([]);
+  });
 });
 

@@ -12,8 +12,8 @@ import { resolveTaskWeight } from './syllabusWeights';
 export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
   if (!cardText) return null;
 
-  // 1. Skip submission receipts and confirmation cards (student already submitted)
-  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText)) {
+  // 1. Skip submission receipts, confirmation cards, and grade posted alerts
+  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number|grade\s+posted|score\s+posted|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة)/i.test(cardText)) {
     return null;
   }
 

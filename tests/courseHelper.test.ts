@@ -137,6 +137,19 @@ describe('Ghost Task Prevention & Stream Parser Resilience', () => {
     // Valid tasks:
     expect(isValidTask({ id: '5', title: 'Quiz 2', courseName: 'Calculus I for Engineering', courseCode: '1440133', dueDate: '' } as any)).toBe(true);
     expect(isValidTask({ id: '6', title: 'Lab 1 Report', courseName: 'General Course', courseCode: '', dueDate: '' } as any)).toBe(true);
+
+    // Bogus grade fraction cards:
+    expect(isValidTask({ id: '7', title: 'Lab', courseName: 'Physics 1 Lab', courseCode: '1430116', description: '.25 / 10' } as any)).toBe(false);
+    expect(isValidTask({ id: '8', title: 'Lab', courseName: 'Physics 1 Lab', courseCode: '1430116', sourceSnippet: '8.5 / 10' } as any)).toBe(false);
+
+    // Bogus grade announcement titles without future actions:
+    expect(isValidTask({ id: '9', title: 'درجة الكويز الأول', courseName: 'Physics 1', courseCode: '1430115', description: 'تم رصد الدرجات' } as any)).toBe(false);
+    expect(isValidTask({ id: '10', title: 'Grade Posted: Midterm', courseName: 'Calculus I', courseCode: '1440133' } as any)).toBe(false);
+    expect(isValidTask({ id: '11', title: 'Score Posted', courseName: 'General Course', courseCode: '' } as any)).toBe(false);
+
+    // Legitimate tasks with future actions or normal titles:
+    expect(isValidTask({ id: '12', title: 'كويز تعويضي', courseName: 'Physics 1', courseCode: '1430115', description: 'موعد الامتحان التعويضي يوم الأحد' } as any)).toBe(true);
+    expect(isValidTask({ id: '13', title: 'تسليم المشروع النهائي', courseName: 'Computer Programming', courseCode: '0401201' } as any)).toBe(true);
   });
 
   it('matchesSelectedCourseFilter matches tasks by name, code, or regex pattern', async () => {

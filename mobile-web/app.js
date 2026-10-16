@@ -2917,9 +2917,37 @@ function isValidTask(task) {
   if (!task || !task.title || !task.title.trim()) return false;
   if (task.userEdited || task.extractedBy === 'manual') return true;
   const titleLower = task.title.trim().toLowerCase();
+  const desc = (task.description || '').trim();
+  const snippet = (task.sourceSnippet || '').trim();
+
+  // 1. Explicitly drop stream submission receipts or confirmation cards
   if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(titleLower)) {
     return false;
   }
+
+  // 2. Drop grade notifications and score postings
+  if (/(?:grade\s+posted|score\s+posted|graded|new\s+grade|grades\s+available|grades\s+released|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة|درجة\s+جديدة|تم\s+تقييم)/i.test(titleLower)) {
+    return false;
+  }
+
+  // 3. Drop tasks whose description or snippet is purely a grade fraction (e.g. ".25 / 10", "8.5 / 10")
+  const isFractionOnly = (text) => /^["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?$/.test(text);
+  if (isFractionOnly(desc) || isFractionOnly(snippet)) {
+    return false;
+  }
+
+  // 4. Drop announcements reporting grades/marks without future deadlines
+  // e.g. "درجة الكويز الأول", "درجات الاختبار", "Results of Midterm"
+  const isGradeReportTitle = /(?:^|[^\p{L}\p{N}])(?:درجات|درجة|علامات|علامة|نتائج|النتائج|العلامات|الدرجات|grades?|marks?|scores?|results?|feedback)(?:$|[^\p{L}\p{N}])/iu.test(titleLower);
+  if (isGradeReportTitle) {
+    const combinedContext = `${titleLower} ${desc} ${snippet}`;
+    const hasFutureAction = /(?:submit\s+by|due\s+on|due\s+date|submission\s+deadline|makeup\s+exam|make-up\s+exam|تسليم\s+في|آخر\s+موعد|امتحان\s+تعويضي|اختبار\s+تعويضي)/iu.test(combinedContext);
+    if (!hasFutureAction) {
+      return false;
+    }
+  }
+
+  // 5. Generic placeholders
   const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
   const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
   const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
@@ -2928,6 +2956,7 @@ function isValidTask(task) {
   }
   return true;
 }
+
 
 function formatNotificationPayload(task, windowType, timeRemaining) {
   const resolved = resolveCourseInfo(task);

@@ -506,6 +506,26 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     announcement.title
   );
 
+  const cleanTrimmed = cleanContent.trim();
+
+  // 1. Filter out Announcements whose content is purely a grade/score fraction (e.g. ".25 / 10", "8.5 / 10")
+  if (/^["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?$/.test(cleanTrimmed)) {
+    return [];
+  }
+
+  // 2. Filter out announcements whose primary subject is reporting past grades or marks
+  // (unless they explicitly announce an upcoming future assessment or makeup deadline)
+  const isGradeAnnouncement = (
+    /(?:^|[^\p{L}\p{N}])(?:درجات|درجة|علامات|علامة|نتائج|النتائج|العلامات|الدرجات|grades?|marks?|scores?|results?|solutions?|answer\s*keys?|feedback)(?:$|[^\p{L}\p{N}])/iu.test(announcement.title) ||
+    /(?:grades?|marks?|scores?)\s+(?:are\s+)?(?:posted|uploaded|available|published|announced|released)|(?:تم\s+نشر|تم\s+رصد|تم\s+تنزيل|معلنة|مرفوعة)\s+(?:الدرجات|العلامات|النتائج|درجة|علامة)/iu.test(cleanContent)
+  );
+
+  const hasFutureDeadlineAction = /(?:submit\s+by|due\s+on|due\s+date|submission\s+deadline|makeup\s+exam|make-up\s+exam|تسليم\s+في|آخر\s+موعد|امتحان\s+تعويضي|اختبار\s+تعويضي)/iu.test(cleanContent);
+
+  if (isGradeAnnouncement && !hasFutureDeadlineAction) {
+    return [];
+  }
+
   const text = `${announcement.title}\n${cleanContent}`;
 
   // Break text into sentences or lines

@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-5q7F6FZj.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-hVZbvr9x.css">
+  <script type="module" crossorigin src="../../assets/popup-BS2wfrHk.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-CodtHqBd.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -248,6 +248,19 @@
           <svg class="ui-icon"><use href="#icon-settings"></use></svg>
         </button>
       </div>
+    </div>
+
+    <!-- Extended Scan Status Banner (slides down smoothly without horizontal layout shift) -->
+    <div class="header-scan-banner" id="header-scan-banner" aria-live="polite">
+      <div class="hsb-inner">
+        <div class="hsb-indicator">
+          <svg class="ui-icon hsb-spinner" id="hsb-icon"><use href="#icon-sparkles"></use></svg>
+        </div>
+        <div class="hsb-content">
+          <span class="hsb-text" id="hsb-text">Scanning Blackboard...</span>
+        </div>
+      </div>
+      <div class="hsb-progress-bar"><div class="hsb-progress-fill" id="hsb-progress-fill"></div></div>
     </div>
 
     <!-- Main Navigation: Monthly Calendar (Default) vs Details -->

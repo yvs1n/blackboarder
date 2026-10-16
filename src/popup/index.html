@@ -249,6 +249,19 @@
       </div>
     </div>
 
+    <!-- Extended Scan Status Banner (slides down smoothly without horizontal layout shift) -->
+    <div class="header-scan-banner" id="header-scan-banner" aria-live="polite">
+      <div class="hsb-inner">
+        <div class="hsb-indicator">
+          <svg class="ui-icon hsb-spinner" id="hsb-icon"><use href="#icon-sparkles"></use></svg>
+        </div>
+        <div class="hsb-content">
+          <span class="hsb-text" id="hsb-text">Scanning Blackboard...</span>
+        </div>
+      </div>
+      <div class="hsb-progress-bar"><div class="hsb-progress-fill" id="hsb-progress-fill"></div></div>
+    </div>
+
     <!-- Main Navigation: Monthly Calendar (Default) vs Details -->
     <nav class="main-nav-tabs">
       <button class="nav-tab active" id="tab-nav-calendar" data-view="calendar">

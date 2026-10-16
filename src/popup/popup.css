@@ -430,8 +430,18 @@
   box-sizing: border-box;
 }
 
+html {
+  width: 480px;
+  min-width: 480px;
+  max-width: 480px;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
 body {
   width: 480px;
+  min-width: 480px;
+  max-width: 480px;
   min-height: 600px;
   max-height: 625px;
   font-family: var(--font-family);
@@ -439,6 +449,7 @@ body {
   color: var(--text-main);
   overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 /* Custom Scrollbar */
@@ -501,6 +512,10 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--surface-border);
   padding: 14px 16px 10px;
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .header-top {
@@ -617,16 +632,29 @@ body {
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
-  padding: 5px 10px;
+  padding: 5px 8px;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
+  min-width: 74px;
+  max-width: 86px;
+  height: 28px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.btn-scan-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-theme="dark"] .btn-scan-main {
@@ -641,6 +669,141 @@ body {
 }
 [data-theme="dark"] .btn-scan-main:hover {
   background: #ffffff;
+}
+
+/* Extended Scan Status Banner (slides down smoothly in header) */
+.header-scan-banner {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              margin 0.25s ease,
+              padding 0.25s ease;
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 0 10px;
+  margin-bottom: 0;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.header-scan-banner.is-active {
+  max-height: 52px;
+  opacity: 1;
+  padding: 7px 10px 8px;
+  margin-bottom: 10px;
+}
+
+.header-scan-banner.is-success {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.header-scan-banner.is-info {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.header-scan-banner.is-warning {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.header-scan-banner .hsb-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.header-scan-banner .hsb-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+.header-scan-banner.is-success .hsb-indicator {
+  color: #10b981;
+}
+
+.header-scan-banner.is-warning .hsb-indicator {
+  color: #f59e0b;
+}
+
+.header-scan-banner .hsb-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-scan-banner .hsb-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.header-scan-banner .hsb-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  border-radius: 0 0 8px 8px;
+}
+
+.header-scan-banner .hsb-progress-fill {
+  height: 100%;
+  width: 35%;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  border-radius: 9999px;
+  animation: hsb-progress-indeterminate 1.5s infinite ease-in-out;
+}
+
+.header-scan-banner.is-success .hsb-progress-fill {
+  width: 100%;
+  animation: none;
+  background: #10b981;
+}
+
+.header-scan-banner.is-warning .hsb-progress-fill {
+  width: 100%;
+  animation: none;
+  background: #f59e0b;
+}
+
+@keyframes hsb-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 25%;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    transform: translateX(400%);
+    width: 25%;
+  }
+}
+
+@keyframes hsb-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.hsb-spinner.is-spinning {
+  animation: hsb-spin 1s linear infinite;
 }
 
 /* Main Navigation Tabs: Monthly Calendar vs Details */
