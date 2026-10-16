@@ -88,10 +88,30 @@ export interface DeadlineTask {
   syllabusNote?: string; // Syllabus rule explanation
   room?: string; // Classroom, lab, or hall (e.g. "A8-103", "W8-Lab 3")
   notes?: string; // Student custom notes and instructions
+  submissionStatus?: 'pending' | 'submitted' | 'graded';
+  submittedAt?: string; // ISO string or human-readable date
+  submissionReceipt?: string; // Confirmation receipt number
+  score?: number; // Earned marks (e.g. 9.5)
+  maxScore?: number; // Total possible points (e.g. 10)
+  scoreDisplay?: string; // Formatted badge text (e.g. "9.5 / 10" or "95%")
+  gradeFeedback?: string; // Instructor feedback comments
   calendarSynced?: boolean;
   userEdited?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskSubmissionUpdate {
+  courseCode?: string;
+  courseName?: string;
+  title: string;
+  submissionStatus: 'submitted' | 'graded';
+  submittedAt?: string;
+  submissionReceipt?: string;
+  score?: number;
+  maxScore?: number;
+  scoreDisplay?: string;
+  feedback?: string;
 }
 
 export interface UserSettings {

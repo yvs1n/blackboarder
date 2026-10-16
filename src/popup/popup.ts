@@ -1,5 +1,5 @@
-import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
-import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt } from '../utils/storage';
+import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, TaskSubmissionUpdate } from '../types';
+import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -624,6 +624,20 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
       ${task.weightDisplay ? `
         <div class="day-card-weight" title="${task.syllabusNote ? escapeHtml(task.syllabusNote) : 'Syllabus grade weight'}">
           ${getSvgIcon('scale', 'mr-1')} <span class="day-card-weight-text">${escapeHtml(task.weightDisplay)}</span>
+        </div>
+      ` : ''}
+      ${task.scoreDisplay || task.score !== undefined ? `
+        <div class="task-grade-pill" title="Grade / Score released on Blackboard">
+          ${getSvgIcon('star', 'mr-1')} <span>${escapeHtml(task.scoreDisplay || `${task.score} pts`)}</span>
+        </div>
+      ` : (task.submissionStatus === 'graded' ? `
+        <div class="task-grade-pill">
+          ${getSvgIcon('star', 'mr-1')} <span>Graded</span>
+        </div>
+      ` : '')}
+      ${task.submissionStatus === 'submitted' ? `
+        <div class="task-submitted-pill" title="${task.submissionReceipt ? `Receipt: ${escapeHtml(task.submissionReceipt)}` : 'Submitted to Blackboard'}">
+          ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
         </div>
       ` : ''}
     </div>
@@ -1800,6 +1814,20 @@ function renderTasks() {
         ${roomBadgeHtml}
         ${weightBadgeHtml}
         ${classTimeBadgeHtml}
+        ${task.scoreDisplay || task.score !== undefined ? `
+          <span class="task-grade-pill" title="Grade / Score released on Blackboard">
+            ${getSvgIcon('star', 'mr-1')} <span>${escapeHtml(task.scoreDisplay || `${task.score} pts`)}</span>
+          </span>
+        ` : (task.submissionStatus === 'graded' ? `
+          <span class="task-grade-pill">
+            ${getSvgIcon('star', 'mr-1')} <span>Graded</span>
+          </span>
+        ` : '')}
+        ${task.submissionStatus === 'submitted' ? `
+          <span class="task-submitted-pill" title="${task.submissionReceipt ? `Receipt: ${escapeHtml(task.submissionReceipt)}` : 'Submitted to Blackboard'}">
+            ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
+          </span>
+        ` : ''}
       </div>
 
       ${task.priority === 'high' ? '<div class="priority-label-row"><span class="high-priority-tag">HIGH PRIORITY</span></div>' : ''}
@@ -2516,6 +2544,8 @@ async function scanActiveTab(fullRescan: boolean = false) {
 
     const announcements = response.announcements || [];
     const directTasks: DeadlineTask[] = response.directTasks || [];
+    const submissionUpdates: TaskSubmissionUpdate[] = (response as any).submissionUpdates || [];
+    const discoveredCourses = (response as any).discoveredCourses || [];
 
     // Keep user informed with real-time banner and compact button
     btnScanTab.innerHTML = `${getSvgIcon('sparkles', 'mr-1 is-spinning')}<span>Parse...</span>`;
@@ -2560,6 +2590,45 @@ async function scanActiveTab(fullRescan: boolean = false) {
     }
 
     const finalTasks = [...newlyAddedDirect, ...mergedAnnTasks].filter(isValidTask).sort(compareTasksByTime);
+
+    // Apply submission and grade updates to matching tasks
+    for (const update of submissionUpdates) {
+      const match = finalTasks.find(t => {
+        const res = resolveCourseInfo(t);
+        const courseMatches = !update.courseCode || !res.courseCode || update.courseCode === res.courseCode ||
+          (update.courseName && res.courseName && res.courseName.toLowerCase().includes(update.courseName.toLowerCase()));
+        if (!courseMatches) return false;
+        const cleanUpdateTitle = (update.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanTaskTitle = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cleanUpdateTitle.length >= 3 && (cleanTaskTitle.includes(cleanUpdateTitle) || cleanUpdateTitle.includes(cleanTaskTitle));
+      });
+
+      if (match) {
+        if (update.submissionStatus === 'graded') {
+          match.submissionStatus = 'graded';
+          if (update.score !== undefined) match.score = update.score;
+          if (update.maxScore !== undefined) match.maxScore = update.maxScore;
+          if (update.scoreDisplay) match.scoreDisplay = update.scoreDisplay;
+          match.status = 'completed';
+          match.updatedAt = new Date().toISOString();
+        } else if (update.submissionStatus === 'submitted') {
+          if (match.submissionStatus !== 'graded') {
+            match.submissionStatus = 'submitted';
+            if (update.submittedAt) match.submittedAt = update.submittedAt;
+            if (update.submissionReceipt) match.submissionReceipt = update.submissionReceipt;
+            match.status = 'completed';
+            match.updatedAt = new Date().toISOString();
+          }
+        }
+      }
+    }
+
+    // Auto-register any new courses found in scanned tasks or discovered courses
+    currentUserCourses = await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => currentUserCourses);
+    updateCourseFilterOptions(finalTasks);
+    renderUserCoursesManager();
+    renderLegend();
+
     await saveTasks(finalTasks);
 
     // Save scan checkpoint so future scans only scan from where it left off
@@ -4136,6 +4205,129 @@ async function refreshDataInBackground() {
   }
 }
 
+async function initWalkthroughModal() {
+  const modal = document.getElementById('modal-walkthrough');
+  if (!modal) return;
+
+  const btnClose = document.getElementById('btn-close-walkthrough');
+  const btnNext = document.getElementById('btn-walkthrough-next');
+  const btnBack = document.getElementById('btn-walkthrough-back');
+  const btnSkip = document.getElementById('btn-walkthrough-skip');
+  const btnReplay = document.getElementById('btn-replay-walkthrough');
+  const keyDisplay = document.getElementById('wt-key-display');
+  const btnCopyKey = document.getElementById('btn-wt-copy-key');
+  const stepButtons = modal.querySelectorAll<HTMLButtonElement>('.walkthrough-step-btn');
+  const panes = modal.querySelectorAll<HTMLDivElement>('.walkthrough-pane');
+
+  let currentStep = 1;
+  const totalSteps = 4;
+
+  const settings = await getSettings();
+  if (keyDisplay && settings.syncKey) {
+    keyDisplay.textContent = settings.syncKey;
+  }
+
+  function setStep(step: number) {
+    currentStep = Math.max(1, Math.min(totalSteps, step));
+
+    stepButtons.forEach(btn => {
+      const s = parseInt(btn.getAttribute('data-step') || '1', 10);
+      btn.classList.toggle('active', s === currentStep);
+    });
+
+    panes.forEach(pane => {
+      pane.classList.remove('active');
+    });
+    const activePane = document.getElementById(`walkthrough-pane-${currentStep}`);
+    if (activePane) activePane.classList.add('active');
+
+    if (btnBack) {
+      btnBack.style.visibility = currentStep > 1 ? 'visible' : 'hidden';
+    }
+
+    if (btnNext) {
+      btnNext.textContent = currentStep === totalSteps ? 'Get Started' : 'Next Step ->';
+    }
+  }
+
+  function openModal() {
+    getSettings().then(s => {
+      if (keyDisplay && s.syncKey) keyDisplay.textContent = s.syncKey;
+    }).catch(() => {});
+    setStep(1);
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+  }
+
+  function closeModal(markSeen: boolean = true) {
+    modal.style.display = 'none';
+    modal.classList.add('hidden');
+    if (markSeen) {
+      try {
+        localStorage.setItem('bbs_walkthrough_seen', 'true');
+      } catch {}
+    }
+  }
+
+  btnNext?.addEventListener('click', () => {
+    if (currentStep < totalSteps) {
+      setStep(currentStep + 1);
+    } else {
+      closeModal(true);
+      showToast('Welcome to Blackboarder! Ready to scan your courses.');
+    }
+  });
+
+  btnBack?.addEventListener('click', () => {
+    if (currentStep > 1) {
+      setStep(currentStep - 1);
+    }
+  });
+
+  btnSkip?.addEventListener('click', () => {
+    closeModal(true);
+  });
+
+  btnClose?.addEventListener('click', () => {
+    closeModal(true);
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal(true);
+  });
+
+  stepButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = parseInt(btn.getAttribute('data-step') || '1', 10);
+      setStep(s);
+    });
+  });
+
+  btnCopyKey?.addEventListener('click', async () => {
+    const s = await getSettings();
+    const key = s.syncKey;
+    if (key) {
+      try {
+        await navigator.clipboard.writeText(key);
+        showToast(`Copied Sync Key: ${key}`);
+      } catch {
+        showToast(`Sync Key: ${key}`);
+      }
+    }
+  });
+
+  btnReplay?.addEventListener('click', () => {
+    openModal();
+  });
+
+  // Check if first-time user
+  const hasSeen = localStorage.getItem('bbs_walkthrough_seen');
+  if (!hasSeen) {
+    // Show automatically on first download/install
+    openModal();
+  }
+}
+
 function initApp() {
   // Synchronously initialize theme to eliminate light/dark flashes
   initThemeSync();
@@ -4165,6 +4357,9 @@ function initApp() {
   // Render all views immediately so the popup appears instantly populated like on mobile
   refreshAllViews();
   switchView('calendar');
+
+  // Initialize first-time setup walkthrough modal
+  initWalkthroughModal();
 
   // Set up listeners for reactive updates
   setupStorageAndSyncListeners();

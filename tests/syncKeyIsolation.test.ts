@@ -192,4 +192,35 @@ describe('Multi-User Sync Key Isolation Suite', () => {
       expect(key).toMatch(/^BBS-[A-Z0-9]{4,8}$/);
     });
   });
+
+  describe('Auto-Generated Sync Key & Discovered Courses Suite', () => {
+    it('generates a unique BBS- prefix sync key with 6 uppercase alphanumeric characters', async () => {
+      const { generateUniqueSyncKey } = await import('../src/utils/storage');
+      const key1 = generateUniqueSyncKey();
+      const key2 = generateUniqueSyncKey();
+
+      expect(key1).toMatch(/^BBS-[A-Z0-9]{6}$/);
+      expect(key2).toMatch(/^BBS-[A-Z0-9]{6}$/);
+      expect(key1).not.toBe(key2);
+    });
+
+    it('autoRegisterDiscoveredCourses assigns vibrant palette colors to newly found courses', async () => {
+      const { autoRegisterDiscoveredCourses } = await import('../src/utils/storage');
+      const result = await autoRegisterDiscoveredCourses([
+        { courseName: 'Signals & Systems', courseCode: '1502211' },
+        { courseName: 'Probability & Statistics', courseCode: '1440211' }
+      ]);
+
+      expect(result.length).toBeGreaterThanOrEqual(2);
+      const sigCourse = result.find(c => c.courseCode === '1502211');
+      const probCourse = result.find(c => c.courseCode === '1440211');
+
+      expect(sigCourse).toBeDefined();
+      expect(sigCourse?.colorHex).toMatch(/^#[0-9a-fA-F]{6}$/);
+      expect(probCourse).toBeDefined();
+      expect(probCourse?.colorHex).toMatch(/^#[0-9a-fA-F]{6}$/);
+      // Ensure palette assigns colors
+      expect(sigCourse?.colorHex).not.toBe(probCourse?.colorHex);
+    });
+  });
 });

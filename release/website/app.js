@@ -4692,6 +4692,20 @@ function renderTaskCardHtml(task, isCompact = false) {
         ${roomBadgeHtml}
         ${weightBadgeHtml}
         ${classTimeBadgeHtml}
+        ${task.scoreDisplay || task.score !== undefined ? `
+          <span class="task-grade-pill" title="Grade / Score released on Blackboard">
+            ${getSvgIcon('star', 'mr-1')} <span>${escapeHtml(task.scoreDisplay || `${task.score} pts`)}</span>
+          </span>
+        ` : (task.submissionStatus === 'graded' ? `
+          <span class="task-grade-pill">
+            ${getSvgIcon('star', 'mr-1')} <span>Graded</span>
+          </span>
+        ` : '')}
+        ${task.submissionStatus === 'submitted' ? `
+          <span class="task-submitted-pill" title="${task.submissionReceipt ? `Receipt: ${escapeHtml(task.submissionReceipt)}` : 'Submitted to Blackboard'}">
+            ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
+          </span>
+        ` : ''}
         ${task.priority === 'high' ? '<span class="meta-pill" style="color:#ef4444; font-weight:700;">HIGH PRIORITY</span>' : ''}
       </div>
 
@@ -4913,6 +4927,20 @@ function renderReadingPane(task) {
           <span class="room-edit-hint">${getSvgIcon('pencil', 'mr-1')} Change</span>
         </button>
         ${weightHtml}
+        ${task.scoreDisplay || task.score !== undefined ? `
+          <span class="task-grade-pill" title="Grade / Score released on Blackboard">
+            ${getSvgIcon('star', 'mr-1')} <span>${escapeHtml(task.scoreDisplay || `${task.score} pts`)}</span>
+          </span>
+        ` : (task.submissionStatus === 'graded' ? `
+          <span class="task-grade-pill">
+            ${getSvgIcon('star', 'mr-1')} <span>Graded</span>
+          </span>
+        ` : '')}
+        ${task.submissionStatus === 'submitted' ? `
+          <span class="task-submitted-pill" title="${task.submissionReceipt ? `Receipt: ${escapeHtml(task.submissionReceipt)}` : 'Submitted to Blackboard'}">
+            ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
+          </span>
+        ` : ''}
         ${!task.hasSpecificTime ? `<span class="meta-pill time-class">${getSvgIcon('clock', 'mr-1')} Class Time</span>` : ''}
         ${task.priority === 'high' ? '<span class="meta-pill" style="color:#ef4444; font-weight:700;">HIGH PRIORITY</span>' : ''}
       </div>
@@ -5087,6 +5115,8 @@ function renderGradeTracker() {
 
     let completedWeight = 0;
     let pendingWeight = 0;
+    let earnedPoints = 0;
+    let gradedWeight = 0;
 
     courseTasks.forEach(t => {
       const w = Number(t.weight) || 0;
@@ -5095,10 +5125,16 @@ function renderGradeTracker() {
       } else {
         pendingWeight += w;
       }
+      if (t.submissionStatus === 'graded' && t.score !== undefined && t.maxScore && t.maxScore > 0 && w > 0) {
+        gradedWeight += w;
+        earnedPoints += (t.score / t.maxScore) * w;
+      }
     });
 
     completedWeight = Math.round(completedWeight * 10) / 10;
     pendingWeight = Math.round(pendingWeight * 10) / 10;
+    earnedPoints = Math.round(earnedPoints * 10) / 10;
+    gradedWeight = Math.round(gradedWeight * 10) / 10;
     const trackedWeight = completedWeight + pendingWeight;
 
     totalTrackedCompleted += completedWeight;
@@ -5108,6 +5144,8 @@ function renderGradeTracker() {
       course,
       completedWeight,
       pendingWeight,
+      earnedPoints,
+      gradedWeight,
       trackedWeight,
       taskCount: courseTasks.length
     };
@@ -5139,7 +5177,7 @@ function renderGradeTracker() {
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 6px;">
           <span>✓ Completed: ${stat.completedWeight}%</span>
-          <span>⏳ Pending: ${stat.pendingWeight}%</span>
+          ${stat.gradedWeight > 0 ? `<span style="color:#d97706; font-weight:600;">★ Graded: ${stat.earnedPoints}/${stat.gradedWeight}</span>` : `<span>⏳ Pending: ${stat.pendingWeight}%</span>`}
           <span>Upcoming: ${Math.max(0, Math.round((course.totalWeight - stat.trackedWeight) * 10) / 10)}%</span>
         </div>
       </div>
@@ -6477,6 +6515,20 @@ function openReadingSheet(task) {
       </button>
       ` : ''}
       ${task.weightDisplay || task.weight ? `<span class="task-weight-pill weight-major">${getSvgIcon('scale', 'mr-1')} ${escapeHtml(task.weightDisplay || `${task.weight}%`)}</span>` : ''}
+      ${task.scoreDisplay || task.score !== undefined ? `
+        <span class="task-grade-pill" title="Grade / Score released on Blackboard">
+          ${getSvgIcon('star', 'mr-1')} <span>${escapeHtml(task.scoreDisplay || `${task.score} pts`)}</span>
+        </span>
+      ` : (task.submissionStatus === 'graded' ? `
+        <span class="task-grade-pill">
+          ${getSvgIcon('star', 'mr-1')} <span>Graded</span>
+        </span>
+      ` : '')}
+      ${task.submissionStatus === 'submitted' ? `
+        <span class="task-submitted-pill" title="${task.submissionReceipt ? `Receipt: ${escapeHtml(task.submissionReceipt)}` : 'Submitted to Blackboard'}">
+          ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
+        </span>
+      ` : ''}
     </div>
 
     <div class="reading-announcement-box">

@@ -198,6 +198,9 @@
         <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4M2 6h4m-4 4h4m-4 4h4m-4 4h4"></path>
         <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"></path>
       </symbol>
+      <symbol id="icon-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+      </symbol>
       <symbol id="icon-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 2h4m-2 12l3-3"></path>
         <circle cx="12" cy="14" r="8"></circle>
@@ -513,6 +516,12 @@
     </div>
 
     <form id="form-settings">
+      <!-- Setup Guide / Walkthrough Replay Button -->
+      <button type="button" class="btn-outline-action" id="btn-replay-walkthrough" style="margin-bottom: 12px; justify-content: center; width: 100%; border-style: dashed; padding: 8px 12px;">
+        <svg class="ui-icon mr-1" style="color: var(--primary);"><use href="#icon-sparkles"></use></svg>
+        <span>Replay Setup Walkthrough &amp; Guide</span>
+      </button>
+
       <!-- Card 1: AI & Hybrid Extraction Engine -->
       <div class="settings-card">
         <div class="settings-card-header">
@@ -1325,6 +1334,176 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: First-Time Setup & Walkthrough Guide -->
+  <div id="modal-walkthrough" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="walkthrough-modal-title">
+    <div class="modal-dialog walkthrough-modal-dialog">
+      <div class="modal-header walkthrough-header">
+        <div>
+          <div class="walkthrough-badge">
+            <svg class="ui-icon"><use href="#icon-sparkles"></use></svg>
+            <span>Quick Tour</span>
+          </div>
+          <h3 id="walkthrough-modal-title" class="modal-title" style="margin: 0; font-size: 14px; font-weight: 700;">Welcome to Blackboarder</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-walkthrough" aria-label="Close walkthrough">✕</button>
+      </div>
+
+      <!-- Stepper -->
+      <div class="walkthrough-stepper">
+        <button type="button" class="walkthrough-step-btn active" data-step="1">
+          <span class="wt-step-num">1</span>
+          <span>Sync</span>
+        </button>
+        <div class="wt-step-line"></div>
+        <button type="button" class="walkthrough-step-btn" data-step="2">
+          <span class="wt-step-num">2</span>
+          <span>Scan</span>
+        </button>
+        <div class="wt-step-line"></div>
+        <button type="button" class="walkthrough-step-btn" data-step="3">
+          <span class="wt-step-num">3</span>
+          <span>Courses</span>
+        </button>
+        <div class="wt-step-line"></div>
+        <button type="button" class="walkthrough-step-btn" data-step="4">
+          <span class="wt-step-num">4</span>
+          <span>Marks</span>
+        </button>
+      </div>
+
+      <div class="walkthrough-body">
+        <!-- Step 1: Auto-Generated Sync Key -->
+        <div class="walkthrough-pane active" id="walkthrough-pane-1">
+          <div class="walkthrough-hero">
+            <div class="walkthrough-hero-icon">
+              <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
+            </div>
+            <div>
+              <h4 class="walkthrough-hero-title">1. Your Private Cloud Sync Key</h4>
+              <p class="walkthrough-hero-desc">Blackboarder automatically generated a unique key for your device. Your schedule, courses, and marks stay private and isolated.</p>
+            </div>
+          </div>
+
+          <div class="walkthrough-sync-card">
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Your Auto-Generated Sync Key</div>
+            <div class="walkthrough-key-display">
+              <span class="walkthrough-key-value" id="wt-key-display">BBS-XXXX</span>
+              <button type="button" class="btn-secondary" id="btn-wt-copy-key" style="font-size: 10.5px; padding: 3px 8px;">
+                <svg class="ui-icon mr-1"><use href="#icon-copy"></use></svg>
+                <span>Copy</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="walkthrough-feature-list">
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Phone PWA &amp; Widgets:</strong> Open the pairing link on Safari or Chrome mobile to install the app on your home screen.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Live Calendar Feed:</strong> Subscribe natively in Apple Calendar (iOS/Mac) or Google Calendar via WebCal.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: 1-Click Blackboard Scanner -->
+        <div class="walkthrough-pane" id="walkthrough-pane-2">
+          <div class="walkthrough-hero">
+            <div class="walkthrough-hero-icon">
+              <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+            </div>
+            <div>
+              <h4 class="walkthrough-hero-title">2. Scan Blackboard in 1-Click</h4>
+              <p class="walkthrough-hero-desc">Whenever you log into Blackboard, Blackboarder is ready to extract your schedule automatically.</p>
+            </div>
+          </div>
+
+          <div class="walkthrough-feature-list">
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">1</span>
+              <span>Open <strong>elearning.sharjah.ac.ae</strong> in any tab and sign in.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">2</span>
+              <span>Click the floating <strong>"Scan Blackboard"</strong> pill or the <strong>Scan</strong> button in this popup.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">3</span>
+              <span><strong>Auto Course Discovery:</strong> All your enrolled subjects are discovered automatically with unique, vibrant colors.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">4</span>
+              <span><strong>Zero Duplicates:</strong> When professors repost or update announcements, smart deduplication merges them cleanly.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Courses, Colors & Syllabus Settings -->
+        <div class="walkthrough-pane" id="walkthrough-pane-3">
+          <div class="walkthrough-hero">
+            <div class="walkthrough-hero-icon">
+              <svg class="ui-icon"><use href="#icon-settings"></use></svg>
+            </div>
+            <div>
+              <h4 class="walkthrough-hero-title">3. Customize Courses &amp; Syllabus</h4>
+              <p class="walkthrough-hero-desc">Tailor every subject to your exact schedule and syllabus mark distributions.</p>
+            </div>
+          </div>
+
+          <div class="walkthrough-feature-list">
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Custom Colors:</strong> Click any course in Settings to change its calendar color via the palette or hex picker.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Class Rooms &amp; Times:</strong> Set your lecture times and room numbers (e.g. A8-103) for automatic exam location filling.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Syllabus Allocations:</strong> Add mark distributions (e.g. 10% Quizzes, 30% Midterm) or paste your course syllabus text for auto-parsing.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Submissions & Marks Tracking -->
+        <div class="walkthrough-pane" id="walkthrough-pane-4">
+          <div class="walkthrough-hero">
+            <div class="walkthrough-hero-icon">
+              <svg class="ui-icon"><use href="#icon-check"></use></svg>
+            </div>
+            <div>
+              <h4 class="walkthrough-hero-title">4. Track Submissions &amp; Grades</h4>
+              <p class="walkthrough-hero-desc">Never wonder if you submitted an assignment or what marks were posted.</p>
+            </div>
+          </div>
+
+          <div class="walkthrough-feature-list">
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Submission Confirmation:</strong> See green <span class="task-submitted-pill" style="font-size: 10px; padding: 1px 5px;">✓ Submitted</span> badges when you turn in work.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Posted Marks:</strong> Scores released by professors appear on your calendar cards as <span class="task-grade-pill" style="font-size: 10px; padding: 1px 5px;">★ Graded: 9.5 / 10</span>.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Built-In Grade Tracker:</strong> View running cumulative scores and GPA predictions across all your enrolled courses.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="walkthrough-footer">
+        <button type="button" class="btn-secondary" id="btn-walkthrough-back" style="font-size: 11px; padding: 5px 12px; visibility: hidden;">Back</button>
+        <button type="button" class="btn-secondary" id="btn-walkthrough-skip" style="font-size: 11px; padding: 5px 10px; color: var(--text-muted);">Skip Tour</button>
+        <button type="button" class="btn-primary" id="btn-walkthrough-next" style="font-size: 11px; padding: 5px 14px;">Next Step →</button>
       </div>
     </div>
   </div>

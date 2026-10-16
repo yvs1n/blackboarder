@@ -74,4 +74,47 @@ Due Date: 10/25/26, 5:59 AM (UTC+4)`;
     expect(new Date(task4!.dueDate).getHours()).toBe(5);
     expect(new Date(task4!.dueDate).getMinutes()).toBe(59);
   });
+
+  it('parses submission confirmations and grade receipts accurately', async () => {
+    const { parseSubmissionOrGradeCard } = await import('../src/utils/streamParser');
+
+    // Case 1: Graded card with fractional score
+    const gradedCard1 = `Physics 1 - ALL - 1 - الفيزياء-1
+Grade posted: HW1_Phys.1_Fall26-27
+9.5 / 10`;
+    const res1 = parseSubmissionOrGradeCard(gradedCard1);
+    expect(res1).not.toBeNull();
+    expect(res1?.submissionStatus).toBe('graded');
+    expect(res1?.score).toBe(9.5);
+    expect(res1?.maxScore).toBe(10);
+    expect(res1?.scoreDisplay).toBe('9.5 / 10 (95%)');
+    expect(res1?.courseName).toBe('Physics 1');
+
+    // Case 2: Graded card with decimal and percentage
+    const gradedCard2 = `Calculus I for Engineering - 02
+New grade available: Quiz 1
+85%`;
+    const res2 = parseSubmissionOrGradeCard(gradedCard2);
+    expect(res2).not.toBeNull();
+    expect(res2?.submissionStatus).toBe('graded');
+    expect(res2?.score).toBe(85);
+    expect(res2?.maxScore).toBe(100);
+    expect(res2?.scoreDisplay).toBe('85%');
+
+    // Case 3: Submission receipt confirmation
+    const submittedCard = `Islamic Culture - 13A - الثقافة الإسلامية
+You submitted: واجب (10 درجات)
+Submitted on 10/12/26, 8:30 PM
+Confirmation Number: #SUB-892147-OK`;
+    const res3 = parseSubmissionOrGradeCard(submittedCard);
+    expect(res3).not.toBeNull();
+    expect(res3?.submissionStatus).toBe('submitted');
+    expect(res3?.submissionReceipt).toBe('#SUB-892147-OK');
+    expect(res3?.courseName).toBe('Islamic Culture');
+
+    // Case 4: Non-submission card returns null
+    const normalCard = `Just a normal notification card without grade or submission words.`;
+    const res4 = parseSubmissionOrGradeCard(normalCard);
+    expect(res4).toBeNull();
+  });
 });

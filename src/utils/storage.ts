@@ -103,14 +103,28 @@ export function getCachedQuickLinksSync(): QuickLink[] {
   return DEFAULT_QUICK_LINKS;
 }
 
+export function generateUniqueSyncKey(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 6; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `BBS-${rand}`;
+}
+
 export function getCachedSettingsSync(): UserSettings {
   const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
+  let settings: UserSettings = DEFAULT_SETTINGS;
   if (raw) {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     } catch {}
   }
-  return DEFAULT_SETTINGS;
+  if (!settings.syncKey || !settings.syncKey.trim()) {
+    settings.syncKey = generateUniqueSyncKey();
+    safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  }
+  return settings;
 }
 
 export async function getSettings(): Promise<UserSettings> {
@@ -122,21 +136,42 @@ export async function getSettings(): Promise<UserSettings> {
             try {
               if (chrome.runtime?.lastError) {
                 const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
-                resolve(raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS);
+                let fallback = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+                if (!fallback.syncKey || !fallback.syncKey.trim()) {
+                  fallback.syncKey = generateUniqueSyncKey();
+                  safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(fallback));
+                }
+                resolve(fallback);
                 return;
               }
               const stored = result?.[STORAGE_KEYS.SETTINGS];
-              const resolved = stored && typeof stored === 'object' ? { ...DEFAULT_SETTINGS, ...stored } : DEFAULT_SETTINGS;
+              let resolved = stored && typeof stored === 'object' ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
+              if (!resolved.syncKey || !resolved.syncKey.trim()) {
+                resolved.syncKey = generateUniqueSyncKey();
+                try {
+                  chrome.storage.local.set({ [STORAGE_KEYS.SETTINGS]: resolved }, () => {});
+                } catch {}
+              }
               safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(resolved));
               resolve(resolved);
             } catch {
               const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
-              resolve(raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS);
+              let fallback = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+              if (!fallback.syncKey || !fallback.syncKey.trim()) {
+                fallback.syncKey = generateUniqueSyncKey();
+                safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(fallback));
+              }
+              resolve(fallback);
             }
           });
         } catch {
           const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
-          resolve(raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS);
+          let fallback = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+          if (!fallback.syncKey || !fallback.syncKey.trim()) {
+            fallback.syncKey = generateUniqueSyncKey();
+            safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(fallback));
+          }
+          resolve(fallback);
         }
       });
     } catch {
@@ -145,15 +180,14 @@ export async function getSettings(): Promise<UserSettings> {
   }
 
   const raw = safeGetLocalStorage(STORAGE_KEYS.SETTINGS);
-  if (raw) {
-    try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-    } catch {
-      return DEFAULT_SETTINGS;
-    }
+  let resolved = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  if (!resolved.syncKey || !resolved.syncKey.trim()) {
+    resolved.syncKey = generateUniqueSyncKey();
+    safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(resolved));
   }
-  return DEFAULT_SETTINGS;
+  return resolved;
 }
+
 
 export async function saveSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
   const current = await getSettings();
@@ -694,31 +728,46 @@ export async function resetUserCoursesToDefault(): Promise<UserCourseConfig[]> {
 }
 
 /**
- * Automatically registers newly discovered courses from scraped tasks into bbs_user_courses
- * if they do not already match any existing configured course.
+ * Automatically registers newly discovered courses from scraped tasks or course lists into bbs_user_courses
+ * if they do not already match any existing configured course, assigning vibrant unique palette colors.
  */
-export async function autoRegisterDiscoveredCourses(tasks: DeadlineTask[]): Promise<UserCourseConfig[]> {
+export async function autoRegisterDiscoveredCourses(
+  tasksOrCourses: (DeadlineTask | { courseName?: string; courseCode?: string })[]
+): Promise<UserCourseConfig[]> {
   const currentCourses = await getUserCourses();
   const palette = [
-    '#2563eb', // Blue
-    '#dc2626', // Red
-    '#059669', // Emerald
-    '#d97706', // Amber
+    '#2563eb', // Royal Blue
+    '#dc2626', // Crimson Red
+    '#059669', // Emerald Green
+    '#d97706', // Amber Gold
     '#7c3aed', // Purple
-    '#db2777', // Pink
+    '#db2777', // Vivid Pink
     '#0891b2', // Cyan
-    '#4b5563'  // Slate
+    '#ea580c', // Orange
+    '#4f46e5', // Indigo
+    '#16a34a', // Leaf Green
+    '#9333ea', // Deep Violet
+    '#0284c7', // Sky Blue
+    '#b91c1c', // Ruby
+    '#0d9488', // Dark Teal
+    '#c026d3', // Fuchsia
+    '#65a30d'  // Lime
   ];
 
   let addedCount = 0;
   const updatedCourses = [...currentCourses];
 
-  for (const task of tasks) {
-    const rawName = (task.courseName || '').trim();
-    const rawCode = (task.courseCode || '').trim();
+  for (const item of tasksOrCourses) {
+    let rawName = (item.courseName || '').trim();
+    let rawCode = (item.courseCode || '').trim();
+
+    // Clean generic placeholder terms
+    if (rawCode.toUpperCase() === 'UOS') rawCode = '';
+    if (rawName.toLowerCase() === 'uos') rawName = '';
+    if (rawName.toLowerCase() === 'general course' && !rawCode) continue;
     if (!rawName && !rawCode) continue;
 
-    // Check if task matches any existing course by code, name, or alias
+    // Check if item matches any existing course by code, name, or alias
     const exists = updatedCourses.some(c => {
       const cCode = (c.courseCode || '').trim().toLowerCase();
       const cName = (c.courseName || '').trim().toLowerCase();
@@ -730,16 +779,19 @@ export async function autoRegisterDiscoveredCourses(tasks: DeadlineTask[]): Prom
       if (Array.isArray(c.aliases)) {
         return c.aliases.some(a => {
           const cleanA = a.trim().toLowerCase();
-          return cleanA && (tName.includes(cleanA) || tCode.includes(cleanA));
+          return cleanA && ((tName && tName.includes(cleanA)) || (tCode && tCode.includes(cleanA)));
         });
       }
       return false;
     });
 
     if (!exists) {
-      // Pick next color from palette
+      // Pick next unused color from palette, or random if all are used
       const usedColors = new Set(updatedCourses.map(c => c.colorHex?.toLowerCase()));
-      const nextColor = palette.find(hex => !usedColors.has(hex.toLowerCase())) || palette[updatedCourses.length % palette.length];
+      const availableColors = palette.filter(hex => !usedColors.has(hex.toLowerCase()));
+      const nextColor = availableColors.length > 0
+        ? availableColors[Math.floor(Math.random() * availableColors.length)]
+        : palette[Math.floor(Math.random() * palette.length)];
 
       const id = 'course_' + (rawCode || rawName).toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 20) + '_' + Math.random().toString(36).substring(2, 6);
 
@@ -764,6 +816,7 @@ export async function autoRegisterDiscoveredCourses(tasks: DeadlineTask[]): Prom
 
   return updatedCourses;
 }
+
 
 export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[]> {
   const tasks = await getTasks();

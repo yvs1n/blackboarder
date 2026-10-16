@@ -124,3 +124,94 @@ export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
     updatedAt: new Date().toISOString()
   };
 }
+
+/**
+ * Parses submission confirmations or grade notification cards from the activity stream.
+ * Converts receipts and posted scores into structured TaskSubmissionUpdate objects.
+ */
+export function parseSubmissionOrGradeCard(cardText: string): import('../types').TaskSubmissionUpdate | null {
+  if (!cardText || cardText.length < 5) return null;
+
+  const isSubmission = /(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(cardText);
+  const isGraded = /(?:grade\s+posted|score\s+posted|graded|new\s+grade|grades\s+available|grades\s+released|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة|درجة\s+جديدة|تم\s+تقييم)/i.test(cardText) ||
+    /^\s*["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?\s*$/m.test(cardText);
+
+  if (!isSubmission && !isGraded) return null;
+
+  const lines = cardText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+
+  const courseLine = lines[0];
+  const { name: courseName, code: courseCode } = parseCourseDetails(courseLine);
+
+  let title = '';
+  if (lines.length >= 2) {
+    title = lines[1]
+      .replace(/^(?:due:\s*|graded:\s*|you\s+submitted\s*|assignment:\s*)/i, '')
+      .replace(/^(?:تسليم:\s*|تم\s+رصد\s*)/i, '')
+      .trim();
+  }
+
+  // Look for score fraction: e.g. "9.5 / 10", ".25 / 10", "10/10"
+  // Must avoid calendar date fractions like 10/12/26 or 9/18/26
+  const fractionMatch = cardText.match(/(?:grade|score|mark|pts?|points?|درجة|علامة)[:\s]*(\.?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?!\s*[\/\-]\s*\d{2,4})/i) ||
+    cardText.match(/^\s*["']?\s*(\.?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*["']?\s*$/m) ||
+    cardText.match(/\b(\.?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*(?:pts?|points?|marks?|درجة)(?!\s*[\/\-]\s*\d{2,4})/i);
+  let score: number | undefined;
+  let maxScore: number | undefined;
+  let scoreDisplay: string | undefined;
+
+  if (fractionMatch) {
+    score = parseFloat(fractionMatch[1]);
+    maxScore = parseFloat(fractionMatch[2]);
+    if (!isNaN(score) && !isNaN(maxScore) && maxScore > 0) {
+      const pct = Math.round((score / maxScore) * 100);
+      scoreDisplay = `${score} / ${maxScore} (${pct}%)`;
+    }
+  }
+
+  // Look for percentage: e.g. "95%"
+  if (score === undefined) {
+    const pctMatch = cardText.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (pctMatch) {
+      score = parseFloat(pctMatch[1]);
+      maxScore = 100;
+      scoreDisplay = `${score}%`;
+    }
+  }
+
+  // Look for confirmation receipt
+  const receiptMatch = cardText.match(/confirmation\s*(?:number|#)?[:\s]*([#\w-]+)/i);
+  const receipt = receiptMatch ? receiptMatch[1] : undefined;
+
+  // Look for submitted date
+  const dateMatch = cardText.match(/(?:submitted\s+(?:on\s+)?|تم\s+التسليم\s+في\s+)(\d{1,2}\/\d{1,2}\/\d{2,4}(?:[,\s]+\d{1,2}:\d{2}(?:\s*[AP]M)?)?)/i);
+  const submittedAt = dateMatch ? dateMatch[1] : undefined;
+
+  if (score !== undefined || (isGraded && !isSubmission)) {
+    return {
+      courseName: courseName !== 'General Course' ? courseName : undefined,
+      courseCode: (courseCode && courseCode !== 'UOS') ? courseCode : undefined,
+      title: title || 'Assignment',
+      submissionStatus: 'graded',
+      score,
+      maxScore,
+      scoreDisplay: scoreDisplay || (score !== undefined ? `${score} pts` : undefined),
+      submittedAt,
+      submissionReceipt: receipt
+    };
+  }
+
+  if (isSubmission) {
+    return {
+      courseName: courseName !== 'General Course' ? courseName : undefined,
+      courseCode: (courseCode && courseCode !== 'UOS') ? courseCode : undefined,
+      title: title || 'Assignment',
+      submissionStatus: 'submitted',
+      submittedAt,
+      submissionReceipt: receipt
+    };
+  }
+
+  return null;
+}

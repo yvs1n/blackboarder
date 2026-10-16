@@ -1,9 +1,9 @@
-import { Announcement, DeadlineTask } from '../types';
+import { Announcement, DeadlineTask, TaskSubmissionUpdate } from '../types';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
-import { parseDirectStreamCard } from '../utils/streamParser';
+import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
 
 /**
@@ -78,6 +78,74 @@ function scrapeUltraStreamDueItems(knownDirectTaskIds?: Set<string>): DeadlineTa
   }
 
   return directTasks;
+}
+
+/**
+ * Scrapes submission receipts and posted marks from Blackboard activity stream cards.
+ */
+function scrapeStreamSubmissionsAndGrades(): TaskSubmissionUpdate[] {
+  const updates: TaskSubmissionUpdate[] = [];
+  const seen = new Set<string>();
+
+  const cards = document.querySelectorAll(
+    'li.stream-item-container, bb-announcement-card, .stream-entry, article[aria-label], div[role="article"], .element-card, [class*="stream-item"], [class*="activity-card"]'
+  );
+
+  cards.forEach(card => {
+    const cardText = card.textContent?.trim() || '';
+    if (!cardText || cardText.length < 5) return;
+
+    const parsed = parseSubmissionOrGradeCard(cardText);
+    if (parsed) {
+      const key = `${parsed.courseCode || parsed.courseName || ''}_${parsed.title.toLowerCase().trim()}_${parsed.submissionStatus}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        updates.push(parsed);
+      }
+    }
+  });
+
+  return updates;
+}
+
+/**
+ * Auto-discovers enrolled courses from page links, course navigation, and DOM cards.
+ */
+function scrapeEnrolledCourses(): { courseName: string; courseCode?: string }[] {
+  const discovered: { courseName: string; courseCode?: string }[] = [];
+  const seen = new Set<string>();
+
+  function register(rawName: string, rawCode?: string) {
+    const { name, code } = parseCourseDetails(`${rawCode || ''} ${rawName || ''}`.trim());
+    if (!name || name === 'General Course' || name.toLowerCase() === 'uos') return;
+    const cleanCode = (code && code !== 'UOS') ? code : undefined;
+    const key = `${cleanCode || ''}_${name.toLowerCase()}`.trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      discovered.push({ courseName: name, courseCode: cleanCode });
+    }
+  }
+
+  // 1. Scan course links and cards on page
+  const courseElements = document.querySelectorAll(
+    'a[href*="/ultra/courses/"], a[href*="course_id="], [data-course-id], .course-element-card, .bb-course-title, [class*="course-title"], [analytics-id*="course"]'
+  );
+  courseElements.forEach(el => {
+    const text = el.textContent?.trim() || '';
+    if (text && text.length > 3 && text.length < 120) {
+      const parsed = parseCourseDetails(text);
+      if (parsed.name && parsed.name !== 'General Course') {
+        register(parsed.name, parsed.code);
+      }
+    }
+  });
+
+  // 2. Pre-seed with any known registered course IDs if user is enrolled
+  KNOWN_UOS_COURSE_IDS.forEach(k => {
+    register(k.name, k.code);
+  });
+
+  return discovered;
 }
 
 /**
@@ -938,7 +1006,13 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     // 2. Scrape announcement cards (incremental)
     const announcements = await scrapeAnnouncementsFull({ fullRescan });
 
-    if (directStreamTasks.length === 0 && announcements.length === 0) {
+    // 3. Scrape submission receipts and posted marks from stream cards
+    const submissionUpdates = scrapeStreamSubmissionsAndGrades();
+
+    // 4. Auto-discover enrolled courses from page
+    const discoveredCourses = scrapeEnrolledCourses();
+
+    if (directStreamTasks.length === 0 && announcements.length === 0 && submissionUpdates.length === 0) {
       if (interactive) {
         showSidekickToast('Blackboarder', 'Up to date. No new deadlines found since last scan.');
       }
@@ -1012,8 +1086,40 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
 
     const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]);
 
-    // Auto-register any new courses found in scanned tasks
-    await autoRegisterDiscoveredCourses(finalTasks).catch(() => {});
+    // Apply submission and grade updates to matching tasks
+    for (const update of submissionUpdates) {
+      const match = finalTasks.find(t => {
+        const res = parseCourseDetails(`${t.courseCode || ''} ${t.courseName || ''}`);
+        const courseMatches = !update.courseCode || !res.code || update.courseCode === res.code ||
+          (update.courseName && res.name && res.name.toLowerCase().includes(update.courseName.toLowerCase()));
+        if (!courseMatches) return false;
+        const cleanUpdateTitle = (update.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanTaskTitle = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cleanUpdateTitle.length >= 3 && (cleanTaskTitle.includes(cleanUpdateTitle) || cleanUpdateTitle.includes(cleanTaskTitle));
+      });
+
+      if (match) {
+        if (update.submissionStatus === 'graded') {
+          match.submissionStatus = 'graded';
+          if (update.score !== undefined) match.score = update.score;
+          if (update.maxScore !== undefined) match.maxScore = update.maxScore;
+          if (update.scoreDisplay) match.scoreDisplay = update.scoreDisplay;
+          match.status = 'completed';
+          match.updatedAt = new Date().toISOString();
+        } else if (update.submissionStatus === 'submitted') {
+          if (match.submissionStatus !== 'graded') {
+            match.submissionStatus = 'submitted';
+            if (update.submittedAt) match.submittedAt = update.submittedAt;
+            if (update.submissionReceipt) match.submissionReceipt = update.submissionReceipt;
+            match.status = 'completed';
+            match.updatedAt = new Date().toISOString();
+          }
+        }
+      }
+    }
+
+    // Auto-register any new courses found in scanned tasks or discovered courses
+    await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => {});
 
     await saveTasks(finalTasks);
 
@@ -1134,15 +1240,23 @@ function init() {
 
               const directTasks = scrapeUltraStreamDueItems(fullRescan ? undefined : new Set(checkpoint.processedDirectTaskIds));
               const announcements = await scrapeAnnouncementsFull({ fullRescan });
+              const submissionUpdates = scrapeStreamSubmissionsAndGrades();
+              const discoveredCourses = scrapeEnrolledCourses();
+
+              // Auto-register discovered courses immediately
+              await autoRegisterDiscoveredCourses([...directTasks, ...announcements, ...discoveredCourses]).catch(() => {});
+
               sendResponse({
                 announcements,
                 directTasks,
+                submissionUpdates,
+                discoveredCourses,
                 isIncremental: !fullRescan,
                 lastScannedAt: checkpoint.lastScannedAt
               });
             } catch (err) {
               console.error('[Scraper] SCRAPE_PAGE failed:', err);
-              sendResponse({ announcements: [], directTasks: [] });
+              sendResponse({ announcements: [], directTasks: [], submissionUpdates: [], discoveredCourses: [] });
             }
           })();
           return true; // Keep message channel open for async response
