@@ -1,4 +1,4 @@
-import type { UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
+import type { UserCourseConfig, CustomSyllabusComponent, Weekday } from '../types';
 import type { CourseScheduleEntry } from './courseSchedule';
 import type { CourseSyllabus, SyllabusComponent } from './syllabusWeights';
 
@@ -79,7 +79,14 @@ export const DAY_INDEX_MAP: Record<Weekday, number> = {
   Wednesday: 3,
   Thursday: 4,
   Friday: 5,
-  Saturday: 6
+  Saturday: 6,
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6
 };
 
 function format12Hour(hour: number, minute: number): string {

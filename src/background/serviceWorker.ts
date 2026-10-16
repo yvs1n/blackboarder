@@ -1,4 +1,4 @@
-import { DeadlineTask, UserSettings, DEFAULT_SETTINGS, UserCourseConfig } from '../types';
+import { DeadlineTask, UserSettings, DEFAULT_SETTINGS } from '../types';
 import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';

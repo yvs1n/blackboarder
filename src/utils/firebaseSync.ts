@@ -203,7 +203,7 @@ export async function updateTaskInFirebase(
  */
 export async function recordTaskDeletionInFirebase(
   taskId: string,
-  device: string = 'Chrome Extension',
+  _device: string = 'Chrome Extension',
   syncKey?: string
 ): Promise<boolean> {
   try {

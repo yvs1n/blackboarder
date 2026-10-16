@@ -1,17 +1,17 @@
-import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, DEFAULT_QUICK_LINKS, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, TaskSubmissionUpdate } from '../types';
-import { getTasks, saveTasks, addTask, updateTask, deleteTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses } from '../utils/storage';
+import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, TaskSubmissionUpdate, Announcement } from '../types';
+import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter } from '../utils/courseHelper';
-import { getCourseHex, getCourseColorTheme, PERMANENT_COURSE_LEGEND } from '../utils/courseColors';
+import { getCourseHex, getCourseColorTheme } from '../utils/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
-import { getAllCourseSchedules, findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
+import { findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
-import { pushTasksToFirebase, fetchTasksFromFirebase, FIREBASE_DB_URL } from '../utils/firebaseSync';
-import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from '../utils/taskMerge';
+import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
+import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, deduplicateTaskList } from '../utils/taskMerge';
 import { parseBannerScheduleText, parseSyllabusWeightsText, parseCoursesFromJson, mergeImportedCourses } from '../core/courseImporter';
-import { getActiveCourseLegend, getActiveUserCourses } from '../core/userCourses';
+import { getActiveCourseLegend } from '../core/userCourses';
 
 // State
 let currentTasks: DeadlineTask[] = [];
@@ -190,17 +190,6 @@ function initThemeSync() {
   applyTheme(theme);
 }
 
-async function initTheme() {
-  initThemeSync();
-  try {
-    const settings = await getSettings();
-    if (settings.theme && settings.theme !== currentThemeSetting) {
-      applyTheme(settings.theme);
-    }
-  } catch {}
-}
-
-
 // Forms
 const formAddTask = document.getElementById('form-add-task') as HTMLFormElement;
 const formSettings = document.getElementById('form-settings') as HTMLFormElement;
@@ -282,8 +271,8 @@ function switchView(view: AppView) {
   } else if (view === 'settings') {
     viewSettings.classList.add('active');
     loadSettingsForm();
-    renderSyllabusReference();
-    renderScheduleReference();
+    renderUserCoursesManager();
+    renderQuickLinksManager();
   }
 }
 
@@ -2986,7 +2975,7 @@ function setupEvents() {
     const resolved = resolveTaskWeight(course, title, type, notes);
     if (resolved.weight !== undefined) {
       addWeightInput.value = String(resolved.weight);
-      addWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay)}</b>: ${escapeHtml(resolved.syllabusNote)}`;
+      addWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay || '')}</b>: ${escapeHtml(resolved.syllabusNote || '')}`;
       addWeightHint.style.color = '#166534';
     } else {
       addWeightHint.innerHTML = `${getSvgIcon('info', 'mr-1')} <span>Course or weight not found in syllabus database.</span>`;
@@ -3104,7 +3093,7 @@ function setupEvents() {
     const resolved = resolveTaskWeight(course, title, type, `${desc} ${notes}`);
     if (resolved.weight !== undefined) {
       editWeightInput.value = String(resolved.weight);
-      editWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay)}</b>: ${escapeHtml(resolved.syllabusNote)}`;
+      editWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay || '')}</b>: ${escapeHtml(resolved.syllabusNote || '')}`;
       editWeightHint.style.color = '#166534';
     } else {
       editWeightHint.innerHTML = `${getSvgIcon('info', 'mr-1')} <span>Course or weight not found in syllabus database.</span>`;
@@ -3922,6 +3911,7 @@ function initAiExtractModal() {
             weight: t.weight,
             weightDisplay: t.weightDisplay,
             syllabusNote: t.syllabusNote,
+            confidence: t.confidence ?? 1.0,
             extractedBy: 'ai',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -4291,6 +4281,7 @@ async function initWalkthroughModal() {
   }
 
   function openModal() {
+    if (!modal) return;
     getSettings().then(s => {
       if (keyDisplay && s.syncKey) keyDisplay.textContent = s.syncKey;
     }).catch(() => {});
@@ -4300,6 +4291,7 @@ async function initWalkthroughModal() {
   }
 
   function closeModal(markSeen: boolean = true) {
+    if (!modal) return;
     modal.style.display = 'none';
     modal.classList.add('hidden');
     if (markSeen) {

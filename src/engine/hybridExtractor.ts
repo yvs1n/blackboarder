@@ -63,7 +63,7 @@ export async function extractDeadlinesHybrid(
   }
 
   // Step 2: Jev Fast Classification Gatekeeper (~100ms)
-  let jevCategoryHint: { category?: any; priority?: any } | undefined;
+  let jevCategoryHint: { category?: any; priority?: any; hasRoom?: boolean; hasTime?: boolean } | undefined;
   if (settings.useJevClassification && settings.jevApiKey) {
     try {
       const jevResult = await classifyAnnouncementWithJev(

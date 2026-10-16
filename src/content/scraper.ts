@@ -532,7 +532,7 @@ async function extractAllCourseIdsFromPage(): Promise<string[]> {
 /**
  * Extracts Blackboard course ID from the URL or DOM if present.
  */
-function extractCourseIdFromPage(): string | null {
+export function extractCourseIdFromPage(): string | null {
   const urlMatch = window.location.href.match(/courses\/(_\d+_\d+)/) ||
                    window.location.href.match(/course_id=(_\d+_\d+)/);
   if (urlMatch) return urlMatch[1];
