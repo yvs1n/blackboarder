@@ -39,6 +39,11 @@
   </style>
 </head>
 <body>
+<div id="app-update-banner" class="app-update-banner" role="status" hidden>
+  <span>A new version of Blackboarder is ready. Your data stays intact.</span>
+  <button type="button" id="btn-update-banner-apply">Update</button>
+  <button type="button" id="btn-update-banner-dismiss" aria-label="Dismiss">Later</button>
+</div>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none;" aria-hidden="true">
     <defs>
@@ -721,6 +726,23 @@
             <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-bell"></use></svg>
             <span>Send Test Notification</span>
           </button>
+        </div>
+      </div>
+
+      <!-- App Updates Card -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <div class="settings-icon-title">
+            <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+            <div>
+              <h3 class="settings-card-title">App Updates <span id="app-version-label" style="font-weight: 400; opacity: 0.6; font-size: 12px;"></span></h3>
+              <p class="settings-card-desc" id="app-update-status">Check for the latest version. Your tasks, courses and settings are kept.</p>
+            </div>
+          </div>
+        </div>
+        <div class="card-action-bar">
+          <button id="btn-check-update" class="btn-outline-action" type="button"><span>Check for Updates</span></button>
+          <button id="btn-apply-update" class="btn-outline-action" type="button" hidden><span>Update Now</span></button>
         </div>
       </div>
 

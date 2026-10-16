@@ -1,11 +1,13 @@
-const CACHE_NAME = 'sidekick-mobile-v17';
+const CACHE_NAME = 'sidekick-mobile-v18';
+// Notification schedule lives in its own cache so app updates never wipe it
+const NOTIF_STORE_NAME = 'sidekick-notif-store';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=17',
+  './styles.css?v=18',
   './app.js',
-  './app.js?v=17',
+  './app.js?v=18',
   './widget.js',
   './manifest.json',
   './icon-192.png',
@@ -32,7 +34,7 @@ function cleanResponse(response) {
 
 // Install: Cache core app shell with clean uncompressed, unredirected responses
 self.addEventListener('install', event => {
-  self.skipWaiting();
+  // No skipWaiting here: the page shows an Update button and sends SKIP_WAITING on user confirm
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
       for (const asset of STATIC_ASSETS) {
@@ -74,7 +76,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE_NAME && k !== NOTIF_STORE_NAME).map(k => caches.delete(k))
       );
     }).then(() => self.clients.claim())
   );
@@ -224,7 +226,7 @@ const NOTIF_CACHE_URL = '/__bbs_scheduled_tasks__';
 
 async function getStoredTasksForNotifications() {
   try {
-    const cache = await caches.open(CACHE_NAME);
+    const cache = await caches.open(NOTIF_STORE_NAME);
     const resp = await cache.match(NOTIF_CACHE_URL);
     if (resp) {
       return await resp.json();
@@ -237,7 +239,7 @@ async function getStoredTasksForNotifications() {
 
 async function saveStoredTasksForNotifications(data) {
   try {
-    const cache = await caches.open(CACHE_NAME);
+    const cache = await caches.open(NOTIF_STORE_NAME);
     const existing = await getStoredTasksForNotifications();
     const merged = {
       tasks: data.tasks !== undefined ? data.tasks : existing.tasks,
@@ -380,7 +382,7 @@ async function checkDeadlinesInServiceWorker() {
       }
 
       // 3. Due Now / Closing (0 to -30m)
-      if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+      if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -6 * 3600 * 1000) {
         const key = `${task.id}_due`;
         const last = notifiedMap[key] || 0;
         if (now - last > 2 * 3600 * 1000) {
@@ -507,7 +509,7 @@ self.addEventListener('message', event => {
         advanceHours: event.data.advanceHours,
         urgentHours: event.data.urgentHours,
         dueAlertEnabled: event.data.dueAlertEnabled
-      })
+      }).then(() => checkDeadlinesInServiceWorker())
     );
   } else if (event.data.type === 'CHECK_DEADLINES') {
     event.waitUntil(checkDeadlinesInServiceWorker());
@@ -515,7 +517,7 @@ self.addEventListener('message', event => {
     self.skipWaiting();
   } else if (event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
-      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      caches.keys().then(keys => Promise.all(keys.filter(k => k !== NOTIF_STORE_NAME).map(k => caches.delete(k))))
     );
   }
 });

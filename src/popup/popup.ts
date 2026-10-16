@@ -686,14 +686,14 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
     e.stopPropagation();
     const prevStatus = task.status;
     const nextStatus: TaskStatus = isCompleted ? 'pending' : 'completed';
-    currentTasks = await updateTask(task.id, { status: nextStatus });
+    currentTasks = applyTaskUpdateLocal(task.id, { status: nextStatus });
     refreshAllViews();
     syncTasksToCloud(currentTasks, 'Drawer Status Change');
     showToast(
       nextStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
       'Undo',
       async () => {
-        currentTasks = await updateTask(task.id, { status: prevStatus });
+        currentTasks = applyTaskUpdateLocal(task.id, { status: prevStatus });
         refreshAllViews();
         syncTasksToCloud(currentTasks, 'Revert Status Change');
         showToast('Status reverted');
@@ -714,8 +714,8 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
   card.querySelector('.btn-card-delete')?.addEventListener('click', async e => {
     e.stopPropagation();
     const taskToDelete = task;
-    await recordLocalTombstone(task.id);
-    currentTasks = await deleteTask(task.id);
+    recordLocalTombstone(task.id);
+    currentTasks = removeTaskLocal(task.id);
     refreshAllViews();
     syncTasksToCloud(currentTasks, 'Drawer Deleted Deadline');
     showToast(
@@ -1905,14 +1905,14 @@ function renderTasks() {
       e.stopPropagation();
       const prevStatus = task.status;
       const nextStatus: TaskStatus = isCompleted ? 'pending' : 'completed';
-      currentTasks = await updateTask(task.id, { status: nextStatus });
+      currentTasks = applyTaskUpdateLocal(task.id, { status: nextStatus });
       refreshAllViews();
       syncTasksToCloud(currentTasks, 'Status Change');
       showToast(
         nextStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
         'Undo',
         async () => {
-          currentTasks = await updateTask(task.id, { status: prevStatus });
+          currentTasks = applyTaskUpdateLocal(task.id, { status: prevStatus });
           refreshAllViews();
           syncTasksToCloud(currentTasks, 'Revert Status Change');
           showToast('Status reverted');
@@ -2036,7 +2036,7 @@ function openReadingSheet(task: DeadlineTask) {
 
   content.querySelector('.modal-reading-toggle-btn')?.addEventListener('click', async () => {
     const nextStatus: TaskStatus = isCompleted ? 'pending' : 'completed';
-    currentTasks = await updateTask(task.id, { status: nextStatus });
+    currentTasks = applyTaskUpdateLocal(task.id, { status: nextStatus });
     refreshAllViews();
     syncTasksToCloud(currentTasks, 'Status Change');
     closeReadingSheet();
@@ -2115,14 +2115,27 @@ function closeRoomPicker() {
 
 async function applyRoomChange(taskId: string, newRoom: string) {
   const cleanedRoom = (newRoom || '').trim();
-  currentTasks = await updateTask(taskId, { room: cleanedRoom || undefined, userEdited: true });
+  currentTasks = applyTaskUpdateLocal(taskId, { room: cleanedRoom || undefined, userEdited: true });
   refreshAllViews();
   syncTasksToCloud(currentTasks, 'Room Change');
   showToast(`Room updated to "${cleanedRoom || 'None'}"`);
 }
 
 // Refresh all views after task change
+let refreshScheduled = false;
 function refreshAllViews() {
+  if (refreshScheduled) return;
+  refreshScheduled = true;
+  // Let the browser paint any toast/UI feedback added in this task before the heavy re-render
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      refreshScheduled = false;
+      renderAllViewsNow();
+    }, 0);
+  });
+}
+
+function renderAllViewsNow() {
   updateStats(currentTasks);
   updateCourseFilterOptions(currentTasks);
   renderGradeTracker(currentTasks);
@@ -2135,7 +2148,33 @@ function refreshAllViews() {
   }
 }
 
-async function recordLocalTombstone(taskId: string): Promise<void> {
+// Optimistic UI: in-memory state is the source of truth, storage writes are queued in order
+let persistChain: Promise<void> = Promise.resolve();
+function persistTasksInBackground(tasks: DeadlineTask[]): Promise<void> {
+  persistChain = persistChain.then(() => saveTasks(tasks)).catch(() => {});
+  return persistChain;
+}
+
+function applyTaskUpdateLocal(taskId: string, updates: Partial<DeadlineTask>): DeadlineTask[] {
+  const now = new Date().toISOString();
+  currentTasks = currentTasks.map(t => (t.id === taskId ? { ...t, ...updates, updatedAt: now } : t));
+  persistTasksInBackground(currentTasks);
+  return currentTasks;
+}
+
+function removeTaskLocal(taskId: string): DeadlineTask[] {
+  currentTasks = currentTasks.filter(t => t.id !== taskId);
+  persistTasksInBackground(currentTasks);
+  return currentTasks;
+}
+
+let tombstoneChain: Promise<void> = Promise.resolve();
+function recordLocalTombstone(taskId: string): Promise<void> {
+  tombstoneChain = tombstoneChain.then(() => writeLocalTombstone(taskId)).catch(() => {});
+  return tombstoneChain;
+}
+
+async function writeLocalTombstone(taskId: string): Promise<void> {
   try {
     const raw = await new Promise<any>(resolve => {
       chrome.storage?.local?.get(['bbs_tombstones'], res => resolve(res?.bbs_tombstones || {}));
@@ -2178,6 +2217,7 @@ async function getLocalTombstones(): Promise<Record<string, string>> {
  */
 function syncTasksToCloud(tasks: DeadlineTask[], actionDescription: string = 'Extension Update') {
   (async () => {
+    await Promise.all([persistChain, tombstoneChain]);
     // Merge in anything the phone changed since the last pull before overwriting the cloud copy
     const pulled = await pullTasksFromFirebaseIfNewer();
     const toPush = pulled ?? tasks;
@@ -3041,7 +3081,7 @@ function setupEvents() {
     currentTasks = currentTasks.map(t => (t.id === editingTaskId ? { ...t, ...updatedTaskFields } : t));
     currentTasks.sort(compareTasksByTime);
 
-    await saveTasks(currentTasks);
+    persistTasksInBackground(currentTasks);
 
     closeEditModal();
     selectedDateStr = dateVal;
@@ -3078,8 +3118,8 @@ function setupEvents() {
     const taskToDelete = currentTasks.find(t => t.id === editingTaskId);
     if (!taskToDelete) return;
 
-    await recordLocalTombstone(editingTaskId);
-    currentTasks = await deleteTask(editingTaskId);
+    recordLocalTombstone(editingTaskId);
+    currentTasks = removeTaskLocal(editingTaskId);
     closeEditModal();
     refreshAllViews();
     syncTasksToCloud(currentTasks, 'Deleted Deadline');

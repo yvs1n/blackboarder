@@ -2751,47 +2751,95 @@ async function refreshDataInBackground() {
   await fetchTasksFromServer(false);
 }
 
+// Bump together with CACHE_NAME in sw.js on every release
+const APP_VERSION = '18';
+
 // Register Service Worker
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    let refreshing = false;
+    let userRequestedUpdate = false;
+    let swReg = null;
 
-    // When the new service worker activates and claims the client
+    const setUpdateUi = (available) => {
+      const banner = document.getElementById('app-update-banner');
+      if (banner) banner.hidden = !available;
+      const status = document.getElementById('app-update-status');
+      if (status) status.textContent = available ? 'A new version is ready to install.' : 'You are on the latest version.';
+      const applyBtn = document.getElementById('btn-apply-update');
+      if (applyBtn) applyBtn.hidden = !available;
+    };
+
+    const applyUpdate = () => {
+      const waiting = swReg && swReg.waiting;
+      if (!waiting) { window.location.reload(); return; }
+      userRequestedUpdate = true;
+      waiting.postMessage({ type: 'SKIP_WAITING' });
+    };
+
+    const checkForUpdate = async (manual) => {
+      if (!swReg) return;
+      const status = document.getElementById('app-update-status');
+      if (manual && status) status.textContent = 'Checking for updates...';
+      try {
+        await swReg.update();
+      } catch (e) {
+        if (manual && status) status.textContent = 'Could not check (offline?).';
+        return;
+      }
+      if (swReg.waiting && navigator.serviceWorker.controller) {
+        setUpdateUi(true);
+      } else if (manual) {
+        setUpdateUi(false);
+      }
+    };
+
+    // Reload only after the user accepted the update (data in localStorage is preserved)
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        console.log('[SW] New service worker activated, reloading page...');
+      if (userRequestedUpdate) {
+        userRequestedUpdate = false;
         window.location.reload();
       }
     });
 
+    document.getElementById('btn-apply-update')?.addEventListener('click', applyUpdate);
+    document.getElementById('btn-update-banner-apply')?.addEventListener('click', applyUpdate);
+    document.getElementById('btn-update-banner-dismiss')?.addEventListener('click', () => {
+      const banner = document.getElementById('app-update-banner');
+      if (banner) banner.hidden = true;
+    });
+    document.getElementById('btn-check-update')?.addEventListener('click', () => checkForUpdate(true));
+    const verEl = document.getElementById('app-version-label');
+    if (verEl) verEl.textContent = 'v' + APP_VERSION;
+
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('[SW] Registered successfully:', reg.scope);
-        // Proactively check for worker updates on page load
-        if (reg.update) {
-          reg.update().catch(() => {});
-        }
+        swReg = reg;
 
-        // Detect new worker installed and prompt immediate update
+        // A new version may already be waiting from a previous visit
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          setUpdateUi(true);
+        }
+        reg.update?.().catch(() => {});
+
+        // Detect new worker installed and offer the update to the user
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('[SW] New version detected and installed.');
-                if (!refreshing) {
-                  showToast('Website updated to latest version! Reloading...', 2000);
-                  setTimeout(() => {
-                    if (!refreshing) {
-                      refreshing = true;
-                      window.location.reload();
-                    }
-                  }, 1200);
-                }
+                setUpdateUi(true);
+                showToast('A new version is available. Tap Update to install.');
               }
             });
           }
+        });
+
+        // Re-check periodically and whenever the app returns to the foreground
+        setInterval(() => checkForUpdate(false), 30 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') checkForUpdate(false);
         });
 
         registerPeriodicSync();
@@ -3076,7 +3124,7 @@ async function checkUpcomingDeadlines(isInteractive = false) {
     }
 
     // 3. Due Now / Closing (0 to -30m)
-    if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -30 * 60 * 1000) {
+    if (dueAlertEnabled && timeRemaining <= 0 && timeRemaining >= -6 * 3600 * 1000) {
       const key = `${task.id}_due`;
       const last = notifiedMap[key] || 0;
       if (now - last > 2 * 3600 * 1000) {
@@ -3597,7 +3645,7 @@ async function syncBidirectionally(isManual = false) {
     await fetchTasksFromServer(isManual);
 
     // 3. Push full reconciled state to cloud so both laptop and phone are in lockstep
-    await syncToCloudAndLocal();
+    await syncToCloudAndLocal(true);
 
     if (isManual) {
       showToast(`Synced with cloud: ${state.tasks.length} deadlines up to date`);
@@ -4064,24 +4112,26 @@ function renderCalendar() {
 // ==========================================================================
 // Day Sheet Drawer
 // ==========================================================================
+function closeDaySheet() {
+  const backdrop = document.getElementById('day-sheet-backdrop');
+  const drawer = document.getElementById('day-sheet-drawer');
+  if (backdrop) {
+    backdrop.classList.add('hidden');
+    backdrop.style.display = 'none';
+  }
+  if (drawer) {
+    drawer.classList.add('hidden');
+    drawer.style.display = 'none';
+  }
+}
+window.closeDaySheet = closeDaySheet;
+
 function initDaySheet() {
   const backdrop = document.getElementById('day-sheet-backdrop');
   const closeBtn = document.getElementById('btn-close-day-sheet');
-  const drawer = document.getElementById('day-sheet-drawer');
 
-  function closeSheet() {
-    if (backdrop) {
-      backdrop.classList.add('hidden');
-      backdrop.style.display = 'none';
-    }
-    if (drawer) {
-      drawer.classList.add('hidden');
-      drawer.style.display = 'none';
-    }
-  }
-
-  if (backdrop) backdrop.addEventListener('click', closeSheet);
-  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+  if (backdrop) backdrop.addEventListener('click', closeDaySheet);
+  if (closeBtn) closeBtn.addEventListener('click', closeDaySheet);
 }
 
 function openDaySheet(dateStr, dayTasks) {
@@ -4216,15 +4266,12 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     });
 
     // Toggle status with 5s undo toast
-    item.querySelector('.btn-sel-toggle')?.addEventListener('click', async (e) => {
+    item.querySelector('.btn-sel-toggle')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const prevStatus = task.status;
       const newStatus = prevStatus === 'completed' ? 'pending' : 'completed';
       task.status = newStatus;
       task.updatedAt = new Date().toISOString();
-
-      enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
-      await syncToCloudAndLocal();
 
       showToast(
         newStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
@@ -4233,10 +4280,13 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
           task.status = prevStatus;
           task.updatedAt = new Date().toISOString();
           enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
-          await syncToCloudAndLocal();
+          syncToCloudAndLocal();
           showToast('Status reverted');
         }
       );
+
+      enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+      syncToCloudAndLocal();
     });
 
     // Edit deadline
@@ -4386,27 +4436,25 @@ function renderUpNextAgenda() {
         item.style.transform = 'scale(0.98)';
         item.style.transition = 'all 0.16s ease';
 
-        setTimeout(async () => {
-          const prevStatus = task.status;
-          const newStatus = 'completed';
-          task.status = newStatus;
-          task.updatedAt = new Date().toISOString();
+        const prevStatus = task.status;
+        const newStatus = 'completed';
+        task.status = newStatus;
+        task.updatedAt = new Date().toISOString();
 
-          enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
-          await syncToCloudAndLocal();
+        showToast(
+          'Marked as completed',
+          'Undo',
+          async () => {
+            task.status = prevStatus;
+            task.updatedAt = new Date().toISOString();
+            enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
+            syncToCloudAndLocal();
+            showToast('Status reverted');
+          }
+        );
 
-          showToast(
-            'Marked as completed',
-            'Undo',
-            async () => {
-              task.status = prevStatus;
-              task.updatedAt = new Date().toISOString();
-              enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
-              await syncToCloudAndLocal();
-              showToast('Status reverted');
-            }
-          );
-        }, 160);
+        enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+        syncToCloudAndLocal();
       });
     }
   });
@@ -4832,7 +4880,7 @@ function bindTaskCardEvents(parentContainer) {
   // Bind Status Toggle with 5-Second Undo & Offline Queue
   const toggleButtons = parentContainer.querySelectorAll('.status-checkbox-btn, .btn-card-toggle');
   toggleButtons.forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const taskId = btn.getAttribute('data-task-id');
       const task = state.tasks.find(t => t.id === taskId);
@@ -4843,9 +4891,6 @@ function bindTaskCardEvents(parentContainer) {
       task.status = newStatus;
       task.updatedAt = new Date().toISOString();
 
-      enqueueOfflineMutation({ type: 'status', taskId, status: newStatus });
-      await syncToCloudAndLocal();
-
       showToast(
         newStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
         'Undo',
@@ -4853,10 +4898,13 @@ function bindTaskCardEvents(parentContainer) {
           task.status = prevStatus;
           task.updatedAt = new Date().toISOString();
           enqueueOfflineMutation({ type: 'status', taskId, status: prevStatus });
-          await syncToCloudAndLocal();
+          syncToCloudAndLocal();
           showToast('Status reverted');
         }
       );
+
+      enqueueOfflineMutation({ type: 'status', taskId, status: newStatus });
+      syncToCloudAndLocal();
     });
   });
 }
@@ -5030,14 +5078,11 @@ function renderReadingPane(task) {
     openEditTaskModal(task);
   });
 
-  pane.querySelector('.reading-toggle-status-btn')?.addEventListener('click', async () => {
+  pane.querySelector('.reading-toggle-status-btn')?.addEventListener('click', () => {
     const prevStatus = task.status;
     const newStatus = prevStatus === 'completed' ? 'pending' : 'completed';
     task.status = newStatus;
     task.updatedAt = new Date().toISOString();
-
-    enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
-    await syncToCloudAndLocal();
 
     showToast(
       newStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
@@ -5046,10 +5091,13 @@ function renderReadingPane(task) {
         task.status = prevStatus;
         task.updatedAt = new Date().toISOString();
         enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
-        await syncToCloudAndLocal();
+        syncToCloudAndLocal();
         showToast('Status reverted');
       }
     );
+
+    enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+    syncToCloudAndLocal();
   });
 }
 
@@ -5638,6 +5686,9 @@ function showToast(message, actionText = null, onAction = null) {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
+  // Clear previous toast immediately for crisp, instant feedback
+  container.innerHTML = '';
+
   const toast = document.createElement('div');
   toast.className = 'toast';
 
@@ -6144,7 +6195,9 @@ function initModals() {
 
     closeEditModal();
     enqueueOfflineMutation({ type: 'edit', task });
-    await syncToCloudAndLocal();
+
+    showToast('Deadline updated and synced with Firebase');
+    syncToCloudAndLocal();
 
     // If #day-sheet-drawer is open, refresh #day-sheet-items with the re-sorted tasks for that day
     const dayDrawer = document.getElementById('day-sheet-drawer');
@@ -6153,8 +6206,6 @@ function initModals() {
       dayTasks.sort(compareTasksByTime);
       openDaySheet(dateVal, dayTasks);
     }
-
-    showToast('Deadline updated and synced with Firebase');
   });
 
   // Delete Task Button with 5-Second Undo
@@ -6181,7 +6232,6 @@ function initModals() {
 
     recordLocalTombstone(taskId);
     enqueueOfflineMutation({ type: 'delete', taskId });
-    await syncToCloudAndLocal();
 
     showToast(
       `Deleted "${deletedTask.title.slice(0, 22)}..."`,
@@ -6190,10 +6240,12 @@ function initModals() {
         removeLocalTombstone(deletedTask.id);
         state.tasks.splice(taskIndex, 0, deletedTask);
         enqueueOfflineMutation({ type: 'add', task: deletedTask });
-        await syncToCloudAndLocal();
+        syncToCloudAndLocal();
         showToast('Deadline restored');
       }
     );
+
+    syncToCloudAndLocal();
   });
 
   // Add Form Submit
@@ -6282,8 +6334,8 @@ function initModals() {
     state.tasks.sort(compareTasksByTime);
     addForm.reset();
     closeAddModal();
-    await syncToCloudAndLocal();
     showToast('New deadline added and synced');
+    syncToCloudAndLocal();
   });
 
   initOnboardingModal();
@@ -6354,6 +6406,9 @@ function closeEditModal() {
     modal.classList.add('hidden');
   }
 }
+const closeEditTaskModal = closeEditModal;
+window.closeEditModal = closeEditModal;
+window.closeEditTaskModal = closeEditModal;
 
 function openAddTaskModal(prefilledDate = null) {
   const modal = document.getElementById('modal-add-task');
@@ -6612,9 +6667,6 @@ function openReadingSheet(task) {
     task.updatedAt = new Date().toISOString();
     closeReadingSheet();
 
-    enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
-    await syncToCloudAndLocal();
-
     showToast(
       newStatus === 'completed' ? 'Marked as completed' : 'Reverted to pending',
       'Undo',
@@ -6622,10 +6674,13 @@ function openReadingSheet(task) {
         task.status = prevStatus;
         task.updatedAt = new Date().toISOString();
         enqueueOfflineMutation({ type: 'status', taskId: task.id, status: prevStatus });
-        await syncToCloudAndLocal();
+        syncToCloudAndLocal();
         showToast('Status reverted');
       }
     );
+
+    enqueueOfflineMutation({ type: 'status', taskId: task.id, status: newStatus });
+    syncToCloudAndLocal();
   });
 }
 
@@ -6754,7 +6809,7 @@ function initOnboardingModal() {
   });
 }
 
-async function syncToCloudAndLocal() {
+async function syncToCloudAndLocal(waitForNetwork = false) {
   state.tasks = (state.tasks || []).filter(isValidTask);
   state.tasks.sort(compareTasksByTime);
   state.lastSync = new Date().toISOString();
@@ -6764,11 +6819,24 @@ async function syncToCloudAndLocal() {
     localStorage.setItem('bbs_quick_links', JSON.stringify(state.quickLinks));
   }
 
-  updateAllViews();
-  updateSyncBanner();
-  syncTasksToServiceWorker();
-  checkUpcomingDeadlines(false);
+  // Defer heavy DOM re-renders by 1 frame so toasts and tactile click feedback paint immediately
+  requestAnimationFrame(() => {
+    updateAllViews();
+    updateSyncBanner();
+    syncTasksToServiceWorker();
+    checkUpcomingDeadlines(false);
+  });
 
+  // Local state is already saved and rendered above. Network pushes run in the background,
+  // serialized, so toasts and UI feedback never wait on Firebase round trips.
+  const run = () => pushStateToCloud();
+  cloudSyncChain = cloudSyncChain.then(run, run).catch(() => false);
+  return waitForNetwork ? cloudSyncChain : true;
+}
+
+let cloudSyncChain = Promise.resolve(true);
+
+async function pushStateToCloud() {
   // Preserve latest courses and coursesUpdatedAt from cloud snapshot
   let coursesToSync = state.userCourses || undefined;
   let coursesUpdatedAtToSync = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at') || undefined;

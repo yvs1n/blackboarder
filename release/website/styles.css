@@ -3420,7 +3420,7 @@ input:checked + .slider:before {
   right: 16px;
   max-width: 380px;
   margin: 0 auto;
-  z-index: 200;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4952,3 +4952,18 @@ input:checked + .slider:before {
 }
 
 
+
+/* In-app update prompt */
+.app-update-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  background: #2563eb; color: #fff; font-size: 13px; font-weight: 600;
+}
+.app-update-banner[hidden] { display: none; }
+.app-update-banner span { flex: 1; min-width: 0; }
+.app-update-banner button {
+  border: 0; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer;
+  background: #fff; color: #1d4ed8;
+}
+.app-update-banner button#btn-update-banner-dismiss { background: transparent; color: #fff; }
