@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "commit": "dac6d8d29f0a6f9c1e5383e69bc8f20f43604ed4",
-  "shortCommit": "dac6d8d",
-  "timestamp": "2026-10-20T15:35:45.719Z",
-  "message": "fix: isolate dark mode classes, embed static dark CSS, and stop DOM card mutations",
+  "commit": "4810e4b145631f1a6a4121611ab540d4af018d77",
+  "shortCommit": "4810e4b",
+  "timestamp": "2026-10-20T15:39:24.437Z",
+  "message": "feat: production release with Swiss Grid design system and zero-trust security hardening",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

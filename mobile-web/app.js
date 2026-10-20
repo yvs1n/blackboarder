@@ -2816,8 +2816,8 @@ async function refreshDataInBackground() {
 
 // Bump together with CACHE_NAME in sw.js on every release
 const APP_VERSION = '19';
-const APP_BUILD_COMMIT = 'dac6d8d';
-const APP_BUILD_TIMESTAMP = '2026-10-20T15:35:45.719Z';
+const APP_BUILD_COMMIT = '4810e4b';
+const APP_BUILD_TIMESTAMP = '2026-10-20T15:39:24.437Z';
 const GITHUB_REPO_API = 'https://api.github.com/repos/yvs1n/blackboarder/commits/main';
 const GITHUB_RAW_VERSION = 'https://raw.githubusercontent.com/yvs1n/blackboarder/main/version.json';
 
