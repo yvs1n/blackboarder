@@ -1,0 +1,7 @@
+name = "blackboard-sidekick-cloud"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# To bind Cloudflare KV: run 'npx wrangler kv namespace create TASKS_KV'
+# or bind it in Cloudflare Dashboard: Settings > Variables > KV Namespace Bindings
+

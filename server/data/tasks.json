@@ -1,0 +1,615 @@
+{
+  "tasks": [
+    {
+      "id": "int-task-1",
+      "courseCode": "1440131",
+      "courseName": "Calculus I for Engineering",
+      "title": "Calculus Midterm Exam",
+      "description": "Covers Chapters 1 to 4",
+      "dueDate": "2026-10-20T12:30:00.000Z",
+      "hasSpecificTime": true,
+      "type": "exam",
+      "priority": "high",
+      "status": "completed",
+      "weight": 30,
+      "weightDisplay": "30% Midterm (Paper)",
+      "sourceSnippet": "Midterm exam is on October 20 at 12:30 PM.",
+      "confidence": 1,
+      "extractedBy": "ai",
+      "createdAt": "2026-10-16T20:57:44.983Z",
+      "updatedAt": "2026-10-16T20:57:45.071Z"
+    },
+    {
+      "id": "int-task-2",
+      "courseCode": "0401102",
+      "courseName": "Introduction to Computer Engineering",
+      "title": "Computer Eng Quiz 3",
+      "description": "Logic Gates and Boolean Algebra",
+      "dueDate": "2026-10-22T11:00:00.000Z",
+      "hasSpecificTime": true,
+      "type": "quiz",
+      "priority": "medium",
+      "status": "pending",
+      "weight": 6.67,
+      "weightDisplay": "6.7% per Quiz",
+      "sourceSnippet": "Quiz 3 will be held on Oct 22 during class.",
+      "confidence": 0.95,
+      "extractedBy": "local",
+      "createdAt": "2026-10-16T20:57:44.983Z",
+      "updatedAt": "2026-10-16T20:57:44.983Z"
+    }
+  ],
+  "courses": [
+    {
+      "aliases": [
+        "intro.*comp",
+        "comp(?:uter)?\\s*eng",
+        "هندسة.*حاسوب",
+        "حاسوب",
+        "1502 101 01",
+        "1502 101",
+        "1502101",
+        "0402101",
+        "0402102"
+      ],
+      "colorHex": "#7c7c7c",
+      "courseCode": "1502101",
+      "courseName": "Introduction to Computer Eng.",
+      "crn": "12056",
+      "id": "compeng",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Tuesday",
+            "Thursday"
+          ],
+          "endTime": "12:15",
+          "instructor": "Arain, Bilal",
+          "location": "UOS Men's Campus, A8, 103",
+          "room": "A8-103",
+          "startTime": "11:00"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "compeng_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "امتحان\\s*نهائي",
+            "نهائي"
+          ],
+          "name": "Final Exam",
+          "note": "TBA (45%)",
+          "totalWeight": 45,
+          "type": "exam",
+          "unitWeight": 45
+        },
+        {
+          "id": "compeng_midterm",
+          "keywords": [
+            "midterm\\s*exam",
+            "midterm",
+            "امتحان\\s*نصفي",
+            "نصفي",
+            "منتصف"
+          ],
+          "name": "Midterm Exam",
+          "note": "TBA (30%)",
+          "totalWeight": 30,
+          "type": "exam",
+          "unitWeight": 30
+        },
+        {
+          "count": 3,
+          "id": "compeng_quizzes",
+          "keywords": [
+            "quiz",
+            "كويز",
+            "امتحان\\s*قصير"
+          ],
+          "name": "Quizzes",
+          "note": "Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)",
+          "totalWeight": 25,
+          "type": "quiz",
+          "unitWeight": 8.33
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "calculus",
+        "calc\\b",
+        "حسبان",
+        "1440 133 02",
+        "1440 133",
+        "1440133",
+        "1440131",
+        "0401101",
+        "0401201"
+      ],
+      "colorHex": "#dc2626",
+      "courseCode": "1440133",
+      "courseName": "Calculus I for Engineering",
+      "crn": "10806",
+      "id": "calc1",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Tuesday",
+            "Thursday"
+          ],
+          "endTime": "13:45",
+          "instructor": "Al-Teraifi, Randa",
+          "location": "UOS Men's Campus, A12, 110",
+          "room": "A12-110",
+          "startTime": "12:30"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "calc1_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "امتحان\\s*نهائي",
+            "نهائي"
+          ],
+          "name": "Final Exam",
+          "note": "On paper (40%)",
+          "totalWeight": 40,
+          "type": "exam",
+          "unitWeight": 40
+        },
+        {
+          "id": "calc1_midterm",
+          "keywords": [
+            "midterm\\s*exam",
+            "midterm",
+            "امتحان\\s*نصفي",
+            "نصفي",
+            "منتصف"
+          ],
+          "name": "Midterm Exam",
+          "note": "On paper (30%)",
+          "totalWeight": 30,
+          "type": "exam",
+          "unitWeight": 30
+        },
+        {
+          "count": 2,
+          "id": "calc1_quizzes",
+          "keywords": [
+            "quiz",
+            "كويز",
+            "امتحان\\s*قصير"
+          ],
+          "name": "Quizzes",
+          "note": "On paper, best 2 of 3 quizzes (10% each, 20% total)",
+          "totalWeight": 20,
+          "type": "quiz",
+          "unitWeight": 10
+        },
+        {
+          "count": 3,
+          "id": "calc1_assignments",
+          "keywords": [
+            "assignment",
+            "hw",
+            "homework",
+            "واجب",
+            "connect"
+          ],
+          "name": "Homeworks",
+          "note": "Online, best 3 of 4 homeworks (~3.33% each, 10% total)",
+          "totalWeight": 10,
+          "type": "assignment",
+          "unitWeight": 3.33
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "english",
+        "eap\\b",
+        "academic\\s*purposes",
+        "academic\\s*english",
+        "إنجليزي",
+        "انجليزي",
+        "0202 112 09",
+        "0202 112",
+        "0202112",
+        "0202111"
+      ],
+      "colorHex": "#525252",
+      "courseCode": "0202112",
+      "courseName": "English for Academic Purposes",
+      "crn": "10175",
+      "id": "eap",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Tuesday",
+            "Thursday"
+          ],
+          "endTime": "15:15",
+          "instructor": "Manzol, Mutwakil",
+          "location": "UOS Men's Campus, A3, 184",
+          "room": "A3-184",
+          "startTime": "14:00"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "eap_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "نهائي"
+          ],
+          "name": "Final Exam",
+          "note": "Week 16 (40%)",
+          "totalWeight": 40,
+          "type": "exam",
+          "unitWeight": 40
+        },
+        {
+          "id": "eap_midterm",
+          "keywords": [
+            "midterm\\s*exam",
+            "midterm",
+            "نصفي",
+            "منتصف"
+          ],
+          "name": "Midterm Exam",
+          "note": "Week 8 (20%)",
+          "totalWeight": 20,
+          "type": "exam",
+          "unitWeight": 20
+        },
+        {
+          "count": 2,
+          "id": "eap_quizzes",
+          "keywords": [
+            "quiz",
+            "كويز"
+          ],
+          "name": "Quizzes",
+          "note": "2 Quizzes: Quiz 1 in Wk 4, Quiz 2 in Wk 7 (10% each, 20% total)",
+          "totalWeight": 20,
+          "type": "quiz",
+          "unitWeight": 10
+        },
+        {
+          "id": "eap_essay",
+          "keywords": [
+            "essay",
+            "cause.*effect",
+            "writing\\s*assignment",
+            "مقال"
+          ],
+          "name": "Cause-Effect Essay",
+          "note": "Week 12 Writing Assignment (10%)",
+          "totalWeight": 10,
+          "type": "assignment",
+          "unitWeight": 10
+        },
+        {
+          "count": 5,
+          "id": "eap_employability",
+          "keywords": [
+            "employability",
+            "skill",
+            "task",
+            "مهام",
+            "مهارات"
+          ],
+          "name": "Employability Skills",
+          "note": "5 Employability Tasks across Weeks 2-13 (2% each, 10% total)",
+          "totalWeight": 10,
+          "type": "assignment",
+          "unitWeight": 2
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "physics.*lab",
+        "phy(?:sics)?\\s*1\\s*lab",
+        "مختبر.*فيزياء",
+        "فيزياء.*عملي",
+        "1430 116 11L",
+        "1430 116",
+        "1430116",
+        "1430117",
+        "0401116",
+        "measuring\\s*density",
+        "free\\s*fall",
+        "student'?s\\s*lab"
+      ],
+      "colorHex": "#4b99d2",
+      "courseCode": "1430116",
+      "courseName": "Physics 1 Lab",
+      "crn": "10708",
+      "id": "phy1lab",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Wednesday"
+          ],
+          "endTime": "16:45",
+          "instructor": "Khudada Mohamed, Abdulraheem",
+          "location": "UOS Men's Campus, Central Laboratories (Men), 105",
+          "room": "Central Lab Men - 105",
+          "startTime": "14:00"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "phy1lab_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "امتحان\\s*نهائي",
+            "نهائي",
+            "عملي"
+          ],
+          "name": "Final Examination",
+          "note": "Practical Final Exam during last week (40%)",
+          "totalWeight": 40,
+          "type": "exam",
+          "unitWeight": 40
+        },
+        {
+          "count": 3,
+          "id": "phy1lab_quizzes",
+          "keywords": [
+            "quiz",
+            "كويز"
+          ],
+          "name": "Lab Quizzes",
+          "note": "4 scheduled, top 3 counted (10% each, 30% total)",
+          "totalWeight": 30,
+          "type": "quiz",
+          "unitWeight": 10
+        },
+        {
+          "count": 9,
+          "id": "phy1lab_reports",
+          "keywords": [
+            "report",
+            "experiment",
+            "تقرير",
+            "تجربة",
+            "مختبر"
+          ],
+          "name": "Experiments & Lab Reports",
+          "note": "9 Weekly lab reports (approx 3.33% each, 30% total)",
+          "totalWeight": 30,
+          "type": "lab",
+          "unitWeight": 3.33
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "physics\\s*1(?!\\s*lab)",
+        "general\\s*physics\\s*1",
+        "فيزياء\\s*1(?!\\s*عملي)",
+        "فيزياء\\s*عامة\\s*1",
+        "1430 115 02",
+        "1430 115",
+        "1430115",
+        "1430111",
+        "0401115"
+      ],
+      "colorHex": "#4b99d2",
+      "courseCode": "1430115",
+      "courseName": "Physics 1",
+      "crn": "10668",
+      "id": "phy1",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Monday",
+            "Wednesday"
+          ],
+          "endTime": "12:15",
+          "instructor": "Ahriche, Amine",
+          "location": "UOS Men's Campus, A8, 110",
+          "room": "A8-110",
+          "startTime": "11:00"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "phy1_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "امتحان\\s*نهائي",
+            "نهائي"
+          ],
+          "name": "Final Exam",
+          "note": "Final Examination (45 marks)",
+          "totalWeight": 45,
+          "type": "exam",
+          "unitWeight": 45
+        },
+        {
+          "id": "phy1_midterm",
+          "keywords": [
+            "midterm\\s*exam",
+            "midterm",
+            "امتحان\\s*نصفي",
+            "نصفي",
+            "منتصف"
+          ],
+          "name": "Midterm Exam",
+          "note": "Midterm Exam (25 marks)",
+          "totalWeight": 25,
+          "type": "exam",
+          "unitWeight": 25
+        },
+        {
+          "id": "phy1_quizzes",
+          "keywords": [
+            "quiz",
+            "كويز",
+            "امتحان\\s*قصير"
+          ],
+          "name": "Quizzes",
+          "note": "Quizzes throughout semester (average = 20 marks)",
+          "totalWeight": 20,
+          "type": "quiz",
+          "unitWeight": 20
+        },
+        {
+          "id": "phy1_assignments",
+          "keywords": [
+            "assignment",
+            "hw",
+            "homework",
+            "واجب"
+          ],
+          "name": "Assignments",
+          "note": "Assignments / Homework (10 marks total)",
+          "totalWeight": 10,
+          "type": "assignment",
+          "unitWeight": 10
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "islamic",
+        "ثقافة\\s*إسلامية",
+        "ثقافة\\s*اسلامية",
+        "إسلام",
+        "اسلام",
+        "0104 100 13A",
+        "0104 100",
+        "0104100",
+        "0104101"
+      ],
+      "colorHex": "#489160",
+      "courseCode": "0104100",
+      "courseName": "Islamic Culture",
+      "crn": "10475",
+      "id": "islamic",
+      "scheduleSlots": [
+        {
+          "days": [
+            "Monday",
+            "Wednesday"
+          ],
+          "endTime": "18:15",
+          "instructor": "Haq, Zia Ul",
+          "location": "UOS Men's Campus, A8, TH005",
+          "room": "A8-TH005",
+          "startTime": "17:00"
+        }
+      ],
+      "syllabus": [
+        {
+          "id": "islamic_final",
+          "keywords": [
+            "final\\s*exam",
+            "final",
+            "امتحان\\s*نهائي",
+            "نهائي"
+          ],
+          "name": "Final Exam",
+          "note": "Comprehensive final exam (50%)",
+          "totalWeight": 50,
+          "type": "exam",
+          "unitWeight": 50
+        },
+        {
+          "id": "islamic_midterm",
+          "keywords": [
+            "midterm\\s*exam",
+            "midterm",
+            "امتحان\\s*نصفي",
+            "نصفي",
+            "منتصف"
+          ],
+          "name": "Midterm Exam",
+          "note": "Midterm exam (25%)",
+          "totalWeight": 25,
+          "type": "exam",
+          "unitWeight": 25
+        },
+        {
+          "id": "islamic_coursework",
+          "keywords": [
+            "بحث",
+            "مشروع",
+            "تقرير",
+            "واجب",
+            "عرض",
+            "project",
+            "research",
+            "assignment",
+            "report",
+            "quiz",
+            "كويز"
+          ],
+          "name": "Coursework & Research",
+          "note": "واجبات، تقارير، مشروعات، امتحانات قصيرة (25% total)",
+          "totalWeight": 25,
+          "type": "project",
+          "unitWeight": 15
+        }
+      ]
+    }
+  ],
+  "lastSync": "2026-10-16T20:57:45.005Z",
+  "device": "Vitest Runner",
+  "count": 2,
+  "quickLinks": [
+    {
+      "category": "attendance",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "id": "ql_attendance",
+      "title": "Attendance (Banner SSB)",
+      "updatedAt": "2026-10-02T10:33:26.416Z",
+      "url": "https://studentssb-prod.ec.sharjah.ac.ae/StudentSelfService/ssb/studentAttendanceTracking#!/"
+    },
+    {
+      "category": "study_plan",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "id": "ql_study_plan",
+      "title": "Study Plan & Degree Audit",
+      "url": "https://banner.sharjah.ac.ae/StudentRegistrationSsb/"
+    },
+    {
+      "category": "marks",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "id": "ql_marks",
+      "title": "Final Marks & Academic Transcript",
+      "url": "https://banner.sharjah.ac.ae"
+    },
+    {
+      "category": "portal",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "id": "ql_blackboard",
+      "title": "Blackboard Ultra Portal",
+      "url": "https://elearning.sharjah.ac.ae/ultra/course"
+    },
+    {
+      "category": "other",
+      "createdAt": "2026-10-02T10:04:17.410Z",
+      "id": "ql_1790935457410_f3t2rq",
+      "title": "University Library Catalog",
+      "url": "https://library.sharjah.ac.ae"
+    },
+    {
+      "category": "other",
+      "createdAt": "2026-10-03T06:17:44.009Z",
+      "id": "ql_1791008264009_7rfu",
+      "title": "Student Quick Links",
+      "url": "https://myuos.sharjah.ac.ae/en/Pages/Students-Quick-Links.aspx"
+    }
+  ]
+}
