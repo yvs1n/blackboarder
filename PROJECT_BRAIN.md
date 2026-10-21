@@ -252,7 +252,7 @@ All neon greens (`#10b981`, `#34d399`) were replaced with neutral monochrome tok
 
 ### 6.3 Typography & Punctuation Rules
 - Universal font stack: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif.
-- **Strict Prohibition of Em-Dashes**: Em-dashes (`—` / `\u2014`) are strictly banned across all UI text, labels, documentation, and code comments in favor of standard hyphens (`-`).
+- **Strict Prohibition of Em-Dashes**: Em-dashes (`-` / `\u2014`) are strictly banned across all UI text, labels, documentation, and code comments in favor of standard hyphens (`-`).
 
 ---
 
@@ -286,7 +286,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 2. **Swiss Grid Compliance**: Verifies `border-radius: 0 !important;` in `popup.css` and `styles.css`.
 3. **Two-Tone Compliance**: Verifies zero prohibited neon green hex codes.
 4. **JSON File Integrity**: Validates syntax of `package.json`, `manifest.json`, and `database.rules.json`.
-5. **Typography Check**: Scans docs for prohibited em-dashes (`—`).
+5. **Typography Check**: Scans docs for prohibited em-dashes (`-`).
 6. **Universal Synchronization Check**: Asserts that `package.json`, `public/manifest.json`, `landing/index.html`, `README.md`, `dist/version.json`, and `mobile-web/version.json` match identically.
 
 ---
@@ -426,7 +426,7 @@ Thanks to the universal synchronization engine, bumping a version requires editi
 For any human or AI assistant continuing work on Blackboarder:
 1. **Never Reintroduce Rounded Corners**: Universal `border-radius: 0 !important;` is mandatory.
 2. **Never Reintroduce Prohibited Neon Greens**: Stick to clean monochrome neutral tokens.
-3. **Never Use Em-Dashes (`—`)**: Always use standard hyphens (`-`).
+3. **Never Use Em-Dashes (`-`)**: Always use standard hyphens (`-`).
 4. **Never Break Multi-Tenant Isolation**: Never write to root `/` in Firebase; always scope reads and writes to `/users/{syncKey}`.
 5. **Always Run `npm run lint` and `npm test` Before Committing**: Ensure every test suite passes 100%.
 6. **Read and Keep This File Current**: Read it at the start of every session and before each task. Any change that makes a section here stale updates that section in the same commit, and each chunk of work gets an entry in section 11.

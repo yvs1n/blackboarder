@@ -90,7 +90,7 @@ jsonFiles.forEach(rel => {
 
 // 5. Check for Em-Dashes in user-facing markdown
 console.log('\n--- Checking Typography (No Em-Dashes in Documentation) ---');
-const docsFiles = ['README.md', 'docs/INSTALL_EXTENSION.md', 'docs/HOSTING_GUIDE.md', 'docs/WALKTHROUGH.md'];
+const docsFiles = ['README.md', 'docs/INSTALL_EXTENSION.md', 'docs/HOSTING_GUIDE.md', 'docs/WALKTHROUGH.md', 'PROJECT_BRAIN.md'];
 docsFiles.forEach(rel => {
   const full = path.join(ROOT, rel);
   if (fs.existsSync(full)) {
@@ -126,7 +126,20 @@ if (!readmeContent.includes(`badge/Version-v${pkgVersion}-blue`)) {
   fail(`README.md does not have matching Version badge for v${pkgVersion}`);
 } else {
   pass(`README.md displays matching Version badge (v${pkgVersion})`);
+} 
+
+const brainPath = path.join(ROOT, 'PROJECT_BRAIN.md');
+if (!fs.existsSync(brainPath)) {
+  fail('PROJECT_BRAIN.md does not exist in repository root');
+} else {
+  const brainContent = fs.readFileSync(brainPath, 'utf8');
+  if (!brainContent.includes(`v${pkgVersion}`)) {
+    fail(`PROJECT_BRAIN.md is missing reference to current version v${pkgVersion}`);
+  } else {
+    pass(`PROJECT_BRAIN.md exists and is synchronized to v${pkgVersion}`);
+  }
 }
+
 
 const distVersionPath = path.join(ROOT, 'dist/version.json');
 if (fs.existsSync(distVersionPath)) {
