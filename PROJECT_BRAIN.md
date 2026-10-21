@@ -83,7 +83,7 @@ The user requested a thorough audit to make the repository ready as a production
 - **Root Cause**: `@media (min-height: 660px), (max-width: 470px), (min-width: 500px)` in `popup.css` triggered on high-DPI displays, stripping fixed dimensions and enabling dynamic shrink-to-fit sizing.
 - **Fix**:
   - Hardcoded fixed dimensions in `src/popup/popup.css`: `width: 480px; min-width: 480px; max-width: 480px; height: 600px; min-height: 600px; max-height: 600px;`.
-  - Added standalone browser tab detection in `src/popup/popup.ts` that applies `.is-standalone` when the window is wider than 520px or the URL has `standalone=1` or `view=panel`.
+  - `isToolbarPopup()` in `src/popup/popup.ts` applies `.is-standalone` to everything except the toolbar popup (asked via `chrome.extension.getViews({ type: 'popup' })`), plus URLs with `standalone=1` or `view=panel`.
   - The side panel opens `src/popup/index.html?view=panel` (set in `public/manifest.json`). Side panels can be narrower than 520px, so without this flag the fixed 480px layout clipped the course chips and calendar.
 
 ### 2.5 Companion "Last Updated" Truncation Fix
@@ -437,18 +437,20 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
-### 2026-10-22 - Sync security hardening and v1.1.0 follow-up (uncommitted)
+### 2026-10-22 - Side panel layout fixed for good
+The side panel still showed the cut-off calendar: Chrome keeps the old side panel path until the extension is reloaded, so the page never saw `?view=panel` and kept the fixed 480px popup size.
+- `isToolbarPopup()` in `src/popup/popup.ts` asks Chrome (`chrome.extension.getViews({ type: 'popup' })`) whether the page is the toolbar popup. Only the popup keeps 480 x 600; the side panel and tabs use the full width whatever URL opened them.
+- Calendar columns use `repeat(7, minmax(0, 1fr))`, so a long task label can no longer widen a column and push the weekend off-screen.
+
+### 2026-10-22 - Sync security hardening and v1.1.0 follow-up (commit bc298ae)
 Reviewed the v1.1.0 commits against the seven audit areas (sync security, personal data, permissions, scraper robustness, popup logic and a11y, project hygiene, test gaps). Most were covered; these gaps were fixed:
 - **Firebase rules** rewritten so they match the real data path `users/{key}/data` (see 4.1).
 - **Worker** requires a valid sync key on every data route, limits per IP and per key, and only lends server AI keys to paired devices (see 4.3).
 - **Vercel**: the old `api/feed.js`, `api/status.js`, `api/sync.js` and `api/tasks.js` were removed. They read without a key, used a broken `server/data` path, fell back to sample data, and wiped quick links and tombstones. `api/[...path].js` now runs the shared worker.
-- **Side panel** opens with `?view=panel` so it gets the full-width layout instead of clipping.
+- **Side panel** opens with `?view=panel`.
 - **Sync keys** are now 10 random characters; old keys keep working.
-- **Tests**: existing worker tests now send a key; new `tests/syncSecurity.test.ts` (7 tests).
-
-Still open:
-- Re-inject `content.js` / `content.css` into open Blackboard tabs after an extension update, and give the floating button an instance id so a stale copy cannot relabel the fresh one (`src/background/serviceWorker.ts`, `src/content/scraper.ts`).
-- CHANGELOG, HOSTING_GUIDE and README updates; full build, lint, test; commit and push.
+- **Scan button after updates**: the service worker re-injects `content.js` / `content.css` into open Blackboard tabs after an install or update, and the floating button carries an instance id so a stale copy cannot relabel the fresh one.
+- **Tests**: existing worker tests now send a key; new `tests/syncSecurity.test.ts` (7 tests). Docs: CHANGELOG, HOSTING_GUIDE, README.
 
 Owner actions:
 - Publish `database.rules.json` in the Firebase console.

@@ -942,7 +942,7 @@ body.is-standalone .header {
 
 .calendar-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   text-align: center;
   font-size: 11px;
   font-weight: 700;
@@ -954,7 +954,7 @@ body.is-standalone .header {
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   background: var(--surface-border);
   padding: 4px;

@@ -4684,9 +4684,25 @@ function initExtensionUpdateSystem() {
   }, 350);
 }
 
+/*
+ * Only the toolbar popup keeps the fixed 480 x 600 size. The side panel and tabs use the full
+ * width. Asking Chrome directly works whatever URL opened the page, including a side panel that
+ * still uses an older manifest path without ?view=panel.
+ */
+function isToolbarPopup(): boolean {
+  const params = window.location.search;
+  if (params.includes('standalone=1') || params.includes('view=panel')) return false;
+  try {
+    const popups = chrome.extension?.getViews?.({ type: 'popup' });
+    if (popups) return popups.includes(window);
+  } catch {}
+  // Outside the extension (tests, plain previews), guess from the width
+  return window.innerWidth <= 520;
+}
+
 function initApp() {
   // Synchronously initialize theme to eliminate light/dark flashes
-  if (window.innerWidth > 520 || window.location.search.includes('standalone=1') || window.location.search.includes('view=panel')) {
+  if (!isToolbarPopup()) {
     document.documentElement.classList.add('is-standalone');
     document.body.classList.add('is-standalone');
   }
