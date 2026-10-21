@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DeadlineTask } from '../src/types';
-import { generateIcsFeed, escapeIcsText, formatUtcTimestamp, formatDateOnly } from '../server/calendarFeed.js';
+import { generateIcsFeed, escapeIcsText, formatUtcTimestamp, formatDateOnly } from '../self-hosted/server/calendarFeed.js';
 
 describe('Server RFC 5545 Calendar Feed Generator', () => {
   const sampleTask: DeadlineTask = {

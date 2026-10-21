@@ -10,12 +10,12 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3456;
 const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
-// Tests use a throwaway directory so they never rewrite the tracked server/data files
+// Tests use a throwaway directory so they never rewrite the tracked self-hosted/server/data files
 const DATA_DIR = process.env.BBS_DATA_DIR
   || (isTest ? fs.mkdtempSync(path.join(os.tmpdir(), 'bbs-server-test-')) : path.join(__dirname, 'data'));
 const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 const SUBS_FILE = path.join(DATA_DIR, 'subscriptions.json');
-const STATIC_DIR = path.join(__dirname, '..', 'mobile-web');
+const STATIC_DIR = path.join(__dirname, '..', '..', 'mobile-web');
 
 // Ensure data directories exist
 if (!fs.existsSync(DATA_DIR)) {

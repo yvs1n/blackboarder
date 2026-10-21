@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'http';
-import server from '../server/server.js';
+import server from '../self-hosted/server/server.js';
 
 const TEST_PORT = 3457;
 

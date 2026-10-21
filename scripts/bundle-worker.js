@@ -4,17 +4,17 @@ import { fileURLToPath } from 'node:url';
 
 /*
  * Generates two files from mobile-web/_worker.js, the one hand-written server:
- *   - cloudflare-worker/worker.js: the same worker plus the web app's files embedded, for
+ *   - self-hosted/cloudflare-worker/worker.js: the same worker plus the web app's files embedded, for
  *     deploying to a plain Cloudflare Worker (`npm run deploy:cf`) instead of Cloudflare Pages
- *   - server/calendarFeed.js: the calendar feed section, used by the local Node server and Vercel
+ *   - self-hosted/server/calendarFeed.js: the calendar feed section, used by the local Node server and Vercel
  * Edit mobile-web/_worker.js, then run `npm run build` (or `npm run bundle:worker`).
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB_DIR = path.join(ROOT, 'mobile-web');
 const PAGES_WORKER = path.join(WEB_DIR, '_worker.js');
-const OUTPUT_WORKER = path.join(ROOT, 'cloudflare-worker', 'worker.js');
-const OUTPUT_FEED = path.join(ROOT, 'server', 'calendarFeed.js');
+const OUTPUT_WORKER = path.join(ROOT, 'self-hosted', 'cloudflare-worker', 'worker.js');
+const OUTPUT_FEED = path.join(ROOT, 'self-hosted', 'server', 'calendarFeed.js');
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -39,7 +39,7 @@ function writeIfChanged(file, content) {
 
 const workerSource = readText(PAGES_WORKER);
 
-// 1. server/calendarFeed.js
+// 1. self-hosted/server/calendarFeed.js
 const FEED_START = /^\/\/ ---- calendar feed start[^\n]*\n/m;
 const FEED_END = /^\/\/ ---- calendar feed end ----\n/m;
 const startMatch = FEED_START.exec(workerSource);
@@ -63,7 +63,7 @@ export {
 };
 `);
 
-// 2. cloudflare-worker/worker.js
+// 2. self-hosted/cloudflare-worker/worker.js
 if (!/^export default \{/m.test(workerSource)) {
   throw new Error('mobile-web/_worker.js must end with "export default { ... }"');
 }
@@ -126,4 +126,4 @@ export default {
 `;
 
 writeIfChanged(OUTPUT_WORKER, output);
-console.log('Generated cloudflare-worker/worker.js and server/calendarFeed.js from mobile-web/_worker.js');
+console.log('Generated self-hosted/cloudflare-worker/worker.js and self-hosted/server/calendarFeed.js from mobile-web/_worker.js');

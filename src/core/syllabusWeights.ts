@@ -22,7 +22,7 @@ export interface CourseSyllabus {
 }
 
 /**
- * Exact syllabus grade distributions extracted from the course PDFs in syllabus/
+ * Exact syllabus grade distributions extracted from the course PDFs in docs/syllabus/
  */
 export const DEFAULT_SYLLABUS_DATABASE: CourseSyllabus[] = [
   // 1. Calculus 1 for Engineering (calc_1.pdf - Page 10)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import worker from '../cloudflare-worker/worker.js';
+import worker from '../self-hosted/cloudflare-worker/worker.js';
 
 describe('Cloudflare Worker Serverless Edge Endpoint', () => {
   // Mock Cloudflare KV storage

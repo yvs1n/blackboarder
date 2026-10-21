@@ -1,5 +1,5 @@
 """
-Script to parse syllabus/phy1.pdf when added by user and update Physics 1 weights.
+Script to parse docs/syllabus/phy1.pdf when added by user and update Physics 1 weights.
 Usage: python scripts/parsePhy1.py
 """
 
@@ -19,7 +19,7 @@ WEIGHTS_TS_PATH = os.path.join(os.path.dirname(__file__), "..", "src", "core", "
 def main():
     if not os.path.exists(PDF_PATH):
         print(f"File not found: {PDF_PATH}")
-        print("Please place your Physics 1 syllabus file in the 'syllabus/' directory as 'phy1.pdf' and re-run.")
+        print("Please place your Physics 1 syllabus file in the 'docs/syllabus/' directory as 'phy1.pdf' and re-run.")
         sys.exit(1)
 
     print(f"Reading {PDF_PATH}...")

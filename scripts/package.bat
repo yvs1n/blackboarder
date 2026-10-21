@@ -4,6 +4,7 @@ echo  Blackboarder - Production Packager
 echo ====================================================
 echo.
 
+cd /d "%~dp0.."
 node scripts/package.js
 
 if %ERRORLEVEL% NEQ 0 (

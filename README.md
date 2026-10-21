@@ -241,7 +241,7 @@ Each build has an id: a hash of the files that make it up. Pushes that do not ch
 
 ### Shared Code
 
-The extension's TypeScript in `src/` is the one source of course, deadline, weighting, sorting and calendar logic. `npm run build` bundles the parts the web app needs into `mobile-web/core.js` (from `src/mobile/core.ts`), copies the iOS widget from `widgets/` to `mobile-web/widget.js`, and generates `server/calendarFeed.js` and `cloudflare-worker/worker.js` from `mobile-web/_worker.js`. Edit the sources, not the generated files.
+The extension's TypeScript in `src/` is the one source of course, deadline, weighting, sorting and calendar logic. `npm run build` bundles the parts the web app needs into `mobile-web/core.js` (from `src/mobile/core.ts`), copies the iOS widget from `widgets/` to `mobile-web/widget.js`, and generates `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js` from `mobile-web/_worker.js`. Edit the sources, not the generated files.
 
 ### Packaging Distribution Bundles
 
@@ -256,58 +256,47 @@ Running `npm run package` creates verified, production-ready archives in `releas
 
 ```text
 blackboarder/
-├── assets/                       # Branding logos and graphic assets
-│   └── logo.png                  # High-resolution Blackboarder insignia
-├── cloudflare-worker/            # Serverless Edge deployment files
-│   ├── worker.js                 # Standalone Edge worker
-│   └── wrangler.toml             # Cloudflare configuration
-├── dist/                         # Compiled Chromium extension bundle (Manifest V3)
-│   ├── assets/                   # Compiled CSS and JS chunks
-│   ├── icons/                    # Multi-resolution extension icons
-│   ├── background.js             # Background service worker
-│   ├── content.js                # In-page scraper and injector
-│   ├── content.css               # Floating button and toast styling
-│   ├── manifest.json             # Extension manifest specification
-│   ├── update.bat / update.sh    # One-time setup for automatic updates
-│   ├── updater/                  # Update helper the extension calls
-│   └── version.json              # Build id the extension compares with GitHub
-├── mobile-web/                   # Standalone Progressive Web App
-│   ├── _worker.js                # Cloudflare Pages edge backend
-│   ├── app.js                    # Mobile client logic, quick links, sync
-│   ├── core.js                   # Generated: shared logic from src/ (do not edit)
-│   ├── index.html                # Responsive web app shell
-│   ├── manifest.json             # PWA web manifest
-│   ├── styles.css                # Responsive styles and design tokens
-│   ├── sw.js                     # Offline cache & push service worker
-│   ├── version.json              # Build id the web app checks for updates
-│   └── widget.js                 # Generated: copy of widgets/blackboarder-widget.js
-├── public/                       # Static source assets
-│   ├── icons/                    # App icons (16, 32, 48, 128)
-│   └── manifest.json             # Extension manifest template
-├── scripts/                      # Build, bundle, and package scripts
-│   ├── build.js                  # Builds the extension and web app, stamps build ids
-│   ├── bundle-worker.js          # Cloudflare Worker code synthesis
-│   ├── generate_icons.js         # Icon generation utility
-│   └── package.js                # Release zip archive generator
-├── server/                       # Node.js local LAN sync server
-│   ├── calendarFeed.js           # Generated from mobile-web/_worker.js
-│   └── server.js                 # Express/HTTP server with Wi-Fi bridge
-├── src/                          # Extension TypeScript source code
-│   ├── background/               # Service worker background processes
-│   ├── content/                  # DOM scrapers and floating widgets
-│   ├── engine/                   # Local parser, Jev classifier, AI extractor
-│   ├── mobile/core.ts            # Entry point bundled into mobile-web/core.js
-│   ├── popup/                    # Extension UI popup, calendar, quick links
-│   ├── types.ts                  # Shared TypeScript interfaces
-│   └── utils/                    # Firebase sync, storage, calendar helpers
-├── tests/                        # Vitest automated test suite
-├── updater/                      # Update helper sources (copied into dist/)
-├── widgets/                      # iOS Scriptable widget source
-├── HOSTING_GUIDE.md              # Detailed mobile web deployment guide
-├── INSTALL_EXTENSION.md          # Visual browser installation guide for students
-├── package.json                  # Dependencies and build scripts
-└── README.md                     # Documentation
+|
+|-- src/                  SOURCE: the extension, written in TypeScript
+|   |-- popup/            Popup and side panel (popup.ts, popup.css, index.html)
+|   |-- content/          Scraper that runs on Blackboard pages
+|   |-- background/       Background worker: sync, notifications, automatic updates
+|   |-- engine/           Deadline detection (regex, Jev classifier, AI)
+|   |-- core/             Logic shared with the phone app: courses, weights, schedules
+|   |-- utils/            Storage, calendar, Firebase sync, task merging
+|   `-- mobile/core.ts    Entry point that is bundled into mobile-web/core.js
+|
+|-- mobile-web/           THE PHONE APP / PWA, served as-is by Cloudflare Pages
+|   |-- app.js, index.html, styles.css, sw.js, manifest.json   Hand-written
+|   |-- _worker.js        Backend (sync API and calendar feed) for Cloudflare Pages
+|   `-- core.js, widget.js, version.json                       Generated by the build
+|
+|-- dist/                 THE BUILT EXTENSION: load this folder in the browser (generated)
+|
+|-- updater/              Update helper, copied into dist/ by the build
+|-- widgets/              iOS Scriptable widget source
+|-- public/               Extension manifest template and icons
+|-- scripts/              Build, packaging and icon scripts
+|-- tests/                Automated tests
+|
+|-- api/                  Vercel serverless functions (only used when hosting on Vercel)
+|-- self-hosted/          Other ways to run the backend
+|   |-- cloudflare-worker/   Single-file Cloudflare Worker (generated)
+|   `-- server/              Node server for your own computer or Wi-Fi
+|
+|-- landing/              Project landing page
+|-- assets/               Logos
+|-- docs/                 Guides: installing, hosting, how it works, course syllabi
+|
+|-- version.json          Build id for installs that predate dist/version.json (generated)
+`-- package.json          Scripts and dependencies
 ```
+
+**Guides:** [Install the extension](docs/INSTALL_EXTENSION.md) | [Host the web app](docs/HOSTING_GUIDE.md) | [How it all works](docs/WALKTHROUGH.md)
+
+**Which files do I edit?** Edit `src/`, the hand-written files in `mobile-web/`, `widgets/`, `updater/` and `public/`. Never edit generated files (`dist/`, `mobile-web/core.js`, `mobile-web/widget.js`, `version.json` files, `self-hosted/**/calendarFeed.js` and `worker.js`): `npm run build` rewrites them, and GitHub Actions rebuilds them on every push.
+
+**Folders that cannot move:** `dist/` and `version.json` are read by installed extensions to update themselves, `mobile-web/` is the output folder set in Cloudflare Pages, and `api/` is where Vercel looks for functions.
 
 ---
 

@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.0.0",
-  "build": "aebfa3dcff3b",
-  "commit": "4bb7583ca972680755651575428a5185a370c988",
-  "shortCommit": "4bb7583",
-  "timestamp": "2026-10-21T17:58:47.478Z",
-  "message": "fix: calendar showed every deadline on every day",
+  "build": "eabfdb8f90ff",
+  "commit": "d4e9c5b2d51c8454b1771f0ff08b0583381f7c01",
+  "shortCommit": "d4e9c5b",
+  "timestamp": "2026-10-21T18:15:03.624Z",
+  "message": "fix: popup fills the side panel and tabs, larger phone tap targets",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

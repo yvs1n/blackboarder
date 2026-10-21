@@ -17,11 +17,11 @@ describe('generated files match their sources', () => {
     const end = worker.indexOf('// ---- calendar feed end ----');
     expect(start).toBeGreaterThan(0);
     expect(end).toBeGreaterThan(start);
-    expect(read('server/calendarFeed.js')).toContain(worker.slice(start, end).trimEnd());
+    expect(read('self-hosted/server/calendarFeed.js')).toContain(worker.slice(start, end).trimEnd());
   });
 
   it('builds the standalone worker from the Pages worker', () => {
-    const standalone = read('cloudflare-worker/worker.js');
+    const standalone = read('self-hosted/cloudflare-worker/worker.js');
     expect(standalone).toContain('const pagesWorker = {');
     expect(standalone).toContain('EMBEDDED_ASSETS');
     expect(standalone).toContain(JSON.stringify('/core.js'));

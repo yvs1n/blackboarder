@@ -1,4 +1,4 @@
-import { generateIcsFeed } from '../server/calendarFeed.js';
+import { generateIcsFeed } from '../self-hosted/server/calendarFeed.js';
 import fs from 'fs';
 import path from 'path';
 

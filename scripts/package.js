@@ -71,7 +71,7 @@ async function runPackaging() {
   fs.cpSync(EXT_SRC_DIR, RELEASE_EXT_DIR, { recursive: true });
 
   // Copy the quick install guide (the updater is already part of dist/)
-  const installGuideSrc = path.join(ROOT_DIR, 'INSTALL_EXTENSION.md');
+  const installGuideSrc = path.join(ROOT_DIR, 'docs', 'INSTALL_EXTENSION.md');
   if (fs.existsSync(installGuideSrc)) {
     fs.copyFileSync(installGuideSrc, path.join(RELEASE_EXT_DIR, 'INSTALL_EXTENSION.md'));
   }
@@ -81,7 +81,7 @@ async function runPackaging() {
   fs.cpSync(WEB_SRC_DIR, RELEASE_WEB_DIR, { recursive: true });
 
   // Copy hosting guide to website folder
-  const hostingGuideSrc = path.join(ROOT_DIR, 'HOSTING_GUIDE.md');
+  const hostingGuideSrc = path.join(ROOT_DIR, 'docs', 'HOSTING_GUIDE.md');
   if (fs.existsSync(hostingGuideSrc)) {
     fs.copyFileSync(hostingGuideSrc, path.join(RELEASE_WEB_DIR, 'HOSTING_GUIDE.md'));
   }

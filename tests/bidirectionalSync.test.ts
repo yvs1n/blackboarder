@@ -5,7 +5,7 @@ import {
   updateTaskInFirebase
 } from '../src/utils/firebaseSync';
 import { DeadlineTask } from '../src/types';
-import { generateIcsFeed } from '../server/calendarFeed.js';
+import { generateIcsFeed } from '../self-hosted/server/calendarFeed.js';
 import { generateIcsContent, createGoogleCalendarUrl } from '../src/utils/calendar';
 
 describe('Bidirectional Sync & Notes Parity', () => {

@@ -9,9 +9,9 @@
     "package": "node scripts/package.js",
     "release": "npm test && node scripts/package.js",
     "test": "vitest run",
-    "server": "node server/server.js",
+    "server": "node self-hosted/server/server.js",
     "bundle:worker": "node scripts/bundle-worker.js",
-    "deploy:cf": "node scripts/bundle-worker.js && cd cloudflare-worker && npx wrangler deploy",
+    "deploy:cf": "node scripts/bundle-worker.js && cd self-hosted/cloudflare-worker && npx wrangler deploy",
     "deploy:vercel": "npx vercel"
   },
   "keywords": [

@@ -4,7 +4,7 @@
  * Handles API endpoints, live RFC 5545 calendar feed, and static assets.
  */
 
-// ---- calendar feed start: scripts/build.js copies this section into server/calendarFeed.js ----
+// ---- calendar feed start: scripts/build.js copies this section into self-hosted/server/calendarFeed.js ----
 function escapeIcsText(text) {
   if (!text) return '';
   return text

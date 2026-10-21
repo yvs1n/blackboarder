@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
  *   - mobile-web/core.js      the extension's shared logic, bundled for the web app
  *   - mobile-web/widget.js    copy of widgets/blackboarder-widget.js served by the web app
  *   - version.json files and the build stamps in mobile-web/app.js, sw.js and index.html
- *   - cloudflare-worker/worker.js (via scripts/bundle-worker.js)
+ *   - self-hosted/cloudflare-worker/worker.js (via scripts/bundle-worker.js)
  *
  * Each app gets a "build id": a hash of the files that make it up. Running the build twice on the
  * same code gives the same ids and byte-identical output, so the GitHub Action only commits when
@@ -344,7 +344,7 @@ async function main() {
 
   execSync('node scripts/bundle-worker.js', { cwd: ROOT, stdio: 'inherit' });
 
-  console.log('Build complete: dist/ (extension), mobile-web/ (web app), cloudflare-worker/worker.js');
+  console.log('Build complete: dist/ (extension), mobile-web/ (web app), self-hosted/cloudflare-worker/worker.js');
 }
 
 main().catch(err => {
