@@ -40,7 +40,7 @@ describe('Mobile Web App Sorting Verification', () => {
   vm.runInContext(matchGetSort[0], sandbox);
   vm.runInContext(matchCompare[0], sandbox);
 
-  const { compareTasksByTime, getTaskSortTimestamp } = sandbox;
+  const { compareTasksByTime } = sandbox;
 
   it('correctly sorts mobile day tasks earliest first', () => {
     const tasks = [

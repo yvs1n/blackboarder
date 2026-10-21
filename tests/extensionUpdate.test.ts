@@ -129,7 +129,9 @@ describe('Extension GitHub Update Checker Suite', () => {
     expect(fs.existsSync(path.resolve('update.sh'))).toBe(true);
 
     const updateBat = fs.readFileSync(path.resolve('update.bat'), 'utf8');
-    expect(updateBat).toContain('blackboarder-extension.zip');
+    // The release zip is gitignored, so the updater must download the repository archive instead
+    expect(updateBat).toContain('archive/refs/heads/main.zip');
+    expect(updateBat).not.toContain('release/blackboarder-extension.zip');
     expect(updateBat).toContain('Expand-Archive');
   });
 });

@@ -86,7 +86,9 @@ export function getCourseHex(courseName: string = '', courseCode: string = '', e
  * Generates complementary light background and border styles for UI badges and chips.
  */
 export function getCourseColorTheme(courseName: string = '', courseCode: string = '', extraContext: string = ''): CourseColorTheme {
-  const hex = getCourseHex(courseName, courseCode, extraContext);
+  const rawHex = getCourseHex(courseName, courseCode, extraContext);
+  // Colors can arrive from the cloud; only accept plain hex values so they cannot break out of style attributes
+  const hex = /^#[0-9a-f]{3,8}$/i.test(rawHex) ? rawHex : '#64748b';
 
   return {
     hex,

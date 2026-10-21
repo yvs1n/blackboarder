@@ -1,4 +1,4 @@
-import { DeadlineTask, UserSettings, DEFAULT_SETTINGS, QuickLink } from '../types';
+import { DeadlineTask, UserSettings, DEFAULT_SETTINGS, QuickLink, UserCourseConfig } from '../types';
 
 export interface SyncResponse {
   success: boolean;
@@ -9,6 +9,22 @@ export interface SyncResponse {
   feedUrl?: string;
   webcalUrl?: string;
   quickLinks?: QuickLink[];
+}
+
+/** True for a hosted Cloudflare Pages dashboard (which syncs through Firebase directly). */
+function isPagesDevUrl(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === 'pages.dev' || host.endsWith('.pages.dev');
+  } catch {
+    return false;
+  }
+}
+
+export interface SyncExtras {
+  courses?: UserCourseConfig[];
+  coursesUpdatedAt?: string;
+  tombstones?: Record<string, string>;
 }
 
 export function normalizeSyncUrl(rawUrl?: string): string {
@@ -30,13 +46,14 @@ export function normalizeSyncUrl(rawUrl?: string): string {
 export async function pushTasksToSyncServer(
   tasks: DeadlineTask[],
   settings?: UserSettings,
-  quickLinks?: QuickLink[]
+  quickLinks?: QuickLink[],
+  extras?: SyncExtras
 ): Promise<SyncResponse> {
   const currentSettings = settings || DEFAULT_SETTINGS;
   const baseUrl = normalizeSyncUrl(currentSettings.syncServerUrl);
 
   // Cloudflare Pages hosts the static web dashboard which syncs directly via Firebase Cloud
-  if (baseUrl.includes('.pages.dev')) {
+  if (isPagesDevUrl(baseUrl)) {
     return {
       success: true,
       message: 'Synchronized via Firebase Cloud for Cloudflare Pages dashboard',
@@ -46,7 +63,10 @@ export async function pushTasksToSyncServer(
   }
 
   try {
-    const res = await fetch(`${baseUrl}/api/sync`, {
+    // The sync key scopes the data on the server; without it everything lands in one shared bucket
+    const syncKey = (currentSettings.syncKey || '').trim();
+    const syncUrl = `${baseUrl}/api/sync${syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''}`;
+    const res = await fetch(syncUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +76,11 @@ export async function pushTasksToSyncServer(
         tasks,
         device: 'Chrome Extension',
         timestamp: new Date().toISOString(),
-        quickLinks: quickLinks || undefined
+        syncKey: syncKey || undefined,
+        quickLinks: quickLinks || undefined,
+        courses: extras?.courses,
+        coursesUpdatedAt: extras?.coursesUpdatedAt,
+        tombstones: extras?.tombstones
       })
     });
 
@@ -90,7 +114,7 @@ export async function getSyncServerStatus(settings?: UserSettings): Promise<Sync
   const currentSettings = settings || DEFAULT_SETTINGS;
   const baseUrl = normalizeSyncUrl(currentSettings.syncServerUrl);
 
-  if (baseUrl.includes('.pages.dev')) {
+  if (isPagesDevUrl(baseUrl)) {
     return {
       success: true,
       message: 'Cloudflare Pages & Firebase Cloud Online',

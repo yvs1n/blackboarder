@@ -123,7 +123,8 @@ describe('Live HTTP Server & Sync Bridge Integration', () => {
     expect(text).toContain('BEGIN:VCALENDAR');
     // Completed task int-task-1 reflects completion with checkmark and Done suffix
     expect(text).toContain('SUMMARY:✓ [1440131] Calculus Midterm Exam (Done)');
-    expect(text).toContain('STATUS:COMPLETED');
+    expect(text).toContain('STATUS:CONFIRMED');
+    expect(text).not.toContain('STATUS:COMPLETED');
     // Pending task int-task-2 retains alarms and standard title
     expect(text).toContain('SUMMARY:[0401102] Computer Eng Quiz 3');
     expect(text).toContain('TRIGGER:-P1D');

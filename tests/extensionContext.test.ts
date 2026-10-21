@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   isExtensionContextValid,
-  getSettings,
   saveSettings,
   getTasks,
   saveTasks,
@@ -107,7 +106,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
 
     it('getTasks falls back to localStorage if chrome context is invalid', async () => {
       delete (globalThis as any).chrome;
-      const sampleTasks: DeadlineTask[] = [
+      const sampleTasks = [
         {
           id: 'task_local_1',
           title: 'Quiz 1',
@@ -123,7 +122,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
-      ];
+      ] as unknown as DeadlineTask[];
       localStorage.setItem('bbs_tasks', JSON.stringify(sampleTasks));
 
       const tasks = await getTasks();
@@ -133,7 +132,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
 
     it('saveTasks does not throw and saves to localStorage if chrome context is invalid', async () => {
       delete (globalThis as any).chrome;
-      const sampleTasks: DeadlineTask[] = [
+      const sampleTasks = [
         {
           id: 'task_local_2',
           title: 'Midterm',
@@ -149,7 +148,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
-      ];
+      ] as unknown as DeadlineTask[];
 
       await expect(saveTasks(sampleTasks)).resolves.not.toThrow();
       const stored = JSON.parse(localStorage.getItem('bbs_tasks') || '[]');
@@ -175,7 +174,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
         }
       };
 
-      const tasks: DeadlineTask[] = [
+      const tasks = [
         {
           id: 'task_throw_test',
           title: 'Physics Lab',
@@ -191,7 +190,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
-      ];
+      ] as unknown as DeadlineTask[];
 
       await expect(saveTasks(tasks)).resolves.not.toThrow();
     });
@@ -328,7 +327,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
 
   describe('Instant Synchronous Cache Retrieval for Zero-Lag Popup Render', () => {
     it('getCachedTasksSync returns tasks synchronously without awaiting async promises', async () => {
-      const mockTask: DeadlineTask = {
+      const mockTask = {
         id: 't_cached_1',
         title: 'Cached Lab',
         courseName: 'Embedded Systems',
@@ -336,7 +335,7 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
         type: 'lab',
         priority: 'high',
         status: 'pending'
-      };
+      } as unknown as DeadlineTask;
 
       // Initially empty
       expect(getCachedTasksSync()).toEqual([]);

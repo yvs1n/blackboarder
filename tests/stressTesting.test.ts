@@ -166,10 +166,15 @@ describe('🚀 Maximum Stress Test Suite', () => {
       const startTime = performance.now();
 
       for (const t of tasks) {
-        const room = resolveTaskRoom(t);
-        if (room) t.room = room;
+        const roomInfo = resolveTaskRoom({
+          courseNameOrCode: t.courseName || t.courseCode,
+          announcementText: t.description,
+          title: t.title,
+          type: t.type
+        });
+        if (roomInfo.room) t.room = roomInfo.room;
 
-        const wInfo = resolveTaskWeight(t.courseName, t.title, t.type, t.sourceSnippet || '');
+        const wInfo = resolveTaskWeight(t, t.courseName);
         if (wInfo.weight !== undefined) {
           t.weight = wInfo.weight;
           t.weightDisplay = wInfo.weightDisplay;

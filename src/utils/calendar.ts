@@ -22,6 +22,17 @@ function formatGCalDate(date: Date, allDay: boolean = false): string {
 }
 
 /**
+ * Escapes text for an iCalendar value (RFC 5545 section 3.3.11) instead of dropping commas and semicolons.
+ */
+function escapeIcsText(text: string): string {
+  return (text || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n|\n|\r/g, '\\n');
+}
+
+/**
  * Generates a direct Google Calendar event creation URL.
  */
 export function createGoogleCalendarUrl(task: DeadlineTask): string {
@@ -81,14 +92,14 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
     const courseTag = task.courseName
       ? `${task.courseName}${task.courseCode && task.courseCode !== task.courseName ? ` (${task.courseCode})` : ''}`
       : (task.courseCode || 'UOS');
-    const baseSummary = `[${courseTag}] ${task.title.replace(/[,;]/g, ' ')}`;
+    const baseSummary = `[${courseTag}] ${task.title}`;
     const eventSummary = isTaskDone ? `✓ ${baseSummary} (Done)` : baseSummary;
-    const cleanDesc = [
+    const cleanDesc = escapeIcsText([
       task.room ? `Room: ${task.room}` : '',
       isTaskDone ? 'Status: Completed (Done)' : 'Status: Pending',
       task.notes ? `Student Notes: ${task.notes}` : '',
       task.description || task.sourceSnippet
-    ].filter(Boolean).join('\\n').replace(/[\r\n]+/g, '\\n').replace(/[,;]/g, ' ');
+    ].filter(Boolean).join('\n'));
 
     const eventLines = [
       'BEGIN:VEVENT',
@@ -96,11 +107,12 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
       `DTSTAMP:${nowUtc}`,
       dtStart,
       dtEnd,
-      `SUMMARY:${eventSummary}`,
-      task.room ? `LOCATION:${task.room.replace(/[,;]/g, ' ')}` : null,
+      `SUMMARY:${escapeIcsText(eventSummary)}`,
+      task.room ? `LOCATION:${escapeIcsText(task.room)}` : null,
       `DESCRIPTION:${cleanDesc}`,
       `CATEGORIES:${task.type.toUpperCase()}`,
-      `STATUS:${task.status === 'completed' ? 'COMPLETED' : 'CONFIRMED'}`,
+      // COMPLETED is not a valid VEVENT status; completion is shown in the summary instead
+      'STATUS:CONFIRMED',
       'END:VEVENT'
     ].filter(Boolean);
 

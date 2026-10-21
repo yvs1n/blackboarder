@@ -102,7 +102,8 @@ describe('Server RFC 5545 Calendar Feed Generator', () => {
     expect(feed).toContain('BEGIN:VEVENT');
     expect(feed).toContain('DTSTART;VALUE=DATE:20261025');
     expect(feed).toContain('SUMMARY:✓ [0401102] Quiz 2: Best of 3/4 (Done)');
-    expect(feed).toContain('STATUS:COMPLETED');
+    expect(feed).toContain('STATUS:CONFIRMED');
+    expect(feed).not.toContain('STATUS:COMPLETED');
     expect(feed).toContain('Status: Completed (Done)');
     expect(feed).toContain('CATEGORIES:QUIZ');
     // Completed tasks must have alarms suppressed so finished deadlines do not trigger alerts

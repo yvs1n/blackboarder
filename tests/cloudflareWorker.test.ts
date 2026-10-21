@@ -126,7 +126,8 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(feedRes.status).toBe(200);
     const text = await feedRes.text();
     expect(text).toContain('SUMMARY:✓ [1430115] Physics Quiz 1 (Done)');
-    expect(text).toContain('STATUS:COMPLETED');
+    expect(text).toContain('STATUS:CONFIRMED');
+    expect(text).not.toContain('STATUS:COMPLETED');
     expect(text).toContain('Status: Completed (Done)');
     // Finished task alarms must be suppressed
     expect(text).not.toContain('BEGIN:VALARM');

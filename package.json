@@ -4,7 +4,7 @@
   "description": "Blackboarder: Smart Academic Companion and Deadline Intelligence for Blackboard Learn",
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch --mode development",
+    "dev": "node scripts/build.js",
     "build": "node scripts/build.js",
     "package": "node scripts/package.js",
     "release": "npm test && node scripts/package.js",
@@ -26,6 +26,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/chrome": "^0.2.9",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"

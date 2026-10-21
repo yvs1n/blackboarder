@@ -409,7 +409,8 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
       '.summary'
     ];
 
-    let bestBodyEl: HTMLElement | null = null;
+    // Assigned inside a forEach callback, so widen the type to stop TS narrowing it to `never`
+    let bestBodyEl = null as HTMLElement | null;
     let bestCandidateText = '';
     let bestCandidateHtml = '';
 
@@ -473,7 +474,7 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
         title,
         postedAt,
         contentText: text,
-        contentHtml: fullHtml || bodyEl?.innerHTML || '',
+        contentHtml: fullHtml || bestBodyEl?.innerHTML || '',
         sourceUrl: currentUrl,
         scannedAt: new Date().toISOString()
       });

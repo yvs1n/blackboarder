@@ -166,11 +166,9 @@ function generateIcsFeed(tasks = [], options = {}) {
     lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
     
     // Status
-    if (isCompleted) {
-      lines.push('STATUS:COMPLETED');
-    } else {
-      lines.push('STATUS:CONFIRMED');
-    }
+    // RFC 5545 only allows TENTATIVE/CONFIRMED/CANCELLED on events (COMPLETED is for to-dos);
+    // completion is shown by the check mark and "(Done)" in the summary.
+    lines.push('STATUS:CONFIRMED');
 
     // Categories
     const category = (task.type || 'assignment').toUpperCase();

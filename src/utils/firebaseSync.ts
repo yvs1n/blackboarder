@@ -31,6 +31,25 @@ export interface FirebaseSyncPayload {
   tombstones?: Record<string, string>;
 }
 
+const SAFE_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
+const TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
+
+/**
+ * Cloud data is not authenticated beyond the sync key, so drop anything whose id or type
+ * could later be interpolated into HTML as an attack payload.
+ */
+export function sanitizeCloudTasks(tasks: unknown): DeadlineTask[] {
+  if (!Array.isArray(tasks)) return [];
+  return tasks
+    .filter((t): t is DeadlineTask => Boolean(t) && typeof t === 'object' && typeof (t as any).id === 'string' && SAFE_ID.test((t as any).id))
+    .map(t => (TASK_TYPES.includes(t.type) ? t : { ...t, type: 'other' as const }));
+}
+
+function sanitizeCloudQuickLinks(links: unknown): QuickLink[] | undefined {
+  if (!Array.isArray(links)) return undefined;
+  return links.filter((l): l is QuickLink => Boolean(l) && typeof l === 'object' && typeof (l as any).id === 'string' && SAFE_ID.test((l as any).id));
+}
+
 export interface DeletionTombstone {
   id: string;
   deletedAt: string;
@@ -116,12 +135,13 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
     }
 
     const data: FirebaseSyncPayload = await res.json();
+    const quickLinks = sanitizeCloudQuickLinks(data?.quickLinks);
     if (!data || !Array.isArray(data.tasks)) {
       return {
         success: true,
         tasks: [],
         lastSync: undefined,
-        quickLinks: data?.quickLinks,
+        quickLinks,
         courses: data?.courses,
         coursesUpdatedAt: data?.coursesUpdatedAt,
         tombstones: data?.tombstones
@@ -130,10 +150,10 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
 
     return {
       success: true,
-      tasks: data.tasks,
+      tasks: sanitizeCloudTasks(data.tasks),
       lastSync: data.lastSync,
       device: data.device,
-      quickLinks: data.quickLinks,
+      quickLinks,
       courses: data.courses,
       coursesUpdatedAt: data.coursesUpdatedAt,
       tombstones: data.tombstones
@@ -145,6 +165,28 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       error: err.message || 'Network error'
     };
   }
+}
+
+/**
+ * Pushes a modified task list back to Firebase while keeping the quick links, courses and
+ * deletion tombstones already stored in the cloud (a bare PUT of `tasks` would wipe them).
+ */
+function pushPreservingCloudFields(
+  fetched: Awaited<ReturnType<typeof fetchTasksFromFirebase>>,
+  tasks: DeadlineTask[],
+  device: string,
+  syncKey?: string,
+  tombstones: Record<string, string> | undefined = fetched.tombstones
+) {
+  return pushTasksToFirebase(
+    tasks,
+    device,
+    syncKey,
+    fetched.quickLinks,
+    tombstones,
+    fetched.courses,
+    fetched.coursesUpdatedAt
+  );
 }
 
 /**
@@ -166,7 +208,7 @@ export async function updateTaskStatusInFirebase(
     task.status = status;
     task.updatedAt = new Date().toISOString();
 
-    const pushRes = await pushTasksToFirebase(tasks, 'Status Update', syncKey);
+    const pushRes = await pushPreservingCloudFields(fetchRes, tasks, 'Status Update', syncKey);
     return pushRes.success;
   } catch (err) {
     console.error('Error updating task status in Firebase:', err);
@@ -187,7 +229,7 @@ export async function updateTaskInFirebase(
     if (!fetchRes.success || !fetchRes.tasks) return false;
 
     const tasks = fetchRes.tasks.map(t => (t.id === updatedTask.id ? { ...t, ...updatedTask, updatedAt: new Date().toISOString() } : t));
-    const pushRes = await pushTasksToFirebase(tasks, `${device} Task Edit`, syncKey);
+    const pushRes = await pushPreservingCloudFields(fetchRes, tasks, `${device} Task Edit`, syncKey);
     return pushRes.success;
   } catch (err) {
     console.error('Error updating task in Firebase:', err);
@@ -196,20 +238,22 @@ export async function updateTaskInFirebase(
 }
 
 /**
- * Records a deletion tombstone in Firebase to prevent deleted deadlines from resurrecting on another device.
+ * Removes a task from Firebase and records a deletion tombstone so it cannot resurrect from another device.
+ * Returns false if the cloud copy could not be read or written.
  */
 export async function recordTaskDeletionInFirebase(
   taskId: string,
-  _device: string = 'Chrome Extension',
+  device: string = 'Chrome Extension',
   syncKey?: string
 ): Promise<boolean> {
   try {
     const fetchRes = await fetchTasksFromFirebase(syncKey);
-    if (fetchRes.success && fetchRes.tasks) {
-      const remaining = fetchRes.tasks.filter(t => t.id !== taskId);
-      await pushTasksToFirebase(remaining, 'Deleted Task', syncKey);
-    }
-    return true;
+    if (!fetchRes.success) return false;
+
+    const remaining = (fetchRes.tasks || []).filter(t => t.id !== taskId);
+    const tombstones = { ...(fetchRes.tombstones || {}), [taskId]: new Date().toISOString() };
+    const pushRes = await pushPreservingCloudFields(fetchRes, remaining, `${device} Deleted Task`, syncKey, tombstones);
+    return pushRes.success;
   } catch (e) {
     console.warn('Could not record task deletion in Firebase:', e);
     return false;

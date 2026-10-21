@@ -58,7 +58,16 @@ const ASSETS = {
 const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 // In-memory fallback if KV is not bound yet during local preview
-let memoryTasks = { tasks: [], lastSync: null };
+// Kept per sync key so one user's data can never be served to another
+const memoryByKey = new Map();
+const memKey = (token) => token || '__default__';
+const emptyTasks = () => ({ tasks: [], lastSync: null });
+
+// When SYNC_SECRET is configured on the worker, writes must carry a matching x-sync-secret header
+function isAuthorizedWrite(request, env) {
+  if (!env || !env.SYNC_SECRET) return true;
+  return request.headers.get('x-sync-secret') === env.SYNC_SECRET;
+}
 
 async function getStoredTasks(env, token = null) {
   const dbUrl = (env && env.SKIP_FIREBASE) ? null : ((env && env.FIREBASE_DB_URL) || FIREBASE_DB_URL);
@@ -73,18 +82,8 @@ async function getStoredTasks(env, token = null) {
       if (fbRes.ok) {
         const fbData = await fbRes.json();
         if (fbData && Array.isArray(fbData.tasks)) {
-          memoryTasks = fbData;
+          memoryByKey.set(memKey(token), fbData);
           return fbData;
-        }
-      }
-      // If user path has no data yet, fallback to main shared data
-      if (token && pathSuffix !== 'data.json') {
-        const fallbackRes = await fetch(\`\${dbUrl}/data.json\`, { cache: 'no-store' });
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          if (fallbackData && Array.isArray(fallbackData.tasks)) {
-            return fallbackData;
-          }
         }
       }
     } catch (err) {
@@ -96,19 +95,19 @@ async function getStoredTasks(env, token = null) {
   if (env && env.TASKS_KV) {
     try {
       const kvKey = token ? \`bbs_tasks_\${token}\` : 'bbs_tasks';
-      const raw = await env.TASKS_KV.get(kvKey) || (!token ? null : await env.TASKS_KV.get('bbs_tasks'));
+      const raw = await env.TASKS_KV.get(kvKey);
       if (raw) {
         const kvData = JSON.parse(raw);
         if (kvData && Array.isArray(kvData.tasks)) {
-          memoryTasks = kvData;
+          memoryByKey.set(memKey(token), kvData);
           return kvData;
         }
       }
     } catch (e) {}
   }
 
-  // 3. Fallback to memory
-  return memoryTasks;
+  // 3. Fallback to memory (scoped to this key)
+  return memoryByKey.get(memKey(token)) || emptyTasks();
 }
 
 async function saveStoredTasks(payload, env, token = null) {
@@ -137,7 +136,7 @@ async function saveStoredTasks(payload, env, token = null) {
   }
 
   // 3. Keep in memory
-  memoryTasks = payload;
+  memoryByKey.set(memKey(token), payload);
 }
 
 function jsonResponse(data, status = 200) {
@@ -172,9 +171,12 @@ export default {
     }
 
     try {
+      // The PWA and extension send ?key=; ?token= is kept for older links
+      const token = url.searchParams.get('key') || url.searchParams.get('token') || request.headers.get('x-sync-key') || null;
+
       // 2. GET /api/status
       if (request.method === 'GET' && pathname === '/api/status') {
-        const taskData = await getStoredTasks(env);
+        const taskData = await getStoredTasks(env, token);
         return jsonResponse({
           ok: true,
           platform: 'Cloudflare Workers (Edge Serverless + Firebase)',
@@ -186,8 +188,6 @@ export default {
           webcalUrl: \`webcal://\${url.host}/feed.ics\`
         });
       }
-
-      const token = url.searchParams.get('token');
 
       // 3. GET /api/tasks
       if (request.method === 'GET' && pathname === '/api/tasks') {
@@ -208,12 +208,23 @@ export default {
           return jsonResponse({ ok: false, error: 'Expected tasks array in payload' }, 400);
         }
 
+        if (!isAuthorizedWrite(request, env)) {
+          return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
+        }
+
         const syncTimestamp = new Date().toISOString();
+        const existing = await getStoredTasks(env, token);
         const payload = {
           tasks: body.tasks,
           lastSync: syncTimestamp,
           device: body.device || 'Chrome Extension',
-          count: body.tasks.length
+          count: body.tasks.length,
+          syncKey: token || undefined,
+          // Keep fields the caller did not send instead of wiping them from the cloud copy
+          quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : existing.quickLinks,
+          courses: Array.isArray(body.courses) ? body.courses : existing.courses,
+          coursesUpdatedAt: body.coursesUpdatedAt || existing.coursesUpdatedAt,
+          tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : existing.tombstones
         };
 
         await saveStoredTasks(payload, env, token);
@@ -233,6 +244,9 @@ export default {
         const { taskId, status } = body;
         if (!taskId || !status) {
           return jsonResponse({ ok: false, error: 'Missing taskId or status' }, 400);
+        }
+        if (!isAuthorizedWrite(request, env)) {
+          return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
         }
 
         const taskData = await getStoredTasks(env, token);

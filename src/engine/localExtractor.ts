@@ -262,10 +262,10 @@ function parseTime(text: string): { hour: number; minute: number; hasTime: boole
   }
 
   // Priority 5: Midnight / Noon keywords
-  if (/\bmidnight|منتصف\s*الليل\b/i.test(text)) {
+  if (/\bmidnight\b|منتصف\s*الليل/i.test(text)) {
     return { hour: 23, minute: 59, hasTime: true, matchStr: 'midnight' };
   }
-  if (/\bnoon|الظهر\b/i.test(text)) {
+  if (/\bnoon\b|الظهر/i.test(text)) {
     return { hour: 12, minute: 0, hasTime: true, matchStr: 'noon' };
   }
 
@@ -285,6 +285,17 @@ function parseTime(text: string): { hour: number; minute: number; hasTime: boole
 }
 
 /**
+ * Picks the year for a date that did not state one. An announcement posted in late December
+ * that mentions "Jan 5" means next January, not the January that already passed.
+ */
+function resolveImpliedYear(month: number, day: number, baseDate: Date): number {
+  const baseYear = baseDate.getFullYear();
+  const candidate = new Date(baseYear, month, day, 23, 59, 59, 999);
+  const daysBehind = (baseDate.getTime() - candidate.getTime()) / (24 * 3600 * 1000);
+  return daysBehind > 90 ? baseYear + 1 : baseYear;
+}
+
+/**
  * Parses date expressions relative to a base date.
  */
 function parseDateString(text: string, baseDate: Date): DateMatchResult | null {
@@ -299,7 +310,7 @@ function parseDateString(text: string, baseDate: Date): DateMatchResult | null {
     const monthKey = mdMatch[1].toLowerCase().replace('.', '');
     const month = MONTHS_MAP[monthKey];
     const day = parseInt(mdMatch[2], 10);
-    const year = mdMatch[3] ? parseInt(mdMatch[3], 10) : baseYear;
+    const year = mdMatch[3] ? parseInt(mdMatch[3], 10) : (month !== undefined ? resolveImpliedYear(month, day, baseDate) : baseYear);
 
     if (month !== undefined && day >= 1 && day <= 31) {
       const d = new Date(year, month, day, timeInfo.hour, timeInfo.minute, 0, 0);
@@ -314,7 +325,7 @@ function parseDateString(text: string, baseDate: Date): DateMatchResult | null {
     const day = parseInt(dmMatch[1], 10);
     const monthKey = dmMatch[2].toLowerCase().replace('.', '');
     const month = MONTHS_MAP[monthKey];
-    const year = dmMatch[3] ? parseInt(dmMatch[3], 10) : baseYear;
+    const year = dmMatch[3] ? parseInt(dmMatch[3], 10) : (month !== undefined ? resolveImpliedYear(month, day, baseDate) : baseYear);
 
     if (month !== undefined && day >= 1 && day <= 31) {
       const d = new Date(year, month, day, timeInfo.hour, timeInfo.minute, 0, 0);
@@ -323,32 +334,33 @@ function parseDateString(text: string, baseDate: Date): DateMatchResult | null {
   }
 
   // Pattern 3: Numeric DD/MM/YYYY or DD-MM-YYYY (or YYYY-MM-DD)
-  const numericDateRegex = /\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/;
+  const numericDateRegex = /\b(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{1,4})\b/;
   const numMatch = clean.match(numericDateRegex);
   if (numMatch) {
     const p1 = parseInt(numMatch[1], 10);
     const p2 = parseInt(numMatch[2], 10);
-    let p3 = parseInt(numMatch[3], 10);
-    if (p3 < 100) p3 += 2000;
+    const p3 = parseInt(numMatch[3], 10);
 
     let day = p1;
     let month = p2 - 1;
-    let year = p3;
+    let year = p3 < 100 ? p3 + 2000 : p3;
 
-    // ISO format check (YYYY-MM-DD)
-    if (p1 > 1900 && p2 <= 12 && p3 <= 31) {
+    // ISO format (YYYY-MM-DD) must be recognised before two-digit years are expanded
+    if (numMatch[1].length === 4) {
       year = p1;
       month = p2 - 1;
       day = p3;
+    } else if (numMatch[3].length !== 2 && numMatch[3].length !== 4) {
+      // Not a date (e.g. "1.2.345")
+      year = NaN;
     }
 
-    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+    if (!isNaN(year) && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
       const d = new Date(year, month, day, timeInfo.hour, timeInfo.minute, 0, 0);
       return { date: d, hasSpecificTime: timeInfo.hasTime, matchedText: numMatch[0] };
     }
   }
 
-  // Pattern 4: Relative "today" / "اليوم"
   // Pattern 4: Relative "today" / "اليوم"
   if (/\b(today)\b|اليوم/i.test(clean)) {
     const d = new Date(baseDate);
@@ -562,7 +574,7 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     }
 
     // If still no keyword or general deadline trigger, continue
-    if (!matchedType && !/\b(due|deadline|submission|تسليم|موعد)\b/i.test(sentence)) {
+    if (!matchedType && !/\b(?:due|deadline|submission)\b|تسليم|موعد/i.test(sentence)) {
       continue;
     }
 

@@ -219,7 +219,7 @@ npm test
 # Build extension into dist/
 npm run build
 
-# Watch mode for extension development
+# Rebuild the extension into dist/ (no watch mode)
 npm run dev
 
 # Bundle standalone Cloudflare Worker

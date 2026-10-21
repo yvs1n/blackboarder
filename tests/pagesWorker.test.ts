@@ -10,7 +10,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
       put: async (key: string, value: string) => { mockKvStore.set(key, value); }
     },
     ASSETS: {
-      fetch: async (request: Request) => {
+      fetch: async (_request: Request) => {
         return new Response('Mock Static Asset Content', {
           status: 200,
           headers: { 'Content-Type': 'text/html' }
@@ -98,7 +98,8 @@ describe('Cloudflare Pages _worker.js Handler', () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toContain('SUMMARY:✓ [1440131] Calculus Quiz 1 (Done)');
-    expect(text).toContain('STATUS:COMPLETED');
+    expect(text).toContain('STATUS:CONFIRMED');
+    expect(text).not.toContain('STATUS:COMPLETED');
     expect(text).toContain('Status: Completed (Done)');
     expect(text).not.toContain('BEGIN:VALARM');
   });

@@ -1,6 +1,6 @@
 import { TypeSafeClient, noul, choice, score } from '@typesafe-ai/sdk';
 import { TaskPriority, TaskType } from '../types';
-import { isExtensionContextValid } from '../utils/storage';
+import { isExtensionContextValid, canUseSameOriginProxy } from '../utils/storage';
 
 export interface JevTriageResult {
   isDeadline: boolean;
@@ -37,8 +37,8 @@ export async function classifyAnnouncementDirectly(
     return fallbackResult;
   }
 
-  // Optional: Try secure edge proxy if available in web context (outside Blackboard content script)
-  if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.protocol !== 'chrome-extension:') {
+  // Optional: Try secure edge proxy if available in web context (never on the Blackboard origin)
+  if (canUseSameOriginProxy()) {
     try {
       const proxyRes = await fetch('/api/ai/classify', {
         method: 'POST',

@@ -9,6 +9,7 @@ describe('Batch Rescan & In-Place Task Updating Engine', () => {
     setActiveUserCourses(DEFAULT_USER_COURSES);
   });
   const defaultSettings: UserSettings = {
+    customDomains: [],
     openRouterApiKey: '',
     openRouterModel: 'google/gemini-3.8-flash',
     useAiExtraction: false,
@@ -138,7 +139,7 @@ describe('Batch Rescan & In-Place Task Updating Engine', () => {
       scannedAt: '2026-10-10T12:00:00.000Z'
     };
 
-    const { newTasks, allTasks, updatedTasks } = await processAnnouncementsBatch(
+    const { newTasks, allTasks } = await processAnnouncementsBatch(
       [blackboardAnnouncement],
       [userEditedTask],
       defaultSettings

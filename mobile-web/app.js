@@ -2422,7 +2422,7 @@ function renderQuickLinksBar() {
   container.innerHTML = links.map(link => {
     const meta = getQuickLinkCategoryMeta(link.category);
     return `
-      <a class="ql-chip ${meta.badgeClass}" data-id="${link.id}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
+      <a class="ql-chip ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
         <span class="ql-chip-dot" style="background: ${meta.color};"></span>
         <span class="ql-chip-label">${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
@@ -2465,7 +2465,7 @@ function renderQuickLinksSchedule() {
     }
 
     return `
-      <div class="ql-item-card ${meta.badgeClass}" data-id="${link.id}" style="cursor: pointer;">
+      <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" style="cursor: pointer;">
         <div class="ql-item-left">
           <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
             ${meta.icon}
@@ -2533,7 +2533,7 @@ function renderQuickLinksManager() {
     }
 
     return `
-      <div class="ql-item-card ${meta.badgeClass}" data-id="${link.id}">
+      <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}">
         <div class="ql-item-left">
           <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
             ${meta.icon}
@@ -2551,10 +2551,10 @@ function renderQuickLinksManager() {
             <span>Open</span>
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-external-link"></use></svg>
           </button>
-          <button type="button" class="btn-ql-action btn-edit-ql" data-id="${link.id}" title="Edit link" aria-label="Edit link">
+          <button type="button" class="btn-ql-action btn-edit-ql" data-id="${escapeHtml(link.id)}" title="Edit link" aria-label="Edit link">
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-pencil"></use></svg>
           </button>
-          <button type="button" class="btn-ql-action delete btn-delete-ql" data-id="${link.id}" title="Delete link" aria-label="Delete link">
+          <button type="button" class="btn-ql-action delete btn-delete-ql" data-id="${escapeHtml(link.id)}" title="Delete link" aria-label="Delete link">
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-trash"></use></svg>
           </button>
         </div>
@@ -3633,15 +3633,19 @@ async function fetchTasksFromServer(isManual = false) {
               fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
             if (Array.isArray(fbData.tasks)) {
-              fetchedTasks = fbData.tasks;
+              fetchedTasks = sanitizeCloudTasks(fbData.tasks);
               fetchedSync = fbData.lastSync || new Date().toISOString();
               tasksLoaded = true;
               if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
-                fetchedQuickLinks = fbData.quickLinks;
+                fetchedQuickLinks = sanitizeCloudQuickLinks(fbData.quickLinks);
               }
               if (fbData.tombstones && typeof fbData.tombstones === 'object') {
                 const tombs = getLocalTombstones();
-                Object.assign(tombs, fbData.tombstones);
+                for (const [tombId, tombTime] of Object.entries(fbData.tombstones)) {
+                  if (!tombs[tombId] || new Date(tombTime).getTime() > new Date(tombs[tombId]).getTime()) {
+                    tombs[tombId] = tombTime;
+                  }
+                }
                 localStorage.setItem('bbs_tombstones', JSON.stringify(tombs));
               }
             }
@@ -3664,11 +3668,11 @@ async function fetchTasksFromServer(isManual = false) {
             fetchedCoursesUpdatedAt = data.coursesUpdatedAt || null;
           }
           if (data.ok && Array.isArray(data.tasks)) {
-            fetchedTasks = data.tasks;
+            fetchedTasks = sanitizeCloudTasks(data.tasks);
             fetchedSync = data.lastSync || new Date().toISOString();
             tasksLoaded = true;
             if (Array.isArray(data.quickLinks) && data.quickLinks.length > 0) {
-              fetchedQuickLinks = data.quickLinks;
+              fetchedQuickLinks = sanitizeCloudQuickLinks(data.quickLinks);
             }
           }
         }
@@ -4541,10 +4545,10 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
         </div>
       </div>
       <div class="selected-day-actions">
-        <button type="button" class="btn-sel-action btn-sel-toggle" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}" data-id="${task.id}">
+        <button type="button" class="btn-sel-action btn-sel-toggle" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}" data-id="${escapeHtml(task.id)}">
           ${isCompleted ? getSvgIcon('check') : getSvgIcon('circle')}
         </button>
-        <button type="button" class="btn-sel-action btn-sel-edit" title="Edit Deadline" data-id="${task.id}">
+        <button type="button" class="btn-sel-action btn-sel-edit" title="Edit Deadline" data-id="${escapeHtml(task.id)}">
           ${getSvgIcon('pencil')}
         </button>
       </div>
@@ -4684,8 +4688,8 @@ function renderUpNextAgenda() {
     const hasRoom = Boolean(task.room && task.room.trim());
 
     return `
-      <div class="up-next-item" data-task-id="${task.id}">
-        <button type="button" class="up-next-checkbox" data-task-id="${task.id}" aria-label="Mark completed" title="Mark as completed">
+      <div class="up-next-item" data-task-id="${escapeHtml(task.id)}">
+        <button type="button" class="up-next-checkbox" data-task-id="${escapeHtml(task.id)}" aria-label="Mark completed" title="Mark as completed">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#icon-check"></use></svg>
         </button>
         <div class="up-next-item-main">
@@ -4919,14 +4923,14 @@ function renderTaskCardHtml(task, isCompact = false) {
   if (!isHwOrProj) {
     if (task.room) {
       roomBadgeHtml = `
-        <button type="button" class="room-pill-btn" data-task-id="${task.id}" title="Click to change room">
+        <button type="button" class="room-pill-btn" data-task-id="${escapeHtml(task.id)}" title="Click to change room">
           <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
           <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
         </button>
       `;
     } else {
       roomBadgeHtml = `
-        <button type="button" class="room-pill-btn" data-task-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
+        <button type="button" class="room-pill-btn" data-task-id="${escapeHtml(task.id)}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
           <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
           <span class="room-edit-hint">${getSvgIcon('plus')}</span>
         </button>
@@ -4963,13 +4967,13 @@ function renderTaskCardHtml(task, isCompact = false) {
             <span>${getSvgIcon('message', 'mr-1')}</span>
             <span>Doctor Announcement:</span>
           </div>
-          <button type="button" class="btn-inspect-quote" data-task-id="${task.id}" title="Inspect full announcement">
+          <button type="button" class="btn-inspect-quote" data-task-id="${escapeHtml(task.id)}" title="Inspect full announcement">
             <span>${getSvgIcon('search', 'mr-1')} Full View</span>
           </button>
         </div>
-        <div class="quote-body ${isLong ? 'clamped' : 'expanded'}" id="quote-body-${task.id}">${escapeHtml(snippet)}</div>
+        <div class="quote-body ${isLong ? 'clamped' : 'expanded'}" id="quote-body-${escapeHtml(task.id)}">${escapeHtml(snippet)}</div>
         ${isLong ? `
-          <button type="button" class="btn-toggle-quote" data-task-id="${task.id}" aria-expanded="false">
+          <button type="button" class="btn-toggle-quote" data-task-id="${escapeHtml(task.id)}" aria-expanded="false">
             <span class="quote-toggle-icon">${getSvgIcon('book', 'mr-1')}</span>
             <span class="quote-toggle-text">Read Full Announcement ▾</span>
           </button>
@@ -4996,7 +5000,7 @@ function renderTaskCardHtml(task, isCompact = false) {
   const isSelected = state.selectedTaskId === task.id;
 
   return `
-    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${task.id}" style="border-left: 4px solid ${courseTheme.hex} !important;">
+    <div class="task-card ${isCompleted ? 'is-completed' : ''} ${isSelected ? 'is-active-reading' : ''}" data-task-id="${escapeHtml(task.id)}" style="border-left: 4px solid ${courseTheme.hex} !important;">
       <!-- Course Banner with Permanent Subject Color -->
       <div class="task-course-banner">
         <div class="course-badge-main" style="background: ${courseTheme.bgLight}; border: 1px solid ${courseTheme.border}; color: ${courseTheme.textDark};" title="${escapeHtml(courseName)}${courseCode && courseCode.toLowerCase() !== 'uos' ? ` (${escapeHtml(courseCode)})` : ''}">
@@ -5005,7 +5009,7 @@ function renderTaskCardHtml(task, isCompact = false) {
           ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
         <div class="task-header-right" style="display: flex; align-items: center; gap: 6px;">
-          <span class="type-pill type-${task.type || 'assignment'}">
+          <span class="type-pill type-${escapeHtml(task.type || 'assignment')}">
             <span>${typeIcon}</span>
             <span>${typeLabel}</span>
           </span>
@@ -5014,7 +5018,7 @@ function renderTaskCardHtml(task, isCompact = false) {
 
       <!-- Task Title & Done Toggle -->
       <div class="task-title-row">
-        <button class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-task-id="${task.id}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
+        <button class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-task-id="${escapeHtml(task.id)}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
           ${isCompleted ? '✓' : ''}
         </button>
         <div class="task-title-text">${escapeHtml(task.title)}</div>
@@ -5052,16 +5056,16 @@ function renderTaskCardHtml(task, isCompact = false) {
 
       <!-- Quick Actions -->
       <div class="task-card-footer">
-        <button type="button" class="btn-card-action btn-card-share" data-task-id="${task.id}" title="Share task details">
+        <button type="button" class="btn-card-action btn-card-share" data-task-id="${escapeHtml(task.id)}" title="Share task details">
           ${getSvgIcon('share', 'mr-1')} <span class="btn-responsive-label">Share</span>
         </button>
-        <a class="btn-card-action btn-card-edit" href="#" data-task-id="${task.id}" title="Edit deadline">
+        <a class="btn-card-action btn-card-edit" href="#" data-task-id="${escapeHtml(task.id)}" title="Edit deadline">
           ${getSvgIcon('pencil', 'mr-1')} <span class="btn-responsive-label">Edit</span>
         </a>
         <a class="btn-card-action btn-gcal" href="${gcalUrl}" target="_blank" rel="noopener noreferrer" title="Add to Google Calendar">
           ${getSvgIcon('calendar', 'mr-1')} <span class="btn-responsive-label">G-Calendar</span>
         </a>
-        <button class="btn-card-action btn-card-toggle" data-task-id="${task.id}">
+        <button class="btn-card-action btn-card-toggle" data-task-id="${escapeHtml(task.id)}">
           ${isCompleted ? `${getSvgIcon('refresh', 'mr-1')} <span class="btn-responsive-label">Mark Pending</span>` : `${getSvgIcon('check', 'mr-1')} <span class="btn-responsive-label">Mark Done</span>`}
         </button>
       </div>
@@ -5243,7 +5247,7 @@ function renderReadingPane(task) {
           ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(courseCode)}</span>` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="type-pill type-${task.type || 'assignment'}">
+          <span class="type-pill type-${escapeHtml(task.type || 'assignment')}">
             <span>${typeIcon}</span>
             <span>${typeLabel}</span>
           </span>
@@ -5260,7 +5264,7 @@ function renderReadingPane(task) {
             ? `${getSvgIcon('check', 'mr-1')} ${escapeHtml(countdown.label)}`
             : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
         </span>
-        <button type="button" class="room-pill-btn reading-room-btn" data-task-id="${task.id}" title="Click to change room">
+        <button type="button" class="room-pill-btn reading-room-btn" data-task-id="${escapeHtml(task.id)}" title="Click to change room">
           <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(roomDisplay)}</span>
           <span class="room-edit-hint">${getSvgIcon('pencil', 'mr-1')} Change</span>
         </button>
@@ -5322,16 +5326,16 @@ function renderReadingPane(task) {
 
       <!-- Actions Bar -->
       <div class="reading-actions-bar">
-        <button type="button" class="btn-primary-action reading-toggle-status-btn" data-task-id="${task.id}" style="min-height: 40px; font-size: 12px; padding: 0 14px;">
+        <button type="button" class="btn-primary-action reading-toggle-status-btn" data-task-id="${escapeHtml(task.id)}" style="min-height: 40px; font-size: 12px; padding: 0 14px;">
           ${isCompleted ? `${getSvgIcon('refresh', 'mr-1')} Mark as Pending` : `${getSvgIcon('check', 'mr-1')} Mark as Completed`}
         </button>
-        <button type="button" class="btn-outline-action reading-share-btn" data-task-id="${task.id}" style="min-height: 40px; font-size: 12px; padding: 0 12px;">
+        <button type="button" class="btn-outline-action reading-share-btn" data-task-id="${escapeHtml(task.id)}" style="min-height: 40px; font-size: 12px; padding: 0 12px;">
           <span>${getSvgIcon('share', 'mr-1')} Share</span>
         </button>
         <a class="btn-outline-action" href="${gcalUrl}" target="_blank" rel="noopener noreferrer" style="min-height: 40px; font-size: 12px; padding: 0 12px; text-decoration: none;">
           <span>${getSvgIcon('calendar', 'mr-1')} Google Calendar</span>
         </a>
-        <button type="button" class="btn-outline-action reading-edit-btn" data-task-id="${task.id}" style="min-height: 40px; font-size: 12px; padding: 0 12px;">
+        <button type="button" class="btn-outline-action reading-edit-btn" data-task-id="${escapeHtml(task.id)}" style="min-height: 40px; font-size: 12px; padding: 0 12px;">
           <span>${getSvgIcon('pencil', 'mr-1')} Edit</span>
         </button>
       </div>
@@ -6096,6 +6100,23 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Cloud data is only protected by the sync key, so drop records whose id/type could be used
+// as an HTML injection payload when rendered.
+const SAFE_CLOUD_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
+const SAFE_TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
+
+function sanitizeCloudTasks(tasks) {
+  if (!Array.isArray(tasks)) return [];
+  return tasks
+    .filter(t => t && typeof t === 'object' && typeof t.id === 'string' && SAFE_CLOUD_ID.test(t.id))
+    .map(t => (SAFE_TASK_TYPES.includes(t.type) ? t : { ...t, type: 'other' }));
+}
+
+function sanitizeCloudQuickLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links.filter(l => l && typeof l === 'object' && typeof l.id === 'string' && SAFE_CLOUD_ID.test(l.id));
+}
+
 // ==========================================================================
 // Add & Edit Modals (Bi-Directional Editing)
 // ==========================================================================
@@ -6837,7 +6858,7 @@ function openReadingSheet(task) {
       ${courseCode && courseCode.toLowerCase() !== 'uos' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark};">${escapeHtml(courseCode)}</span>` : ''}
     </div>
     <div style="display: flex; align-items: center; gap: 6px;">
-      <span class="type-pill type-${task.type || 'assignment'}">
+      <span class="type-pill type-${escapeHtml(task.type || 'assignment')}">
         <span>${typeIcon}</span>
         <span>${typeLabel}</span>
       </span>
@@ -6854,7 +6875,7 @@ function openReadingSheet(task) {
           : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
       </span>
       ${!isHwOrProj ? `
-      <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${task.id}">
+      <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${escapeHtml(task.id)}">
         <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room || 'No room set')}</span>
         <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
       </button>

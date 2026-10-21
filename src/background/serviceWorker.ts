@@ -95,7 +95,11 @@ async function syncDeadlinesToMobileServer(isMidnight: boolean = false) {
 
     const [fbResult, serverResult] = await Promise.all([
       pushTasksToFirebase(tasks, isMidnight ? 'Midnight Extension Sync' : 'Extension Auto-Sync', settings.syncKey, data.bbs_quick_links, tombstones, userCourses, coursesUpdatedAt || undefined),
-      pushTasksToSyncServer(tasks, settings, data.bbs_quick_links)
+      pushTasksToSyncServer(tasks, settings, data.bbs_quick_links, {
+        courses: userCourses,
+        coursesUpdatedAt: coursesUpdatedAt || undefined,
+        tombstones
+      })
     ]);
     console.log('[Auto-Sync] Firebase Result:', fbResult, 'Server Result:', serverResult);
     return { ok: fbResult.success || serverResult.success, fbResult, serverResult };

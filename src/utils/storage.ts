@@ -41,6 +41,22 @@ export function isExtensionContextValid(): boolean {
   }
 }
 
+/**
+ * True only on pages where a same-origin `/api/ai/*` edge proxy can plausibly exist (the hosted
+ * web app). Content scripts run on the university's Blackboard origin; posting an API key there
+ * would hand it to the university's server, so those hosts are always excluded.
+ */
+export function canUseSameOriginProxy(): boolean {
+  try {
+    if (typeof window === 'undefined' || !window.location) return false;
+    const { protocol, hostname } = window.location;
+    if (protocol !== 'http:' && protocol !== 'https:') return false;
+    return !/(^|\.)(sharjah\.ac\.ae|blackboard\.com)$/i.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
 const memoryStorage = new Map<string, string>();
 
 function canUseLocalStorage(): boolean {
@@ -112,10 +128,16 @@ export function getCachedQuickLinksSync(): QuickLink[] {
 }
 
 export function generateUniqueSyncKey(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 symbols, so a random byte maps without bias
+  const bytes = new Uint8Array(6);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
   let rand = '';
-  for (let i = 0; i < 6; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < bytes.length; i++) {
+    rand += chars.charAt(bytes[i] % chars.length);
   }
   return `BBS-${rand}`;
 }
@@ -185,8 +207,8 @@ export async function getSettings(): Promise<UserSettings> {
 
               // Check chrome.storage.sync to restore user account & private keys if extension was reinstalled or moved
               if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
-                chrome.storage.sync.get(['bbs_sync_key', 'bbs_settings_backup'], (syncData) => {
-                  const backup = syncData?.bbs_settings_backup;
+                chrome.storage.sync.get(['bbs_sync_key', 'bbs_settings_backup'], (syncData: { [key: string]: any }) => {
+                  const backup = syncData?.bbs_settings_backup as Partial<UserSettings> | undefined;
                   if (backup && typeof backup === 'object') {
                     if (!resolved.openRouterApiKey && backup.openRouterApiKey) {
                       resolved.openRouterApiKey = backup.openRouterApiKey;

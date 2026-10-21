@@ -32,7 +32,12 @@ export function parseDirectStreamCard(cardText: string): DeadlineTask | null {
   if (isPm && hour < 12) hour += 12;
   if (!isPm && hour === 12) hour = 0;
 
-  const dueDate = new Date(year, month - 1, day, hour, minute, 0, 0);
+  // The card states the time in the viewer's Blackboard time zone, e.g. "(UTC+4)". Honour it so the
+  // stored instant is right even when the browser is set to a different time zone.
+  const offsetHours = dateMatch[7] !== undefined ? parseInt(dateMatch[7], 10) : NaN;
+  const dueDate = !isNaN(offsetHours) && Math.abs(offsetHours) <= 14
+    ? new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0) - offsetHours * 3600 * 1000)
+    : new Date(year, month - 1, day, hour, minute, 0, 0);
 
   // Extract task title: "Due: <Title>" or "تسليم: <Title>"
   const dueRegex = /(?:Due:\s*|تسليم:\s*)([^\n\r]+)/i;

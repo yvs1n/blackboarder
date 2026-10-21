@@ -139,11 +139,9 @@ function generateIcsFeed(tasks = [], options = {}) {
     }
     lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
     
-    if (isCompleted) {
-      lines.push('STATUS:COMPLETED');
-    } else {
-      lines.push('STATUS:CONFIRMED');
-    }
+    // RFC 5545 only allows TENTATIVE/CONFIRMED/CANCELLED on events (COMPLETED is for to-dos);
+    // completion is shown by the check mark and "(Done)" in the summary.
+    lines.push('STATUS:CONFIRMED');
 
     const category = (task.type || 'assignment').toUpperCase();
     lines.push(`CATEGORIES:${escapeIcsText(category)}`);
@@ -180,8 +178,16 @@ function generateIcsFeed(tasks = [], options = {}) {
 
 const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-// In-memory fallback
-let memoryTasks = { tasks: [], lastSync: null };
+// In-memory fallback, kept per sync key so one user's data can never be served to another
+const memoryByKey = new Map();
+const memKey = (cleanKey) => cleanKey || '__default__';
+const emptyTasks = () => ({ tasks: [], lastSync: null });
+
+// When SYNC_SECRET is configured, writes must carry a matching x-sync-secret header
+function isAuthorizedWrite(request, env) {
+  if (!env || !env.SYNC_SECRET) return true;
+  return request.headers.get('x-sync-secret') === env.SYNC_SECRET;
+}
 
 async function getStoredTasks(env, syncKey = '') {
   const dbUrl = (env && env.SKIP_FIREBASE) ? null : ((env && env.FIREBASE_DB_URL) || FIREBASE_DB_URL);
@@ -197,7 +203,7 @@ async function getStoredTasks(env, syncKey = '') {
       if (fbRes.ok) {
         const fbData = await fbRes.json();
         if (fbData && Array.isArray(fbData.tasks)) {
-          memoryTasks = fbData;
+          memoryByKey.set(memKey(cleanKey), fbData);
           return fbData;
         }
       }
@@ -214,15 +220,15 @@ async function getStoredTasks(env, syncKey = '') {
       if (raw) {
         const kvData = JSON.parse(raw);
         if (kvData && Array.isArray(kvData.tasks)) {
-          memoryTasks = kvData;
+          memoryByKey.set(memKey(cleanKey), kvData);
           return kvData;
         }
       }
     } catch (e) {}
   }
 
-  // 3. Fallback to memory
-  return memoryTasks;
+  // 3. Fallback to memory (scoped to this key)
+  return memoryByKey.get(memKey(cleanKey)) || emptyTasks();
 }
 
 async function saveStoredTasks(payload, env, syncKey = '') {
@@ -252,7 +258,7 @@ async function saveStoredTasks(payload, env, syncKey = '') {
   }
 
   // 3. Keep in memory
-  memoryTasks = payload;
+  memoryByKey.set(memKey(cleanKey), payload);
 }
 
 function jsonResponse(data, status = 200) {
@@ -326,8 +332,13 @@ export default {
         return jsonResponse({ ok: false, error: 'Expected tasks array in payload' }, 400);
       }
 
+      if (!isAuthorizedWrite(request, env)) {
+        return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
+      }
+
       const activeKey = syncKey || (body && body.syncKey) || '';
       const syncTimestamp = new Date().toISOString();
+      const existing = await getStoredTasks(env, activeKey);
       const payload = {
         tasks: body.tasks,
         lastSync: syncTimestamp,
@@ -335,10 +346,11 @@ export default {
         count: body.tasks.length,
         syncKey: activeKey || undefined,
         // Keep quick links and deletion tombstones; dropping them here made deleted tasks reappear
-        quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : undefined,
-        courses: Array.isArray(body.courses) ? body.courses : undefined,
-        coursesUpdatedAt: body.coursesUpdatedAt || undefined,
-        tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : undefined
+        // Fields the caller did not send are kept from the stored copy instead of being wiped
+        quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : existing.quickLinks,
+        courses: Array.isArray(body.courses) ? body.courses : existing.courses,
+        coursesUpdatedAt: body.coursesUpdatedAt || existing.coursesUpdatedAt,
+        tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : existing.tombstones
       };
 
       await saveStoredTasks(payload, env, activeKey);
@@ -358,6 +370,9 @@ export default {
       const { taskId, status } = body;
       if (!taskId || !status) {
         return jsonResponse({ ok: false, error: 'Missing taskId or status' }, 400);
+      }
+      if (!isAuthorizedWrite(request, env)) {
+        return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
       }
 
       const activeKey = syncKey || (body && body.syncKey) || '';

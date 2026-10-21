@@ -7,20 +7,16 @@ import {
   getActiveUserCourses,
   setActiveUserCourses,
   resetActiveUserCourses,
-  getActiveScheduleEntries,
-  getActiveSyllabi,
   getActiveCourseLegend
 } from '../src/core/userCourses';
-import { findCourseSchedule, resolveTaskRoom } from '../src/core/courseSchedule';
+import { findCourseSchedule } from '../src/core/courseSchedule';
 import { findCourseSyllabus, resolveTaskWeight } from '../src/core/syllabusWeights';
 import { UserCourseConfig, DeadlineTask } from '../src/types';
 import {
-  getUserCourses,
   saveUserCourses,
   resetUserCoursesToDefault,
   recalculateTasksWithActiveCourses,
   saveTasks,
-  getTasks,
   autoRegisterDiscoveredCourses
 } from '../src/utils/storage';
 
@@ -156,7 +152,7 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
     await saveUserCourses(customCourses);
 
     // Create a task that previously had no weight and no room
-    const testTask: DeadlineTask = {
+    const testTask = {
       id: 'task_bio_test',
       title: 'Midterm Exam Biology',
       courseName: 'General Biology',
@@ -164,10 +160,10 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
       type: 'exam',
       dueDate: new Date(Date.now() + 86400000).toISOString(),
       hasSpecificTime: false,
-      completed: false,
+      status: 'pending',
       userEdited: false,
       createdAt: new Date().toISOString()
-    };
+    } as unknown as DeadlineTask;
 
     await saveTasks([testTask]);
 
@@ -214,7 +210,7 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
     await saveUserCourses([]);
     expect(getActiveUserCourses().length).toBe(0);
 
-    const scannedTasks: DeadlineTask[] = [
+    const scannedTasks = [
       {
         id: 't-stat',
         title: 'Homework 1',
@@ -223,7 +219,7 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
         type: 'assignment',
         dueDate: '2026-10-20T23:59:00.000Z',
         hasSpecificTime: false,
-        completed: false,
+        status: 'pending',
         userEdited: false,
         createdAt: new Date().toISOString()
       },
@@ -235,11 +231,11 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
         type: 'quiz',
         dueDate: '2026-10-22T10:00:00.000Z',
         hasSpecificTime: true,
-        completed: false,
+        status: 'pending',
         userEdited: false,
         createdAt: new Date().toISOString()
       }
-    ];
+    ] as unknown as DeadlineTask[];
 
     const result = await autoRegisterDiscoveredCourses(scannedTasks);
     expect(result.length).toBe(2);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   pushTasksToFirebase,
   fetchTasksFromFirebase,
@@ -9,7 +9,7 @@ import pagesWorker from '../mobile-web/_worker.js';
 import { DeadlineTask, UserCourseConfig } from '../src/types';
 
 describe('Firebase Realtime Database Sync Bridge', () => {
-  const sampleTasks: DeadlineTask[] = [
+  const sampleTasks = [
     {
       id: 'fb-task-1',
       courseCode: '1440131',
@@ -26,7 +26,7 @@ describe('Firebase Realtime Database Sync Bridge', () => {
       createdAt: '2026-09-20T00:00:00.000Z',
       updatedAt: '2026-09-20T00:00:00.000Z'
     }
-  ];
+  ] as unknown as DeadlineTask[];
 
   it('exposes correct Firebase Realtime Database endpoint', () => {
     expect(FIREBASE_DB_URL).toBe('https://blackboard-sidekick-default-rtdb.asia-southeast1.firebasedatabase.app');

@@ -1,7 +1,7 @@
 import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
 import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../utils/courseSchedule';
 import { sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
-import { isExtensionContextValid } from '../utils/storage';
+import { isExtensionContextValid, canUseSameOriginProxy } from '../utils/storage';
 
 interface AiExtractedItem {
   title: string;
@@ -125,9 +125,11 @@ ${cleanBody}`;
 
   for (const currentModel of candidateModels) {
     try {
-      // Optional: Try secure edge proxy first if running in web context
       let response: Response | null = null;
-      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+      let data: OpenRouterResponse | null = null;
+
+      // Optional: try the hosted edge proxy first (never on the Blackboard origin, which would receive the API key)
+      if (canUseSameOriginProxy()) {
         try {
           const proxyRes = await fetch('/api/ai/extract', {
             method: 'POST',
@@ -142,30 +144,8 @@ ${cleanBody}`;
           if (proxyRes.ok) {
             const proxyJson = await proxyRes.json();
             if (proxyJson && proxyJson.ok && proxyJson.data) {
-              const resData: OpenRouterResponse = proxyJson.data;
-              const content = resData.choices?.[0]?.message?.content;
-              if (content) {
-                const parsed = JSON.parse(content);
-                const items: AiExtractedItem[] = Array.isArray(parsed) ? parsed : (parsed.deadlines || parsed.tasks || [parsed]);
-                return items.map((item, idx) => ({
-                  id: `ai_${announcement.id}_${idx}_${Date.now()}`,
-                  courseCode: item.courseCode || announcement.courseCode,
-                  courseName: announcement.courseName,
-                  title: item.title,
-                  description: cleanBody || announcement.contentText || item.description || '',
-                  dueDate: item.dueDate,
-                  hasSpecificTime: Boolean(item.hasSpecificTime),
-                  type: item.type as any,
-                  priority: item.priority || 'medium',
-                  status: 'pending',
-                  sourceSnippet: cleanBody || announcement.contentText || item.sourceSnippet || '',
-                  notes: (item.description && item.description !== cleanBody) ? item.description : undefined,
-                  confidence: 0.95,
-                  extractedBy: 'ai',
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                }));
-              }
+              // Shares the normal parsing path below so schedule/room resolution and date checks still apply
+              data = proxyJson.data as OpenRouterResponse;
             }
           }
         } catch (e) {
@@ -190,9 +170,7 @@ ${cleanBody}`;
         (window.location?.protocol === 'http:' || window.location?.protocol === 'https:') &&
         isExtensionContextValid();
 
-      let data: OpenRouterResponse | null = null;
-
-      if (isContentScript) {
+      if (!data && isContentScript) {
         try {
           const bgResp = await new Promise<any>((resolve, reject) => {
             try {
@@ -259,7 +237,7 @@ ${cleanBody}`;
       if (!content) continue;
 
       // Parse JSON
-      let parsed: { deadlines?: AiExtractedItem[] };
+      let parsed: any;
       try {
         parsed = JSON.parse(content);
       } catch {
@@ -268,13 +246,18 @@ ${cleanBody}`;
         parsed = JSON.parse(cleaned);
       }
 
-      if (!parsed.deadlines || !Array.isArray(parsed.deadlines)) {
+      const rawItems: unknown = Array.isArray(parsed) ? parsed : (parsed.deadlines || (parsed as any).tasks);
+      if (!Array.isArray(rawItems)) {
         return [];
       }
 
-      return parsed.deadlines.map(item => {
-        const parsedDate = new Date(item.dueDate);
-        const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+      // An item without a usable date would otherwise be created as "due right now"
+      const validItems = (rawItems as AiExtractedItem[]).filter(
+        item => item && !isNaN(new Date(item.dueDate).getTime())
+      );
+
+      return validItems.map(item => {
+        const validDate = new Date(item.dueDate);
         const fullDoctorText = cleanBody || announcement.contentText || item.description || announcement.title;
 
         const scheduleRes = resolveTaskTimeWithSchedule({

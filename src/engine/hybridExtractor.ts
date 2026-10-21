@@ -9,7 +9,8 @@ import { resolveTaskRoom } from '../utils/courseSchedule';
  * Normalizes title for deduplication comparison.
  */
 function normalizeTaskKey(task: DeadlineTask): string {
-  const dateStr = new Date(task.dueDate).toISOString().slice(0, 10);
+  const dueTime = new Date(task.dueDate).getTime();
+  const dateStr = isNaN(dueTime) ? 'invalid' : new Date(dueTime).toISOString().slice(0, 10);
   const cleanTitle = task.title.toLowerCase().replace(/[^a-z0-9]/g, '');
   return `${task.courseCode}_${task.type}_${dateStr}_${cleanTitle}`;
 }

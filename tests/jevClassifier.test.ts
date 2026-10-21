@@ -11,7 +11,7 @@ const TEST_JEV_KEY = 'test_jev_mock_key';
 describe('Jev System One Classifier Engine', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(TypeSafeClient.prototype, 'systemOne').mockImplementation(async ({ state }: any) => {
+    vi.spyOn(TypeSafeClient.prototype, 'systemOne').mockImplementation((async ({ state }: any) => {
       const text = String(state || '');
       if (text.includes('invalid_key')) {
         throw new Error('401 AuthenticationError');
@@ -74,7 +74,7 @@ describe('Jev System One Classifier Engine', () => {
         },
         confidence: 0.5
       } as any;
-    });
+    }) as any);
   });
 
   it('gracefully handles missing API key or empty text', async () => {

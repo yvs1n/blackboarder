@@ -9,7 +9,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3456;
-const DATA_DIR = path.join(__dirname, 'data');
+const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+// Tests use a throwaway directory so they never rewrite the tracked server/data files
+const DATA_DIR = process.env.BBS_DATA_DIR
+  || (isTest ? fs.mkdtempSync(path.join(os.tmpdir(), 'bbs-server-test-')) : path.join(__dirname, 'data'));
 const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 const SUBS_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const STATIC_DIR = path.join(__dirname, '..', 'mobile-web');
@@ -68,6 +71,7 @@ function readJsonBody(req) {
       body += chunk;
       if (body.length > 5 * 1024 * 1024) { // 5MB guard
         reject(new Error('Payload too large'));
+        req.destroy();
       }
     });
     req.on('end', () => {
@@ -97,6 +101,15 @@ function sendJson(res, statusCode, data) {
     'Cache-Control': 'no-cache, no-store, must-revalidate'
   });
   res.end(JSON.stringify(data));
+}
+
+/**
+ * When SYNC_SECRET is set, write endpoints require a matching x-sync-secret header.
+ */
+function isAuthorizedWrite(req) {
+  const secret = process.env.SYNC_SECRET;
+  if (!secret) return true;
+  return req.headers['x-sync-secret'] === secret;
 }
 
 /**
@@ -170,6 +183,9 @@ const server = http.createServer(async (req, res) => {
 
     // 3. POST /api/sync - Upload tasks from Chrome extension
     if (req.method === 'POST' && pathname === '/api/sync') {
+      if (!isAuthorizedWrite(req)) {
+        return sendJson(res, 401, { ok: false, error: 'Invalid sync secret' });
+      }
       const body = await readJsonBody(req);
       if (!Array.isArray(body.tasks)) {
         return sendJson(res, 400, { ok: false, error: 'Expected tasks array in payload' });
@@ -183,6 +199,8 @@ const server = http.createServer(async (req, res) => {
         lastSync: syncTimestamp,
         device: body.device || 'Chrome Extension',
         count: body.tasks.length,
+        coursesUpdatedAt: body.coursesUpdatedAt || existing.coursesUpdatedAt,
+        tombstones: body.tombstones && typeof body.tombstones === 'object' ? body.tombstones : existing.tombstones,
         quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : (existing.quickLinks || [])
       };
 
@@ -201,6 +219,9 @@ const server = http.createServer(async (req, res) => {
 
     // 4. POST /api/task-status - Mark task completed/pending from mobile web
     if (req.method === 'POST' && pathname === '/api/task-status') {
+      if (!isAuthorizedWrite(req)) {
+        return sendJson(res, 401, { ok: false, error: 'Invalid sync secret' });
+      }
       const body = await readJsonBody(req);
       const { taskId, status } = body;
       if (!taskId || !status) {
@@ -342,6 +363,10 @@ const server = http.createServer(async (req, res) => {
 
     const safeSuffix = path.normalize(reqFilePath).replace(/^(\.\.[\/\\])+/, '');
     let fullFilePath = path.join(STATIC_DIR, safeSuffix);
+    // Never serve anything outside the static directory
+    if (fullFilePath !== STATIC_DIR && !fullFilePath.startsWith(STATIC_DIR + path.sep)) {
+      fullFilePath = path.join(STATIC_DIR, 'index.html');
+    }
 
     // If file doesn't exist or is a directory, fallback to index.html for SPA routing
     if (!fs.existsSync(fullFilePath) || fs.statSync(fullFilePath).isDirectory()) {
@@ -376,8 +401,6 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 500, { ok: false, error: err.message || 'Internal Server Error' });
   }
 });
-
-const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
 
 if (!isTest) {
   server.listen(PORT, '0.0.0.0', () => {

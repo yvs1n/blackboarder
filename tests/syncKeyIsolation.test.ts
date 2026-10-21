@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   getFirebaseDataUrl,
   pushTasksToFirebase,
@@ -10,7 +10,7 @@ import pagesWorker from '../mobile-web/_worker.js';
 import { DeadlineTask } from '../src/types';
 
 describe('Multi-User Sync Key Isolation Suite', () => {
-  const sampleTasks: DeadlineTask[] = [
+  const sampleTasks = [
     {
       id: 'task-isolated-1',
       courseCode: '1440131',
@@ -25,7 +25,7 @@ describe('Multi-User Sync Key Isolation Suite', () => {
       createdAt: '2026-09-28T00:00:00.000Z',
       updatedAt: '2026-09-28T00:00:00.000Z'
     }
-  ];
+  ] as unknown as DeadlineTask[];
 
   describe('Endpoint Scoping & URL Generation', () => {
     it('generates user-scoped URL when syncKey is provided', () => {

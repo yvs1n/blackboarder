@@ -39,8 +39,8 @@ Due Date: 9/18/26, 11:59 PM (UTC+4)`;
     expect(task1).not.toBeNull();
     expect(task1?.title).toBe('Assignment-1-Graded');
     expect(task1?.courseName).toBe('Calculus I for Engineering');
-    expect(new Date(task1!.dueDate).getDate()).toBe(18);
-    expect(new Date(task1!.dueDate).getMonth()).toBe(8); // September
+    // "(UTC+4)" is honoured, so the instant is the same in any browser time zone
+    expect(task1!.dueDate).toBe('2026-09-18T19:59:00.000Z');
 
     // Item 2
     const card2 = `Physics 1 - ALL - 1 - الفيزياء-1
@@ -50,7 +50,7 @@ Due Date: 9/20/26, 11:59 PM (UTC+4)`;
     expect(task2).not.toBeNull();
     expect(task2?.title).toBe('HW1_Phys.1_Fall26-27 (chap. 1 & Chap. 2)');
     expect(task2?.courseName).toBe('Physics 1');
-    expect(new Date(task2!.dueDate).getDate()).toBe(20);
+    expect(task2!.dueDate).toBe('2026-09-20T19:59:00.000Z');
 
     // Item 3
     const card3 = `Islamic Culture - 13A - الثقافة الإسلامية
@@ -60,8 +60,7 @@ Due Date: 10/15/26, 11:59 PM (UTC+4)`;
     expect(task3).not.toBeNull();
     expect(task3?.title).toBe('البحث العلمي (واجب جماعي) 15 درجة');
     expect(task3?.courseName).toBe('Islamic Culture');
-    expect(new Date(task3!.dueDate).getMonth()).toBe(9); // October
-    expect(new Date(task3!.dueDate).getDate()).toBe(15);
+    expect(task3!.dueDate).toBe('2026-10-15T19:59:00.000Z');
 
     // Item 4
     const card4 = `Islamic Culture - 13A - الثقافة الإسلامية
@@ -70,9 +69,7 @@ Due Date: 10/25/26, 5:59 AM (UTC+4)`;
     const task4 = parseDirectStreamCard(card4);
     expect(task4).not.toBeNull();
     expect(task4?.title).toBe('واجب (10 درجات)');
-    expect(new Date(task4!.dueDate).getDate()).toBe(25);
-    expect(new Date(task4!.dueDate).getHours()).toBe(5);
-    expect(new Date(task4!.dueDate).getMinutes()).toBe(59);
+    expect(task4!.dueDate).toBe('2026-10-25T01:59:00.000Z');
   });
 
   it('parses submission confirmations and grade receipts accurately', async () => {

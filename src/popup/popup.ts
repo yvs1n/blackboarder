@@ -587,9 +587,9 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
         ${resolved.courseCode && resolved.courseCode !== resolved.courseName ? `<span class="day-card-course-code">(${escapeHtml(resolved.courseCode)})</span>` : ''}
       </span>
       <div style="display: flex; align-items: center; gap: 5px;">
-        <span class="type-pill type-${task.type}" style="font-size: 9px; padding: 1px 5px; display: inline-flex; align-items: center; gap: 3px;">
+        <span class="type-pill type-${escapeHtml(task.type)}" style="font-size: 9px; padding: 1px 5px; display: inline-flex; align-items: center; gap: 3px;">
           ${getTaskTypeIcon(task.type)}
-          <span>${task.type}</span>
+          <span>${escapeHtml(task.type)}</span>
         </span>
         <span class="day-card-status-badge ${isCompleted ? 'status-done' : countdown.urgency}">
           ${isCompleted ? `${getSvgIcon('check', 'mr-1')} Completed` : countdown.label}
@@ -1703,14 +1703,14 @@ function renderTasks() {
     if (!isHwOrProject) {
       if (task.room) {
         roomBadgeHtml = `
-          <button type="button" class="room-pill-btn" data-id="${task.id}" title="Click to change room">
+          <button type="button" class="room-pill-btn" data-id="${escapeHtml(task.id)}" title="Click to change room">
             <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>
             <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
           </button>
         `;
       } else {
         roomBadgeHtml = `
-          <button type="button" class="room-pill-btn" data-id="${task.id}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
+          <button type="button" class="room-pill-btn" data-id="${escapeHtml(task.id)}" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;" title="Click to assign room">
             <span>${getSvgIcon('pin', 'mr-1')} Add Room</span>
             <span class="room-edit-hint">${getSvgIcon('plus')}</span>
           </button>
@@ -1747,13 +1747,13 @@ function renderTasks() {
               <span>${getSvgIcon('message', 'mr-1')}</span>
               <span>DOCTOR ANNOUNCEMENT:</span>
             </div>
-            <button type="button" class="btn-inspect-quote" data-id="${task.id}" title="Inspect full announcement">
+            <button type="button" class="btn-inspect-quote" data-id="${escapeHtml(task.id)}" title="Inspect full announcement">
               <span>${getSvgIcon('search', 'mr-1')} Full View</span>
             </button>
           </div>
-          <div class="quote-body ${isLong ? 'clamped' : 'expanded'}" id="quote-body-${task.id}">${escapeHtml(snippet)}</div>
+          <div class="quote-body ${isLong ? 'clamped' : 'expanded'}" id="quote-body-${escapeHtml(task.id)}">${escapeHtml(snippet)}</div>
           ${isLong ? `
-            <button type="button" class="btn-toggle-quote" data-id="${task.id}" aria-expanded="false">
+            <button type="button" class="btn-toggle-quote" data-id="${escapeHtml(task.id)}" aria-expanded="false">
               <span class="quote-toggle-icon">${getSvgIcon('book', 'mr-1')}</span>
               <span class="quote-toggle-text">Read Full Announcement ▾</span>
             </button>
@@ -1791,7 +1791,7 @@ function renderTasks() {
           ${resolved.courseCode && resolved.courseCode !== resolved.courseName && resolved.courseCode !== 'UOS' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="type-pill type-${task.type}" style="display: inline-flex; align-items: center; gap: 3px;">
+          <span class="type-pill type-${escapeHtml(task.type)}" style="display: inline-flex; align-items: center; gap: 3px;">
             ${getTaskTypeIcon(task.type)}
             <span>${(task.type || 'assignment').toUpperCase()}</span>
           </span>
@@ -1800,7 +1800,7 @@ function renderTasks() {
 
       <!-- Task Title & Done Toggle -->
       <div class="task-title-row">
-        <button type="button" class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-id="${task.id}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
+        <button type="button" class="status-checkbox-btn ${isCompleted ? 'checked' : ''}" data-id="${escapeHtml(task.id)}" aria-label="Toggle status" title="${isCompleted ? 'Mark as Pending' : 'Mark as Done'}">
           ${isCompleted ? '✓' : ''}
         </button>
         <div class="task-title-text">${escapeHtml(task.title)}</div>
@@ -1838,16 +1838,16 @@ function renderTasks() {
 
       <!-- Card Action Buttons matching website -->
       <div class="task-card-footer">
-        <button type="button" class="btn-card-action btn-share-card" data-id="${task.id}" title="Share task details">
+        <button type="button" class="btn-card-action btn-share-card" data-id="${escapeHtml(task.id)}" title="Share task details">
           ${getSvgIcon('share', 'mr-1')} <span class="btn-responsive-label">Share</span>
         </button>
-        <button type="button" class="btn-card-action btn-edit-card" data-id="${task.id}" title="Edit deadline">
+        <button type="button" class="btn-card-action btn-edit-card" data-id="${escapeHtml(task.id)}" title="Edit deadline">
           ${getSvgIcon('pencil', 'mr-1')} <span class="btn-responsive-label">Edit</span>
         </button>
         <a class="btn-card-action btn-gcal" href="${gcalUrl}" target="_blank" rel="noopener noreferrer" title="Add to Google Calendar">
           ${getSvgIcon('calendar', 'mr-1')} <span class="btn-responsive-label">G-Calendar</span>
         </a>
-        <button type="button" class="btn-card-action btn-card-toggle" data-id="${task.id}">
+        <button type="button" class="btn-card-action btn-card-toggle" data-id="${escapeHtml(task.id)}">
           ${isCompleted ? `${getSvgIcon('refresh', 'mr-1')} <span class="btn-responsive-label">Mark Pending</span>` : `${getSvgIcon('check', 'mr-1')} <span class="btn-responsive-label">Mark Done</span>`}
         </button>
       </div>
@@ -1955,7 +1955,7 @@ function openReadingSheet(task: DeadlineTask) {
       ${resolved.courseCode && resolved.courseCode !== 'UOS' ? `<span class="course-code-tag" style="color: ${courseTheme.textDark}; border-color: ${courseTheme.border};">${escapeHtml(resolved.courseCode)}</span>` : ''}
     </div>
     <div style="display: flex; align-items: center; gap: 6px;">
-      <span class="type-pill type-${task.type || 'assignment'}">
+      <span class="type-pill type-${escapeHtml(task.type || 'assignment')}">
         <span>${getTaskTypeIcon(task.type)}</span>
         <span>${(task.type || 'assignment').toUpperCase()}</span>
       </span>
@@ -1972,7 +1972,7 @@ function openReadingSheet(task: DeadlineTask) {
           : (countdown.urgency === 'overdue' ? `${getSvgIcon('urgent', 'mr-1')} ${escapeHtml(countdown.label)}` : `${getSvgIcon('clock', 'mr-1')} ${escapeHtml(countdown.label)}`)}
       </span>
       ${!isHwOrProject ? `
-      <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${task.id}">
+      <button type="button" class="room-pill-btn modal-reading-room-btn" data-task-id="${escapeHtml(task.id)}">
         <span>${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room || 'No room set')}</span>
         <span class="room-edit-hint">${getSvgIcon('pencil')}</span>
       </button>
@@ -2316,9 +2316,12 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
 }
 
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 // ============================================================================
@@ -3549,7 +3552,7 @@ function renderQuickLinksBar() {
   container.innerHTML = currentQuickLinks.map(link => {
     const meta = getQuickLinkCategoryMeta(link.category);
     return `
-      <a class="ql-chip ${meta.badgeClass}" data-id="${link.id}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
+      <a class="ql-chip ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
         <span class="ql-chip-dot" style="background: ${meta.color};"></span>
         <span>${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
@@ -3590,7 +3593,7 @@ function renderQuickLinksManager() {
     }
 
     return `
-      <div class="ql-item-card ${meta.badgeClass}" data-id="${link.id}">
+      <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}">
         <div class="ql-item-left">
           <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
             ${meta.icon}
@@ -3608,10 +3611,10 @@ function renderQuickLinksManager() {
             <span>Open</span>
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-external-link"></use></svg>
           </button>
-          <button type="button" class="btn-ql-action btn-edit-ql" data-id="${link.id}" title="Edit link" aria-label="Edit link">
+          <button type="button" class="btn-ql-action btn-edit-ql" data-id="${escapeHtml(link.id)}" title="Edit link" aria-label="Edit link">
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-pencil"></use></svg>
           </button>
-          <button type="button" class="btn-ql-action delete btn-delete-ql" data-id="${link.id}" title="Delete link" aria-label="Delete link">
+          <button type="button" class="btn-ql-action delete btn-delete-ql" data-id="${escapeHtml(link.id)}" title="Delete link" aria-label="Delete link">
             <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-trash"></use></svg>
           </button>
         </div>

@@ -10,11 +10,13 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "skipLibCheck": true,
-    "types": ["chrome", "vite/client", "vitest/globals"]
+    "types": ["chrome", "node", "vite/client", "vitest/globals"]
   },
-  "include": ["src", "tests", "vite.config.ts"]
+  "include": ["src", "tests"]
 }

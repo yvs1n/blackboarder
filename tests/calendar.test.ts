@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createGoogleCalendarUrl, generateIcsContent, formatTaskTime, getTaskSortTimestamp, compareTasksByTime, formatCountdown } from '../src/utils/calendar';
+import { createGoogleCalendarUrl, generateIcsContent, formatTaskTime, compareTasksByTime, formatCountdown } from '../src/utils/calendar';
 import { DeadlineTask } from '../src/types';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
@@ -59,7 +59,8 @@ describe('Calendar Utilities', () => {
     const completedTask: DeadlineTask = { ...sampleTask, status: 'completed' };
     const ics = generateIcsContent([completedTask]);
     expect(ics).toContain('SUMMARY:✓ [Computer Programming (0401201)] Quiz 2: Arrays & Functions (Done)');
-    expect(ics).toContain('STATUS:COMPLETED');
+    expect(ics).toContain('STATUS:CONFIRMED');
+    expect(ics).not.toContain('STATUS:COMPLETED');
     expect(ics).toContain('Status: Completed (Done)');
   });
 
