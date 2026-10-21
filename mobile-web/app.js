@@ -12,6 +12,31 @@ const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast
  */
 let _justPairedViaUrl = false;
 
+/** YYYY-MM-DD for the viewer's own time zone (an ISO string's date part is the UTC date). */
+function localDateKey(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Everything cached for one sync key must not leak into another account's cloud bucket when the
+ * device is re-paired or disconnected.
+ */
+function resetLocalDataForNewKey() {
+  [
+    'bbs_mobile_tasks',
+    'bbs_mobile_last_sync',
+    'bbs_tombstones',
+    'bbs_known_task_ids',
+    'bbs_notified_map',
+    'bbs_offline_mutation_queue',
+    'bbs_quick_links'
+  ].forEach(k => {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+}
+
 function getSyncKey() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -21,6 +46,7 @@ function getSyncKey() {
       if (clean) {
         const prevKey = localStorage.getItem('bbs_sync_key');
         if (prevKey !== clean) {
+          if (prevKey) resetLocalDataForNewKey();
           _justPairedViaUrl = true;
         }
         localStorage.setItem('bbs_sync_key', clean);
@@ -47,8 +73,119 @@ function getFirebaseDataUrl() {
 // Dynamic Course Configurations, Schedules & Syllabus Mark Allocations
 // ==========================================================================
 
+// Cloud data is only protected by the sync key, so treat everything read back from it as untrusted:
+// drop or repair records that could crash a renderer or act as an HTML/CSS injection payload.
+const SAFE_CLOUD_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
+const SAFE_HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
+const SAFE_TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
+const SAFE_PRIORITIES = ['high', 'medium', 'low'];
+const SAFE_STATUSES = ['pending', 'completed', 'dismissed'];
+const SAFE_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+function cloudStr(v) { return typeof v === 'string' ? v : ''; }
+function cloudOptNum(v) {
+  const n = typeof v === 'number' ? v : (typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
+  return Number.isFinite(n) ? n : undefined;
+}
+function safeHexColor(v, fallback = '#2563eb') {
+  return typeof v === 'string' && SAFE_HEX_COLOR.test(v) ? v : fallback;
+}
+
+function sanitizeCloudTasks(tasks) {
+  if (!Array.isArray(tasks)) return [];
+  const out = [];
+  for (const t of tasks) {
+    if (!t || typeof t !== 'object' || typeof t.id !== 'string' || !SAFE_CLOUD_ID.test(t.id)) continue;
+    if (isNaN(new Date(t.dueDate).getTime())) continue;
+    const clean = {
+      ...t,
+      title: cloudStr(t.title),
+      courseCode: cloudStr(t.courseCode),
+      courseName: cloudStr(t.courseName),
+      description: cloudStr(t.description),
+      sourceSnippet: cloudStr(t.sourceSnippet),
+      hasSpecificTime: Boolean(t.hasSpecificTime),
+      type: SAFE_TASK_TYPES.includes(t.type) ? t.type : 'other',
+      priority: SAFE_PRIORITIES.includes(t.priority) ? t.priority : 'medium',
+      status: SAFE_STATUSES.includes(t.status) ? t.status : 'pending'
+    };
+    for (const key of ['weight', 'score', 'maxScore', 'confidence']) {
+      const n = cloudOptNum(t[key]);
+      if (n === undefined) delete clean[key];
+      else clean[key] = n;
+    }
+    out.push(clean);
+  }
+  return out;
+}
+
+function sanitizeCloudQuickLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links
+    .filter(l => l && typeof l === 'object' && typeof l.id === 'string' && SAFE_CLOUD_ID.test(l.id) && typeof l.url === 'string')
+    .map(l => ({ ...l, title: cloudStr(l.title) }));
+}
+
+function sanitizeCloudCourses(courses) {
+  if (!Array.isArray(courses)) return [];
+  const out = [];
+  for (const c of courses) {
+    if (!c || typeof c !== 'object') continue;
+    const fallbackId = 'course_' + (cloudStr(c.courseCode || c.courseName).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) || 'unnamed');
+    const id = typeof c.id === 'string' && SAFE_CLOUD_ID.test(c.id) ? c.id : fallbackId;
+    out.push({
+      ...c,
+      id,
+      courseCode: cloudStr(c.courseCode),
+      courseName: cloudStr(c.courseName),
+      colorHex: safeHexColor(c.colorHex),
+      aliases: Array.isArray(c.aliases) ? c.aliases.filter(a => typeof a === 'string') : [],
+      scheduleSlots: (Array.isArray(c.scheduleSlots) ? c.scheduleSlots : [])
+        .filter(sl => sl && typeof sl === 'object')
+        .map(sl => ({
+          ...sl,
+          days: (Array.isArray(sl.days) ? sl.days : []).filter(d => typeof d === 'string' && SAFE_WEEKDAYS.includes(d.toLowerCase())),
+          startTime: cloudStr(sl.startTime) || '00:00',
+          endTime: cloudStr(sl.endTime) || '00:00',
+          room: cloudStr(sl.room)
+        })),
+      syllabus: (Array.isArray(c.syllabus) ? c.syllabus : [])
+        .filter(sy => sy && typeof sy === 'object')
+        .map((sy, idx) => ({
+          ...sy,
+          id: typeof sy.id === 'string' && sy.id ? sy.id : `${id}_comp_${idx + 1}`,
+          name: cloudStr(sy.name),
+          type: SAFE_TASK_TYPES.includes(sy.type) ? sy.type : 'other',
+          totalWeight: cloudOptNum(sy.totalWeight) ?? 0,
+          count: cloudOptNum(sy.count),
+          unitWeight: cloudOptNum(sy.unitWeight)
+        }))
+    });
+  }
+  return out;
+}
+
+
 function escapeRegex(str) {
   return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Aliases/keywords can come from the cloud: use pattern-looking ones only if they compile and are
+// short and free of nested quantifiers, otherwise match them literally so nothing can throw or hang.
+function toPatternPart(raw) {
+  const trimmed = String(raw || '').trim();
+  if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
+    const nestedQuantifier = /\([^)]*[+*][^)]*\)[+*{]/.test(trimmed);
+    if (trimmed.length <= 120 && !nestedQuantifier) {
+      try {
+        new RegExp(trimmed, 'i');
+        return trimmed;
+      } catch (e) {
+        // fall through to literal matching
+      }
+    }
+  }
+  return escapeRegex(trimmed);
 }
 
 function compileCoursePattern(course) {
@@ -74,13 +211,8 @@ function compileCoursePattern(course) {
 
   if (Array.isArray(course.aliases)) {
     for (const a of course.aliases) {
-      const trimmed = String(a || '').trim();
-      if (!trimmed) continue;
-      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
-        parts.push(trimmed);
-      } else {
-        parts.push(escapeRegex(trimmed));
-      }
+      if (typeof a !== 'string' || !a.trim()) continue;
+      parts.push(toPatternPart(a));
     }
   }
 
@@ -96,13 +228,8 @@ function compileSyllabusComponentMatcher(comp) {
 
   if (Array.isArray(comp.keywords) && comp.keywords.length > 0) {
     for (const kw of comp.keywords) {
-      const trimmed = String(kw || '').trim();
-      if (!trimmed) continue;
-      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
-        parts.push(trimmed);
-      } else {
-        parts.push(escapeRegex(trimmed));
-      }
+      if (typeof kw !== 'string' || !kw.trim()) continue;
+      parts.push(toPatternPart(kw));
     }
   }
 
@@ -560,7 +687,7 @@ function recompileDynamicCourseData(courses) {
   const newLegend = courseList.map(course => ({
     code: course.courseCode,
     name: course.courseName,
-    color: course.colorHex || '#2563eb',
+    color: safeHexColor(course.colorHex),
     pattern: compileCoursePattern(course)
   }));
   PERMANENT_COURSE_LEGEND.length = 0;
@@ -696,7 +823,7 @@ function loadInitialUserCourses() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return filterCleanMobileCourses(parsed);
+        return filterCleanMobileCourses(sanitizeCloudCourses(parsed));
       }
     }
   } catch (e) {
@@ -739,11 +866,12 @@ function extractRoomFromText(text) {
   if (centralMatch) {
     return `Central Lab Men - ${centralMatch[1]}`;
   }
-  const enRoomRegex = /\b(?:in\s+)?(?:room|rm|classroom|hall|auditorium|lecture\s*hall|lab|laboratory)\s*(?:#|no\.?|number)?\s*[:\-–]?\s*([A-Za-z0-9]{1,6}(?:\s*[-–—/]\s*[A-Za-z0-9]+)?)\b/i;
+  // Whole-word keyword and a token containing a digit: "lab report" / "label" are not rooms
+  const enRoomRegex = /\b(?:in\s+)?(?:room|rm|classroom|hall|auditorium|lecture\s*hall|lab|laboratory)\b\s*(?:#|no\.?|number)?\s*[:\-–]?\s*([A-Za-z0-9]{1,6}(?:\s*[-–—/]\s*[A-Za-z0-9]+)?)\b/i;
   const enMatch = text.match(enRoomRegex);
   if (enMatch) {
     const raw = enMatch[1].trim();
-    if (!/^(?:temperature|conditions|for|and|or|the|to|with|all|due|today|tomorrow|yesterday)$/i.test(raw)) {
+    if (/\d/.test(raw) && !/^(?:temperature|conditions|for|and|or|the|to|with|all|due|today|tomorrow|yesterday)$/i.test(raw)) {
       return raw.replace(/\s*[-–—/]\s*/, '-');
     }
   }
@@ -751,7 +879,7 @@ function extractRoomFromText(text) {
   const arMatch = text.match(arRoomRegex);
   if (arMatch) {
     const raw = arMatch[1].trim();
-    if (raw && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) {
+    if (raw && /\d/.test(raw) && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) {
       return raw.replace(/\s*[-–—/]\s*/, '-');
     }
   }
@@ -903,7 +1031,7 @@ function extractExplicitPoints(text) {
     const val = parseFloat(arMatch[1]);
     if (val > 0 && val <= 100) return val;
   }
-  const pctMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)\b/i);
+  const pctMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent\b)/i);
   if (pctMatch) {
     const val = parseFloat(pctMatch[1]);
     if (val > 0 && val <= 100) return val;
@@ -1034,15 +1162,17 @@ function saveAiSettings(settings) {
 
 // Jev Fast Classifier (~100ms Gatekeeper)
 async function callJevClassifier(text, apiKey) {
+  const fallbackResult = {
+    isDeadline: true,
+    deadlineProbability: 0.5,
+    category: 'other',
+    categoryConfidence: 0.5,
+    priority: 'medium',
+    urgencyScore: 2.0
+  };
+
   if (!apiKey || !apiKey.trim() || !text || !text.trim()) {
-    return {
-      isDeadline: true,
-      deadlineProbability: 0.5,
-      category: 'other',
-      categoryConfidence: 0.5,
-      priority: 'medium',
-      urgencyScore: 2.0
-    };
+    return fallbackResult;
   }
 
   const payload = {
@@ -1300,8 +1430,9 @@ function extractDeadlinesLocallyClient(text, courseHint = '') {
   let startMinute = 59;
   let hasSpecificTime = false;
 
-  const timeMatch = text.match(/(?:at|from|من|الساعة)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|صباحاً|صباحا|مساءً|مساء)?\b/i);
-  if (timeMatch) {
+  // Check every number-like token: the first one is often not a time ("Quiz 2 ... at 11:00 am")
+  const timeRegex = /(?:at|from|من|الساعة)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|صباحاً|صباحا|مساءً|مساء)?\b/gi;
+  for (const timeMatch of text.matchAll(timeRegex)) {
     let h = parseInt(timeMatch[1], 10);
     const m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
     const tag = (timeMatch[3] || '').toLowerCase();
@@ -1314,10 +1445,12 @@ function extractDeadlinesLocallyClient(text, courseHint = '') {
       startHour = h;
       startMinute = m;
       hasSpecificTime = true;
+      break;
     } else if (h >= 8 && h <= 21 && timeMatch[2]) {
       startHour = h;
       startMinute = m;
       hasSpecificTime = true;
+      break;
     }
   }
 
@@ -1325,7 +1458,7 @@ function extractDeadlinesLocallyClient(text, courseHint = '') {
   let targetDate = null;
 
   // 1. "Oct 14", "14 Oct", "October 14th", "14 أكتوبر"
-  const monthNameRegex = /(?:(\d{1,2})(?:st|nd|rd|th)?\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر)(?:\s+(\d{1,2})(?:st|nd|rd|th)?)?(?:,?\s*(\d{4}))?/i;
+  const monthNameRegex = /(?:(\d{1,2})(?:st|nd|rd|th)?\s+)?(?<![A-Za-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر)(?![A-Za-z])(?:\s+(\d{1,2})(?:st|nd|rd|th)?)?(?:,?\s*(\d{4}))?/i;
   const monthMatch = text.match(monthNameRegex);
   if (monthMatch) {
     const day = parseInt(monthMatch[1] || monthMatch[3], 10);
@@ -1514,9 +1647,8 @@ async function extractAnnouncementHybrid(text, courseHint = '') {
       courseHint
     );
 
-    const formattedTasks = rawAiTasks.map(item => {
-      const d = new Date(item.dueDate);
-      const validDate = isNaN(d.getTime()) ? new Date() : d;
+    const formattedTasks = rawAiTasks.filter(item => item && !isNaN(new Date(item.dueDate).getTime())).map(item => {
+      const validDate = new Date(item.dueDate);
       const detectedCourse = item.courseName || courseHint || 'General Course';
 
       const room = resolveTaskRoom({
@@ -3485,7 +3617,7 @@ function initTabs() {
   });
 
   document.getElementById('btn-web-add')?.addEventListener('click', () => {
-    openAddTaskModal(state.selectedDate || new Date().toISOString().split('T')[0]);
+    openAddTaskModal(state.selectedDate || localDateKey(new Date()));
   });
 }
 
@@ -3534,7 +3666,7 @@ function recalculateAllTaskWeightsAndRooms() {
       t.sourceSnippet || t.description || t.notes || '',
       seriesInfo?.index
     );
-    if (wInfo.weight !== undefined) {
+    if (wInfo.weight !== undefined && !t.userEdited && t.extractedBy !== 'manual') {
       t.weight = wInfo.weight;
       t.weightDisplay = wInfo.weightDisplay;
       t.syllabusNote = wInfo.syllabusNote;
@@ -3629,7 +3761,7 @@ async function fetchTasksFromServer(isManual = false) {
           const fbData = await fbRes.json();
           if (fbData) {
             if (Array.isArray(fbData.courses)) {
-              fetchedCourses = fbData.courses;
+              fetchedCourses = sanitizeCloudCourses(fbData.courses);
               fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
             if (Array.isArray(fbData.tasks)) {
@@ -3664,7 +3796,7 @@ async function fetchTasksFromServer(isManual = false) {
         const data = await res.json();
         if (data) {
           if (Array.isArray(data.courses)) {
-            fetchedCourses = data.courses;
+            fetchedCourses = sanitizeCloudCourses(data.courses);
             fetchedCoursesUpdatedAt = data.coursesUpdatedAt || null;
           }
           if (data.ok && Array.isArray(data.tasks)) {
@@ -3813,7 +3945,7 @@ async function fetchTasksFromServer(isManual = false) {
           t.sourceSnippet || t.description || t.notes || '',
           seriesInfo?.index
         );
-        if (wInfo.weight !== undefined) {
+        if (wInfo.weight !== undefined && !t.userEdited && t.extractedBy !== 'manual') {
           t.weight = wInfo.weight;
           t.weightDisplay = wInfo.weightDisplay;
           t.syllabusNote = wInfo.syllabusNote;
@@ -3993,7 +4125,7 @@ function updateAllViews() {
   const drawer = document.getElementById('day-sheet-drawer');
   if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
     const dayTasks = state.tasks.filter(t => {
-      if (!t.dueDate || !t.dueDate.startsWith(state.selectedDate)) return false;
+      if (!t.dueDate || !localDateKey(t.dueDate) === state.selectedDate) return false;
       if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
       return true;
     });
@@ -4307,7 +4439,7 @@ function renderCalendar() {
     // Find tasks for this day
     const dayTasks = state.tasks.filter(t => {
       if (!t.dueDate) return false;
-      if (!t.dueDate.startsWith(dateStr)) return false;
+      if (!localDateKey(t.dueDate) === dateStr) return false;
       if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
       return true;
     });
@@ -4479,7 +4611,7 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
   const list = document.getElementById('selected-day-list');
   if (!container || !list) return;
 
-  const targetDate = dateStr || state.selectedDate || new Date().toISOString().split('T')[0];
+  const targetDate = dateStr || state.selectedDate || localDateKey(new Date());
   const [y, m, d] = targetDate.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
   const formattedHeader = dateObj.toLocaleDateString(undefined, {
@@ -4492,7 +4624,7 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
     titleText.textContent = `Deadlines for ${formattedHeader}`;
   }
 
-  const tasksOnDate = (dayTasks || state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(targetDate)))
+  const tasksOnDate = (dayTasks || state.tasks.filter(t => t.dueDate && localDateKey(t.dueDate) === targetDate))
     .filter(t => matchesSelectedCourseFilter(t, state.selectedCourseFilter));
   tasksOnDate.sort(compareTasksByTime);
 
@@ -4595,12 +4727,12 @@ function renderSelectedDay(dateStr = null, dayTasks = null) {
 
 function initSelectedDayContainer() {
   document.getElementById('btn-add-on-date')?.addEventListener('click', () => {
-    openAddTaskModal(state.selectedDate || new Date().toISOString().split('T')[0]);
+    openAddTaskModal(state.selectedDate || localDateKey(new Date()));
   });
 
   document.getElementById('btn-open-day-sheet')?.addEventListener('click', () => {
-    const activeDate = state.selectedDate || new Date().toISOString().split('T')[0];
-    const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(activeDate));
+    const activeDate = state.selectedDate || localDateKey(new Date());
+    const dayTasks = state.tasks.filter(t => t.dueDate && localDateKey(t.dueDate) === activeDate);
     openDaySheet(activeDate, dayTasks);
   });
 }
@@ -5651,6 +5783,11 @@ function initSettings() {
 
     const prevKey = getSyncKey();
     if (clean !== prevKey) {
+      if (prevKey) {
+        resetLocalDataForNewKey();
+        state.tasks = [];
+        state.quickLinks = [];
+      }
       state.userCourses = [];
       state.coursesUpdatedAt = null;
       const scoped = localStorage.getItem(`bbs_mobile_courses_${clean}`);
@@ -5708,6 +5845,7 @@ function initSettings() {
       localStorage.removeItem('bbs_mobile_courses');
       localStorage.removeItem('bbs_mobile_courses_updated_at');
       localStorage.removeItem('bbs_sync_key');
+      resetLocalDataForNewKey();
       if (inputSyncKey) inputSyncKey.value = '';
       if (window.history && window.history.replaceState) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -5722,6 +5860,7 @@ function initSettings() {
       renderGradeTracker();
       updateCourseDatalist();
       updateAllViews();
+      syncTasksToServiceWorker();
       updateDevicePairingCard();
       activeFeedUrl = updateFeedUrls();
       showToast('Device disconnected. Open pairing link from extension to reconnect.');
@@ -6100,26 +6239,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Cloud data is only protected by the sync key, so drop records whose id/type could be used
-// as an HTML injection payload when rendered.
-const SAFE_CLOUD_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
-const SAFE_TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
-
-function sanitizeCloudTasks(tasks) {
-  if (!Array.isArray(tasks)) return [];
-  return tasks
-    .filter(t => t && typeof t === 'object' && typeof t.id === 'string' && SAFE_CLOUD_ID.test(t.id))
-    .map(t => (SAFE_TASK_TYPES.includes(t.type) ? t : { ...t, type: 'other' }));
-}
-
-function sanitizeCloudQuickLinks(links) {
-  if (!Array.isArray(links)) return [];
-  return links.filter(l => l && typeof l === 'object' && typeof l.id === 'string' && SAFE_CLOUD_ID.test(l.id));
-}
-
-// ==========================================================================
-// Add & Edit Modals (Bi-Directional Editing)
-// ==========================================================================
 function initModals() {
   // Add Deadline Button in Deadlines view
   document.getElementById('btn-add-deadline')?.addEventListener('click', () => {
@@ -6513,7 +6632,7 @@ function initModals() {
     // If #day-sheet-drawer is open, refresh #day-sheet-items with the re-sorted tasks for that day
     const dayDrawer = document.getElementById('day-sheet-drawer');
     if (dayDrawer && !dayDrawer.classList.contains('hidden') && dayDrawer.style.display !== 'none') {
-      const dayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateVal));
+      const dayTasks = state.tasks.filter(t => t.dueDate && localDateKey(t.dueDate) === dateVal);
       dayTasks.sort(compareTasksByTime);
       openDaySheet(dateVal, dayTasks);
     }
@@ -6639,7 +6758,7 @@ function initModals() {
       updatedAt: new Date().toISOString()
     };
 
-    state.selectedDate = dueDateIso.split('T')[0];
+    state.selectedDate = localDateKey(dueDateIso);
     state.tasks.push(newTask);
     state.tasks = deduplicateTaskList(state.tasks);
     state.tasks.sort(compareTasksByTime);
@@ -7152,12 +7271,13 @@ async function pushStateToCloud() {
   let coursesToSync = state.userCourses || undefined;
   let coursesUpdatedAtToSync = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at') || undefined;
 
+  let snap = null;
   try {
     const fbUrl = getFirebaseDataUrl();
     if (fbUrl) {
       const snapRes = await fetch(fbUrl, { cache: 'no-store' });
       if (snapRes.ok) {
-        const snap = await snapRes.json();
+        snap = await snapRes.json();
         if (snap && Array.isArray(snap.courses)) {
           const snapTime = snap.coursesUpdatedAt ? new Date(snap.coursesUpdatedAt).getTime() : 0;
           const localTime = coursesUpdatedAtToSync ? new Date(coursesUpdatedAtToSync).getTime() : 0;
@@ -7197,15 +7317,38 @@ async function pushStateToCloud() {
     // If snapshot check fails, proceed with local courses
   }
 
+  // The PUT replaces the whole cloud document, so carry over what this device has not seen yet:
+  // other devices' tombstones, their newly added tasks, and quick links if we have none.
   const tombstones = getLocalTombstones();
+  let tasksToPush = state.tasks;
+  let linksToPush = state.quickLinks;
+  if (snap && typeof snap === 'object') {
+    if (snap.tombstones && typeof snap.tombstones === 'object') {
+      for (const [tombId, tombTime] of Object.entries(snap.tombstones)) {
+        if (!tombstones[tombId] || new Date(tombTime).getTime() > new Date(tombstones[tombId]).getTime()) {
+          tombstones[tombId] = tombTime;
+        }
+      }
+    }
+    const localIds = new Set((state.tasks || []).map(t => t.id));
+    const cloudOnly = sanitizeCloudTasks(snap.tasks).filter(ct => {
+      if (localIds.has(ct.id)) return false;
+      const tomb = tombstones[ct.id];
+      return !(tomb && new Date(tomb).getTime() >= new Date(ct.updatedAt || ct.createdAt || 0).getTime());
+    });
+    if (cloudOnly.length > 0) tasksToPush = [...(state.tasks || []), ...cloudOnly];
+    if ((!linksToPush || linksToPush.length === 0) && Array.isArray(snap.quickLinks)) {
+      linksToPush = sanitizeCloudQuickLinks(snap.quickLinks);
+    }
+  }
   const payload = {
-    tasks: state.tasks,
-    quickLinks: state.quickLinks,
+    tasks: tasksToPush,
+    quickLinks: linksToPush,
     courses: coursesToSync,
     coursesUpdatedAt: coursesUpdatedAtToSync,
     lastSync: state.lastSync,
     device: 'Mobile Web App',
-    count: state.tasks.length,
+    count: tasksToPush.length,
     syncKey: getSyncKey() || undefined,
     tombstones: Object.keys(tombstones).length > 0 ? tombstones : undefined
   };

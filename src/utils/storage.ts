@@ -4,6 +4,7 @@ import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './t
 import { DEFAULT_USER_COURSES, setActiveUserCourses } from '../core/userCourses';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskRoom, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
+import { sanitizeCloudCourses } from './cloudSanitize';
 
 const STORAGE_KEYS = {
   TASKS: 'bbs_tasks',
@@ -697,8 +698,10 @@ export async function resetQuickLinksToDefault(): Promise<QuickLink[]> {
  * Filters out Blackboard navigation tabs (Content, Calendar, Discussions, Gradebook, etc.)
  * from registered user courses so that UI elements never masquerade as courses.
  */
-export function filterCleanUserCourses(courses: UserCourseConfig[]): UserCourseConfig[] {
-  if (!Array.isArray(courses)) return [];
+export function filterCleanUserCourses(rawCourses: UserCourseConfig[]): UserCourseConfig[] {
+  if (!Array.isArray(rawCourses)) return [];
+  // Stored courses can originate from the cloud: repair missing arrays and unsafe colors up front
+  const courses = sanitizeCloudCourses(rawCourses) ?? [];
   const defaultIds = new Set(DEFAULT_USER_COURSES.map(d => d.id));
   const seenCodes = new Set<string>();
   const seenNames = new Set<string>();

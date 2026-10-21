@@ -165,7 +165,7 @@ blackboard_sidekick/
 │   ├── popup/                 # Desktop extension popup UI (popup.ts, popup.css, index.html)
 │   └── utils/                 # Storage, calendar, Firebase sync, and task merge
 ├── syllabus/                  # Official UOS course syllabi
-├── tests/                     # Vitest test suite (23 test files, 226 tests)
+├── tests/                     # Vitest test suite (31 test files, 309 tests)
 │   └── fixtures/              # Test fixtures and offline simulation pages
 ├── WALKTHROUGH.md             # Complete architectural guide and walkthrough
 ├── README.md                  # Student user guide & overview
@@ -178,6 +178,6 @@ blackboard_sidekick/
 
 ## 7. Verification & Test Suite Status
 
-- **Vitest Test Suite**: **23 test files**, **226 tests** passing with 100% green coverage.
+- **Vitest Test Suite**: **31 test files**, **309 tests** passing with 100% green coverage.
 - **Production Build**: Clean compilation via `npm run build` with Vite.
 - **Lint & Safety Checks**: Zero unshielded network calls, extension context validation guards, and offline error boundaries.

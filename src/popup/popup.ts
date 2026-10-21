@@ -1,5 +1,5 @@
 import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, TaskSubmissionUpdate, Announcement } from '../types';
-import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses, generateUniqueSyncKey, normalizeRestoredSyncKey } from '../utils/storage';
+import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses, generateUniqueSyncKey } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -9,6 +9,7 @@ import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
 import { findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
+import { sanitizeCloudTasks } from '../utils/cloudSanitize';
 import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, deduplicateTaskList } from '../utils/taskMerge';
 import { parseBannerScheduleText, parseSyllabusWeightsText, parseCoursesFromJson, mergeImportedCourses } from '../core/courseImporter';
 import { getActiveCourseLegend } from '../core/userCourses';
@@ -868,7 +869,7 @@ function renderUserCoursesManager() {
     let scheduleHtml = '';
     if (course.scheduleSlots && course.scheduleSlots.length > 0) {
       scheduleHtml = course.scheduleSlots.map(slot => {
-        const daysDisplay = slot.days.map(d => d.slice(0, 3).toUpperCase()).join('/');
+        const daysDisplay = escapeHtml(slot.days.map(d => String(d).slice(0, 3).toUpperCase()).join('/'));
         const roomDisplay = slot.room ? `Room ${escapeHtml(slot.room)}` : 'Room TBD';
         return `
           <span class="ucc-schedule-badge">
@@ -1032,12 +1033,21 @@ function addScheduleSlotRow(slot?: Partial<CustomScheduleSlot>) {
   const row = document.createElement('div');
   row.className = 'slot-editor-row';
 
-  const selectedDays = new Set<Weekday>(slot?.days || ['mon', 'wed']);
+  // Stored courses use full names ("Tuesday") while the pills use short keys ("tue"); without
+  // normalising, editing a default course showed no days selected and saving dropped its schedule.
+  const selectedDays = new Set<string>(
+    (slot?.days || ['mon', 'wed']).map(d => String(d).toLowerCase().slice(0, 3))
+  );
   const dayPillsHtml = ALL_WEEKDAYS.map(day => {
     const isSelected = selectedDays.has(day);
     const label = day.charAt(0).toUpperCase() + day.slice(1, 3);
     return `<button type="button" class="day-pill-btn ${isSelected ? 'selected' : ''}" data-day="${day}">${label}</button>`;
   }).join('');
+
+  // Fields the editor has no input for (location, instructor) are carried through unchanged
+  if (slot) {
+    row.dataset.extra = JSON.stringify({ location: slot.location, instructor: slot.instructor });
+  }
 
   row.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1050,11 +1060,11 @@ function addScheduleSlotRow(slot?: Partial<CustomScheduleSlot>) {
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 4px;">
       <div>
         <label style="font-size: 9.5px; color: var(--text-muted); display: block;">Start</label>
-        <input type="time" class="form-input slot-start-time" value="${slot?.startTime || '11:00'}" required style="font-size: 11px; padding: 4px 6px;">
+        <input type="time" class="form-input slot-start-time" value="${escapeHtml(slot?.startTime || '11:00')}" required style="font-size: 11px; padding: 4px 6px;">
       </div>
       <div>
         <label style="font-size: 9.5px; color: var(--text-muted); display: block;">End</label>
-        <input type="time" class="form-input slot-end-time" value="${slot?.endTime || '12:15'}" required style="font-size: 11px; padding: 4px 6px;">
+        <input type="time" class="form-input slot-end-time" value="${escapeHtml(slot?.endTime || '12:15')}" required style="font-size: 11px; padding: 4px 6px;">
       </div>
       <div>
         <label style="font-size: 9.5px; color: var(--text-muted); display: block;">Room</label>
@@ -1082,6 +1092,10 @@ function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
 
   const row = document.createElement('div');
   row.className = 'syllabus-editor-row';
+  // Keep id, note and matching keywords; the editor only shows name/type/weight/count
+  if (comp) {
+    row.dataset.extra = JSON.stringify({ id: comp.id, note: comp.note, keywords: comp.keywords });
+  }
 
   const compType = comp?.type || 'quiz';
   const totalWeight = comp?.totalWeight !== undefined ? comp.totalWeight : 20;
@@ -1164,7 +1178,8 @@ async function handleSaveCourse(e: Event) {
   const code = (document.getElementById('editor-course-code') as HTMLInputElement).value.trim();
   const name = (document.getElementById('editor-course-name') as HTMLInputElement).value.trim();
   const crn = (document.getElementById('editor-course-crn') as HTMLInputElement).value.trim();
-  const hex = (document.getElementById('editor-color-hex') as HTMLInputElement).value.trim() || '#2563eb';
+  const rawHex = (document.getElementById('editor-color-hex') as HTMLInputElement).value.trim();
+  const hex = /^#[0-9a-f]{3,8}$/i.test(rawHex) ? rawHex : '#2563eb';
   const aliasesRaw = (document.getElementById('editor-course-aliases') as HTMLInputElement).value;
   const aliases = aliasesRaw.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -1186,12 +1201,19 @@ async function handleSaveCourse(e: Event) {
     const endTime = (row.querySelector('.slot-end-time') as HTMLInputElement)?.value || '12:15';
     const room = (row.querySelector('.slot-room') as HTMLInputElement)?.value.trim() || '';
 
+    let extra: { location?: string; instructor?: string } = {};
+    try {
+      extra = JSON.parse((row as HTMLElement).dataset.extra || '{}') || {};
+    } catch {}
+
     if (days.length > 0) {
       slots.push({
         days,
         startTime,
         endTime,
-        room
+        room,
+        ...(extra.location ? { location: extra.location } : {}),
+        ...(extra.instructor ? { instructor: extra.instructor } : {})
       });
     }
   });
@@ -1206,14 +1228,21 @@ async function handleSaveCourse(e: Event) {
     const cCount = parseInt((row.querySelector('.comp-count') as HTMLInputElement)?.value, 10) || undefined;
     const uWeight = (cCount && cCount > 1 && cWeight > 0) ? Math.round((cWeight / cCount) * 10) / 10 : undefined;
 
+    let extra: { id?: string; note?: string; keywords?: string[] } = {};
+    try {
+      extra = JSON.parse((row as HTMLElement).dataset.extra || '{}') || {};
+    } catch {}
+
     if (cName && cWeight > 0) {
       syllabus.push({
-        id: `comp_${idx + 1}`,
+        id: extra.id || `comp_${idx + 1}`,
         name: cName,
         type: cType,
         totalWeight: cWeight,
         count: cCount,
-        unitWeight: uWeight
+        unitWeight: uWeight,
+        ...(extra.note ? { note: extra.note } : {}),
+        ...(Array.isArray(extra.keywords) && extra.keywords.length > 0 ? { keywords: extra.keywords } : {})
       });
     }
   });
@@ -1338,7 +1367,7 @@ function handlePreviewBanner() {
   }
 
   list.innerHTML = detectedImportCourses.map(c => {
-    const slots = (c.scheduleSlots || []).map(s => `${s.days.map(d => d.slice(0, 3).toUpperCase()).join('/')} ${s.startTime}–${s.endTime} (${s.room || 'TBD'})`).join(', ');
+    const slots = (c.scheduleSlots || []).map(s => escapeHtml(`${s.days.map(d => d.slice(0, 3).toUpperCase()).join('/')} ${s.startTime}–${s.endTime} (${s.room || 'TBD'})`)).join(', ');
     return `
       <div class="import-preview-card">
         <div style="font-weight: 700;">${escapeHtml(c.courseName || '')} <span style="font-weight: normal; color: var(--text-muted); font-family: monospace;">(${escapeHtml(c.courseCode || '')})</span></div>
@@ -1581,7 +1610,8 @@ function updateStats(tasks: DeadlineTask[]) {
     const dueTime = new Date(t.dueDate).getTime();
     const diffHours = (dueTime - now) / (1000 * 3600);
 
-    if (diffHours <= 48) {
+    // Same window as the toolbar badge: due within 48h, or overdue by less than 12h
+    if (diffHours > -12 && diffHours <= 48) {
       urgent++;
     }
     if (diffHours > 0 && diffHours <= 168) {
@@ -2339,9 +2369,11 @@ function openEditModal(task: DeadlineTask) {
   const d = new Date(task.dueDate);
   if (!isNaN(d.getTime())) {
     editDateInput.value = formatDateKey(d);
+    // Leave the time empty for tasks without a specific time, otherwise saving any edit
+    // would flip them to "specific time" and discard their class-schedule time
     const hh = String(d.getHours()).padStart(2, '0');
     const mm = String(d.getMinutes()).padStart(2, '0');
-    editTimeInput.value = `${hh}:${mm}`;
+    editTimeInput.value = task.hasSpecificTime ? `${hh}:${mm}` : '';
   } else {
     editDateInput.value = selectedDateStr;
     editTimeInput.value = '23:59';
@@ -2406,8 +2438,9 @@ async function handleRestoreJson(file: File) {
     currentTasks.forEach(t => existingMap.set(t.id, t));
 
     // Merge imported tasks
-    data.tasks.forEach((t: DeadlineTask) => {
-      if (t.id && t.title && t.dueDate) {
+    // Backup files are untrusted input: drop tasks with unsafe ids or unusable dates
+    sanitizeCloudTasks(data.tasks).forEach((t: DeadlineTask) => {
+      if (t.title) {
         existingMap.set(t.id, t);
       }
     });
@@ -3317,7 +3350,7 @@ function setupEvents() {
   // Regenerate Sync Key
   btnRegenSyncKey?.addEventListener('click', () => {
     const input = document.getElementById('setting-sync-key') as HTMLInputElement;
-    const newKey = 'BBS-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const newKey = generateUniqueSyncKey();
     if (input) {
       input.value = newKey;
       showToast(`Generated new Sync Key: ${newKey}. Click Save Settings to apply.`);
@@ -4106,44 +4139,13 @@ async function refreshDataInBackground() {
         await saveSettings({ syncServerUrl: normalized });
       }
     }
-    // Ensure every user has a unique, isolated Sync Key on first run, recovering any existing student vault
+    // Ensure every user has a unique, isolated Sync Key on first run. The key is never copied into
+    // (or read back from) the Blackboard page's localStorage: that origin's scripts could read it,
+    // or plant a key of their own for the extension to adopt. chrome.storage.sync already backs it up.
     if (!currentSettings.syncKey) {
-      let recoveredKey: string | null = null;
-      try {
-        if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
-          const tabs = await chrome.tabs.query({ url: ['*://*.sharjah.ac.ae/*', '*://*.blackboard.com/*'] });
-          for (const tab of tabs) {
-            if (tab.id) {
-              const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STUDENT_SYNC_VAULT' }).catch(() => null);
-              if (res?.syncKey && typeof res.syncKey === 'string' && res.syncKey.trim()) {
-                recoveredKey = normalizeRestoredSyncKey(res.syncKey.trim());
-                break;
-              }
-            }
-          }
-        }
-      } catch {}
-
-      const keyToUse = recoveredKey || generateUniqueSyncKey();
+      const keyToUse = generateUniqueSyncKey();
       await saveSettings({ syncKey: keyToUse });
       currentSettings.syncKey = keyToUse;
-      if (recoveredKey) {
-        showToast('Restored your existing student account & sync key!');
-      }
-    }
-
-    // Mirror sync key to Blackboard session vault for maximum durability
-    if (currentSettings.syncKey && typeof chrome !== 'undefined' && chrome.tabs?.query) {
-      chrome.tabs.query({ url: ['*://*.sharjah.ac.ae/*', '*://*.blackboard.com/*'] }).then(tabs => {
-        for (const tab of tabs) {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, {
-              type: 'SET_STUDENT_SYNC_VAULT',
-              syncKey: currentSettings.syncKey
-            }).catch(() => {});
-          }
-        }
-      }).catch(() => {});
     }
 
     // 3. Proactively pull freshest updates from Firebase Cloud BEFORE performing retroactive upgrades
@@ -4507,12 +4509,13 @@ function initExtensionUpdateSystem() {
   };
 
   const downloadUpdatePackage = () => {
-    const updateZipUrl = 'https://raw.githubusercontent.com/yvs1n/blackboarder/main/release/blackboarder-extension.zip';
+    // release/*.zip is gitignored, so the repository archive is the download that actually exists
+    const updateZipUrl = 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip';
     try {
       if (typeof chrome !== 'undefined' && chrome.downloads?.download) {
         chrome.downloads.download({
           url: updateZipUrl,
-          filename: 'blackboarder-extension.zip',
+          filename: 'blackboarder-main.zip',
           conflictAction: 'overwrite',
           saveAs: false
         }, () => {

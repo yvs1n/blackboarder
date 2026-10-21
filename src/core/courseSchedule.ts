@@ -271,11 +271,13 @@ export function extractRoomFromText(text: string): string | null {
   }
 
   // 3. English keywords: room / classroom / hall / lab / auditorium (e.g. "in room A8-204", "room 103", "hall TH005")
-  const enRoomRegex = /\b(?:in\s+)?(?:room|rm|classroom|hall|auditorium|lecture\s*hall|lab|laboratory)\s*(?:#|no\.?|number)?\s*[:\-–]?\s*([A-Za-z0-9]{1,6}(?:\s*[-–—/]\s*[A-Za-z0-9]+)?)\b/i;
+  // The keyword must be a whole word and the room token must contain a digit; otherwise
+  // "lab report", "label" or "classroom rules" were read as rooms ("report", "el", "rules").
+  const enRoomRegex = /\b(?:in\s+)?(?:room|rm|classroom|hall|auditorium|lecture\s*hall|lab|laboratory)\b\s*(?:#|no\.?|number)?\s*[:\-–]?\s*([A-Za-z0-9]{1,6}(?:\s*[-–—/]\s*[A-Za-z0-9]+)?)\b/i;
   const enMatch = text.match(enRoomRegex);
   if (enMatch) {
     const raw = enMatch[1].trim();
-    if (!/^(?:temperature|conditions|for|and|or|the|to|with|all|due|today|tomorrow|yesterday)$/i.test(raw)) {
+    if (/\d/.test(raw) && !/^(?:temperature|conditions|for|and|or|the|to|with|all|due|today|tomorrow|yesterday)$/i.test(raw)) {
       return raw.replace(/\s*[-–—/]\s*/, '-');
     }
   }
@@ -285,7 +287,7 @@ export function extractRoomFromText(text: string): string | null {
   const arMatch = text.match(arRoomRegex);
   if (arMatch) {
     const raw = arMatch[1].trim();
-    if (raw && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) {
+    if (raw && /\d/.test(raw) && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) {
       return raw.replace(/\s*[-–—/]\s*/, '-');
     }
   }

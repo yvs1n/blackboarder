@@ -11,7 +11,7 @@
 <p align="center">
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-mobile-web-pwa--calendar-sync"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development--testing"><img src="https://img.shields.io/badge/Tests-189_Passing-success?logo=vitest&logoColor=white" alt="Vitest 189 Passing" /></a>
+  <a href="#-development--testing"><img src="https://img.shields.io/badge/Tests-309_Passing-success?logo=vitest&logoColor=white" alt="Vitest 309 Passing" /></a>
   <a href="#-live-webcal-calendar-feed"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -213,7 +213,7 @@ The project includes an automated test suite covering regex parsing, AI triage, 
 # Install dependencies
 npm install
 
-# Run full Vitest suite (22 test files, 189 passing tests)
+# Run full Vitest suite (31 test files, 309 passing tests)
 npm test
 
 # Build extension into dist/
@@ -279,7 +279,7 @@ blackboarder/
 │   ├── popup/                    # Extension UI popup, calendar, quick links
 │   ├── types.ts                  # Shared TypeScript interfaces
 │   └── utils/                    # Firebase sync, storage, calendar helpers
-├── tests/                        # Vitest automated test suite (189 tests)
+├── tests/                        # Vitest automated test suite (309 tests)
 ├── HOSTING_GUIDE.md              # Detailed mobile web deployment guide
 ├── INSTALL_EXTENSION.md          # Visual browser installation guide for students
 ├── package.json                  # Dependencies and build scripts

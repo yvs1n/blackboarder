@@ -14,7 +14,7 @@ except ImportError:
     sys.exit(1)
 
 PDF_PATH = os.path.join(os.path.dirname(__file__), "..", "syllabus", "phy1.pdf")
-WEIGHTS_TS_PATH = os.path.join(os.path.dirname(__file__), "..", "src", "utils", "syllabusWeights.ts")
+WEIGHTS_TS_PATH = os.path.join(os.path.dirname(__file__), "..", "src", "core", "syllabusWeights.ts")
 
 def main():
     if not os.path.exists(PDF_PATH):

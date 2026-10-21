@@ -133,7 +133,8 @@ describe('Firebase updates keep the rest of the cloud document', () => {
     const puts = mockFirebase();
     expect(await updateTaskStatusInFirebase('keep', 'completed', 'BBS-TEST')).toBe(true);
     expect(puts[0].quickLinks).toHaveLength(1);
-    expect(puts[0].courses).toEqual([{ id: 'c1' }]);
+    expect(puts[0].courses).toHaveLength(1);
+    expect(puts[0].courses[0].id).toBe("c1");
     expect(puts[0].tombstones).toEqual({ old: '2026-09-01T00:00:00.000Z' });
   });
 

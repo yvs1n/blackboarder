@@ -6,6 +6,27 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * Turns a user/cloud supplied alias or keyword into a regex fragment. Strings that look like
+ * patterns are used as-is only when they compile and cannot obviously backtrack catastrophically;
+ * anything else is matched literally so one bad entry can never throw or hang every lookup.
+ */
+function toPatternPart(raw: string): string {
+  const trimmed = raw.trim();
+  if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
+    const nestedQuantifier = /\([^)]*[+*][^)]*\)[+*{]/.test(trimmed);
+    if (trimmed.length <= 120 && !nestedQuantifier) {
+      try {
+        new RegExp(trimmed, 'i');
+        return trimmed;
+      } catch {
+        // fall through to literal matching
+      }
+    }
+  }
+  return escapeRegex(trimmed);
+}
+
 export function compileCoursePattern(course: UserCourseConfig): RegExp {
   const parts: string[] = [];
 
@@ -29,13 +50,8 @@ export function compileCoursePattern(course: UserCourseConfig): RegExp {
 
   if (Array.isArray(course.aliases)) {
     for (const a of course.aliases) {
-      const trimmed = a.trim();
-      if (!trimmed) continue;
-      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
-        parts.push(trimmed);
-      } else {
-        parts.push(escapeRegex(trimmed));
-      }
+      if (typeof a !== 'string' || !a.trim()) continue;
+      parts.push(toPatternPart(a));
     }
   }
 
@@ -51,13 +67,8 @@ export function compileSyllabusComponentMatcher(comp: CustomSyllabusComponent): 
 
   if (Array.isArray(comp.keywords) && comp.keywords.length > 0) {
     for (const kw of comp.keywords) {
-      const trimmed = kw.trim();
-      if (!trimmed) continue;
-      if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
-        parts.push(trimmed);
-      } else {
-        parts.push(escapeRegex(trimmed));
-      }
+      if (typeof kw !== 'string' || !kw.trim()) continue;
+      parts.push(toPatternPart(kw));
     }
   }
 
@@ -509,7 +520,10 @@ export function userCoursesToScheduleEntries(courses: UserCourseConfig[]): Cours
       const [startH, startM] = (slot.startTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
       const [endH, endM] = (slot.endTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
 
-      const dayIndices = (slot.days || []).map(d => DAY_INDEX_MAP[d] ?? 0);
+      // Unknown day names are dropped; they used to silently become Sunday
+      const dayIndices = (slot.days || [])
+        .map(d => DAY_INDEX_MAP[d])
+        .filter((n): n is number => typeof n === 'number');
       const timeRangeDisplay = `${format12Hour(startH, startM)} - ${format12Hour(endH, endM)}`;
 
       entries.push({

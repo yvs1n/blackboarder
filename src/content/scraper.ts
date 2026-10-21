@@ -808,6 +808,15 @@ async function fetchCourseAnnouncementsApi(
   }
 }
 
+/** Small deterministic string hash (djb2) for building stable ids. */
+function stableHash(input: string): string {
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) {
+    h = ((h << 5) + h + input.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(36);
+}
+
 /**
  * Scrapes announcements from an open side panel / drawer / peek panel if visible.
  */
@@ -827,7 +836,8 @@ function scrapeOpenDrawerAnnouncement(): Announcement | null {
   const cleanText = sanitizeDoctorAnnouncementText(text, courseInfo.name, courseInfo.code, title);
 
   return {
-    id: `ann_drawer_${Date.now()}`,
+    // Stable id so the same open drawer is not re-processed as a new announcement every scan
+    id: `ann_drawer_${stableHash(`${courseInfo.code}|${title}|${cleanText.slice(0, 200)}`)}`,
     courseCode: courseInfo.code,
     courseName: courseInfo.name,
     title: title || 'Course Announcement',
@@ -1096,7 +1106,16 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     const knownAnnIds = new Set(checkpoint.processedAnnouncementIds);
 
     // 1. Scrape direct due date cards (incremental)
-    const directStreamTasks = scrapeUltraStreamDueItems(fullRescan ? undefined : knownDirectIds);
+    // Stream task ids are deterministic, so a card the user deleted would come back on a full re-scan
+    // unless the deletion record is honoured here
+    const tombstones: Record<string, string> = await new Promise(resolve => {
+      try {
+        chrome.storage.local.get(['bbs_tombstones'], res => resolve((res?.bbs_tombstones as Record<string, string>) || {}));
+      } catch {
+        resolve({});
+      }
+    });
+    const directStreamTasks = scrapeUltraStreamDueItems(fullRescan ? undefined : knownDirectIds).filter(t => !tombstones[t.id]);
 
     // 2. Scrape announcement cards (incremental)
     const announcements = await scrapeAnnouncementsFull({ fullRescan });
@@ -1368,22 +1387,6 @@ function init() {
             .then(() => sendResponse({ success: true }))
             .catch(() => sendResponse({ success: false }));
           return true; // async
-        } else if (message.type === 'GET_STUDENT_SYNC_VAULT') {
-          try {
-            const vaultKey = localStorage.getItem('bbs_student_sync_vault') || localStorage.getItem('bbs_sync_key');
-            sendResponse({ syncKey: vaultKey });
-          } catch {
-            sendResponse({ syncKey: null });
-          }
-          return true;
-        } else if (message.type === 'SET_STUDENT_SYNC_VAULT' && message.syncKey) {
-          try {
-            localStorage.setItem('bbs_student_sync_vault', String(message.syncKey).trim());
-            sendResponse({ success: true });
-          } catch {
-            sendResponse({ success: false });
-          }
-          return true;
         }
         return false;
       });
@@ -1392,15 +1395,10 @@ function init() {
     // Context may already be invalidated
   }
 
-  // Auto-scan on load if enabled and backup sync key to student vault
+  // Auto-scan on load if enabled
   getSettings()
     .then(settings => {
       if (!isExtensionContextValid()) return;
-      if (settings?.syncKey && typeof settings.syncKey === 'string' && settings.syncKey.trim()) {
-        try {
-          localStorage.setItem('bbs_student_sync_vault', settings.syncKey.trim());
-        } catch {}
-      }
       if (settings.autoScanOnPageLoad) {
         setTimeout(() => {
           if (isExtensionContextValid()) {

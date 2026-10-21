@@ -322,7 +322,8 @@ function extractExplicitPoints(text: string): number | null {
   }
 
   // English percentage: "15%" or "15 percent"
-  const percentMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)\b/i);
+  // "%" is not a word character, so a trailing \b never matched "(10%)" or "10% of"
+  const percentMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent\b)/i);
   if (percentMatch) {
     const val = parseFloat(percentMatch[1]);
     if (val > 0 && val <= 100) return val;

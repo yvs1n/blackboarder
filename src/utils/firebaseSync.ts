@@ -1,4 +1,5 @@
 import { DeadlineTask, TaskStatus, QuickLink, UserCourseConfig } from '../types';
+import { sanitizeCloudTasks, sanitizeCloudQuickLinks, sanitizeCloudCourses } from './cloudSanitize';
 
 export const FIREBASE_CONFIG = {
   authDomain: 'blackboard-sidekick.firebaseapp.com',
@@ -31,24 +32,7 @@ export interface FirebaseSyncPayload {
   tombstones?: Record<string, string>;
 }
 
-const SAFE_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
-const TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
-
-/**
- * Cloud data is not authenticated beyond the sync key, so drop anything whose id or type
- * could later be interpolated into HTML as an attack payload.
- */
-export function sanitizeCloudTasks(tasks: unknown): DeadlineTask[] {
-  if (!Array.isArray(tasks)) return [];
-  return tasks
-    .filter((t): t is DeadlineTask => Boolean(t) && typeof t === 'object' && typeof (t as any).id === 'string' && SAFE_ID.test((t as any).id))
-    .map(t => (TASK_TYPES.includes(t.type) ? t : { ...t, type: 'other' as const }));
-}
-
-function sanitizeCloudQuickLinks(links: unknown): QuickLink[] | undefined {
-  if (!Array.isArray(links)) return undefined;
-  return links.filter((l): l is QuickLink => Boolean(l) && typeof l === 'object' && typeof (l as any).id === 'string' && SAFE_ID.test((l as any).id));
-}
+export { sanitizeCloudTasks };
 
 export interface DeletionTombstone {
   id: string;
@@ -136,13 +120,14 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
 
     const data: FirebaseSyncPayload = await res.json();
     const quickLinks = sanitizeCloudQuickLinks(data?.quickLinks);
+    const courses = sanitizeCloudCourses(data?.courses);
     if (!data || !Array.isArray(data.tasks)) {
       return {
         success: true,
         tasks: [],
         lastSync: undefined,
         quickLinks,
-        courses: data?.courses,
+        courses,
         coursesUpdatedAt: data?.coursesUpdatedAt,
         tombstones: data?.tombstones
       };
@@ -154,7 +139,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       lastSync: data.lastSync,
       device: data.device,
       quickLinks,
-      courses: data.courses,
+      courses,
       coursesUpdatedAt: data.coursesUpdatedAt,
       tombstones: data.tombstones
     };
