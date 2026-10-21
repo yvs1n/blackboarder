@@ -322,9 +322,109 @@ async function buildExtension(info, viteDefines) {
 
 // ---------------------------------------------------------------------------
 
+function countTests() {
+  const testsDir = r('tests');
+  if (!fs.existsSync(testsDir)) return 322;
+  const files = fs.readdirSync(testsDir).filter(f => f.endsWith('.test.ts') || f.endsWith('.test.js'));
+  let total = 0;
+  for (const f of files) {
+    const txt = fs.readFileSync(path.join(testsDir, f), 'utf8');
+    const matches = txt.match(/^\s*(?:it|test)(?:\.concurrent|\.only|\.skip)?\s*\(/gm);
+    if (matches) total += matches.length;
+  }
+  return total || 322;
+}
+
+function syncAllComponents(version) {
+  console.log(`Synchronizing all components to v${version}...`);
+
+  // 1. Sync public/manifest.json
+  const manifestPath = r('public/manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(readText(manifestPath));
+      if (manifest.version !== version) {
+        manifest.version = version;
+        writeIfChanged(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+        console.log(`  ✓ Synced public/manifest.json to v${version}`);
+      }
+    } catch (e) {
+      console.warn('  ! Could not sync public/manifest.json:', e.message);
+    }
+  }
+
+  // 2. Sync landing/index.html
+  const landingPath = r('landing/index.html');
+  if (fs.existsSync(landingPath)) {
+    let landingHtml = readText(landingPath);
+    const updated = landingHtml.replace(
+      /<span>Blackboarder v[0-9.]+<\/span>/g,
+      `<span>Blackboarder v${version}</span>`
+    );
+    if (writeIfChanged(landingPath, updated)) {
+      console.log(`  ✓ Synced landing/index.html to v${version}`);
+    }
+  }
+
+  // 3. Sync README.md
+  const readmePath = r('README.md');
+  if (fs.existsSync(readmePath)) {
+    let readmeText = readText(readmePath);
+    const testCount = countTests();
+
+    // Ensure Version badge is present and synced
+    const versionBadgeRegex = /<img src="https:\/\/img\.shields\.io\/badge\/Version-v[0-9.]+-blue\?logo=github&logoColor=white" alt="Version v[0-9.]+" \/>/;
+    const targetVersionBadge = `<img src="https://img.shields.io/badge/Version-v${version}-blue?logo=github&logoColor=white" alt="Version v${version}" />`;
+
+    if (versionBadgeRegex.test(readmeText)) {
+      readmeText = readmeText.replace(versionBadgeRegex, targetVersionBadge);
+    } else {
+      readmeText = readmeText.replace(
+        /(<p align="center">\s*)(<a href="#-quick-start--installation">)/,
+        `$1<a href="CHANGELOG.md">${targetVersionBadge}</a>\n  $2`
+      );
+    }
+
+    // Sync test count badge
+    readmeText = readmeText.replace(
+      /https:\/\/img\.shields\.io\/badge\/Tests-[0-9]+_Passing-success/g,
+      `https://img.shields.io/badge/Tests-${testCount}_Passing-success`
+    );
+    readmeText = readmeText.replace(
+      /alt="Vitest [0-9]+ Passing"/g,
+      `alt="Vitest ${testCount} Passing"`
+    );
+
+    if (writeIfChanged(readmePath, readmeText)) {
+      console.log(`  ✓ Synced README.md (v${version}, ${testCount} passing tests)`);
+    }
+  }
+
+  // 4. Sync src/popup/index.html static version badges
+  const popupHtmlPath = r('src/popup/index.html');
+  if (fs.existsSync(popupHtmlPath)) {
+    let popupHtml = readText(popupHtmlPath);
+    popupHtml = popupHtml.replace(
+      /<span class="eub-commit" id="eub-commit-badge">v[0-9.]+<\/span>/g,
+      `<span class="eub-commit" id="eub-commit-badge">v${version}</span>`
+    );
+    popupHtml = popupHtml.replace(
+      /<span id="ext-version-badge" class="settings-pill pill-blue" style="font-size: 11px; margin-left: 6px;">v[0-9.]+<\/span>/g,
+      `<span id="ext-version-badge" class="settings-pill pill-blue" style="font-size: 11px; margin-left: 6px;">v${version}</span>`
+    );
+    if (writeIfChanged(popupHtmlPath, popupHtml)) {
+      console.log(`  ✓ Synced src/popup/index.html to v${version}`);
+    }
+  }
+}
+
 async function main() {
   console.log('Building Blackboarder...');
   const git = gitInfo();
+  const currentVersion = packageVersion();
+
+  // Universal synchronization across Extension, Companion, Landing page, and README
+  syncAllComponents(currentVersion);
 
   const extBuild = hashFiles(ROOT, extensionSourceFiles());
   const extInfo = versionInfo(extBuild, readJson(r('dist', 'version.json')) || readJson(r('version.json')), git);

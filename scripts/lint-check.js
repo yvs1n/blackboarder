@@ -103,6 +103,59 @@ docsFiles.forEach(rel => {
   }
 });
 
+// 6. Universal Multi-Component Version Synchronization Check
+console.log('\n--- Checking Universal Multi-Component Version Synchronization ---');
+const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+const manifestVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/manifest.json'), 'utf8')).version;
+const landingHtml = fs.readFileSync(path.join(ROOT, 'landing/index.html'), 'utf8');
+const readmeContent = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+
+if (manifestVersion !== pkgVersion) {
+  fail(`public/manifest.json version (${manifestVersion}) does not match package.json version (${pkgVersion})`);
+} else {
+  pass(`public/manifest.json version matches package.json (v${pkgVersion})`);
+}
+
+if (!landingHtml.includes(`Blackboarder v${pkgVersion}`)) {
+  fail(`landing/index.html does not display current version (expected "Blackboarder v${pkgVersion}")`);
+} else {
+  pass(`landing/index.html displays matching version (v${pkgVersion})`);
+}
+
+if (!readmeContent.includes(`badge/Version-v${pkgVersion}-blue`)) {
+  fail(`README.md does not have matching Version badge for v${pkgVersion}`);
+} else {
+  pass(`README.md displays matching Version badge (v${pkgVersion})`);
+}
+
+const distVersionPath = path.join(ROOT, 'dist/version.json');
+if (fs.existsSync(distVersionPath)) {
+  try {
+    const distVer = JSON.parse(fs.readFileSync(distVersionPath, 'utf8')).version;
+    if (distVer !== pkgVersion) {
+      fail(`dist/version.json version (${distVer}) does not match package.json (${pkgVersion})`);
+    } else {
+      pass(`dist/version.json matches package.json (v${pkgVersion})`);
+    }
+  } catch (e) {
+    fail('dist/version.json could not be parsed');
+  }
+}
+
+const webVersionPath = path.join(ROOT, 'mobile-web/version.json');
+if (fs.existsSync(webVersionPath)) {
+  try {
+    const webVer = JSON.parse(fs.readFileSync(webVersionPath, 'utf8')).version;
+    if (webVer !== pkgVersion) {
+      fail(`mobile-web/version.json version (${webVer}) does not match package.json (${pkgVersion})`);
+    } else {
+      pass(`mobile-web/version.json matches package.json (v${pkgVersion})`);
+    }
+  } catch (e) {
+    fail('mobile-web/version.json could not be parsed');
+  }
+}
+
 console.log('\n----------------------------------------');
 if (hasError) {
   console.error('\x1b[31mLint & Hygiene Check Failed!\x1b[0m\n');

@@ -253,7 +253,7 @@ async function extractAnnouncementHybrid(text, courseHint = '') {
 function exportJsonBackup() {
   const settings = getAiSettings();
   const backupData = {
-    version: '1.0.0',
+    version: (typeof APP_BUILD !== 'undefined' && APP_BUILD.version) ? APP_BUILD.version : '1.1.0',
     exportedAt: new Date().toISOString(),
     tasks: state.tasks,
     settings
@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"8b695d1cb439","version":"1.1.0","shortCommit":"be14d2d","timestamp":"2026-10-21T19:40:52.310Z"};
+const APP_BUILD = {"build":"4f8fd6ddc7b9","version":"1.1.0","shortCommit":"c3b6ff7","timestamp":"2026-10-21T20:02:12.953Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1045,8 +1045,9 @@ function initServiceWorker() {
     }
   } catch (e) {}
 
+  const versionPrefix = APP_BUILD.version ? 'v' + APP_BUILD.version + ' · ' : '';
   const buildLabel = APP_BUILD.build
-    ? `build ${APP_BUILD.build}${APP_BUILD.shortCommit ? ' · ' + APP_BUILD.shortCommit : ''}`
+    ? `${versionPrefix}build ${APP_BUILD.build}${APP_BUILD.shortCommit ? ' · ' + APP_BUILD.shortCommit : ''}`
     : 'development build';
   const verEl = document.getElementById('app-version-label');
   if (verEl) verEl.textContent = `(${buildLabel})`;
@@ -1923,7 +1924,9 @@ function updateSyncBanner() {
   const syncDate = new Date(state.lastSync);
   const timeStr = syncDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = syncDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  const display = `Updated ${dateStr} at ${timeStr} (${state.tasks.length} deadlines)`;
+  const count = state.tasks.length;
+  const countStr = count === 1 ? '1 deadline' : `${count} deadlines`;
+  const display = `Updated ${dateStr}, ${timeStr} · ${countStr}`;
 
   syncBanner.textContent = display;
   if (metricLastSync) metricLastSync.textContent = `${dateStr} at ${timeStr}`;

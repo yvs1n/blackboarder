@@ -444,8 +444,9 @@ body {
   width: 480px;
   min-width: 480px;
   max-width: 480px;
+  height: 600px;
   min-height: 600px;
-  max-height: 625px;
+  max-height: 600px;
   font-family: var(--font-family);
   background-color: var(--bg);
   color: var(--text-main);
@@ -454,22 +455,20 @@ body {
   box-sizing: border-box;
 }
 
-/* The toolbar popup is exactly 480px wide and under 660px tall. Anything else (the browser side
-   panel, or the page opened in a tab) fills the window instead of being clipped or leaving a gap. */
-@media (min-height: 660px), (max-width: 470px), (min-width: 500px) {
-  html,
-  body {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-  }
-  body {
-    min-height: 100vh;
-    max-height: none;
-  }
-  body .header {
-    max-width: none;
-  }
+/* Standalone browser window or side panel view when explicitly opened in a wide tab or panel */
+html.is-standalone,
+body.is-standalone {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: none !important;
+}
+
+html.is-standalone body .header,
+body.is-standalone .header {
+  max-width: none !important;
 }
 
 /* Custom Scrollbar */

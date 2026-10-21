@@ -9,9 +9,10 @@
 </p>
 
 <p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-mobile-web-pwa--calendar-sync"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development--testing"><img src="https://img.shields.io/badge/Tests-309_Passing-success?logo=vitest&logoColor=white" alt="Vitest 309 Passing" /></a>
+  <a href="#-development--testing"><img src="https://img.shields.io/badge/Tests-322_Passing-success?logo=vitest&logoColor=white" alt="Vitest 322 Passing" /></a>
   <a href="#-live-webcal-calendar-feed"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>

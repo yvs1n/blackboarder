@@ -778,6 +778,7 @@ body {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1;
 }
 
 .brand-bolt {
@@ -803,6 +804,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  flex: 1;
 }
 
 .brand-title {
@@ -933,9 +935,10 @@ body {
   font-size: 10.5px;
   color: var(--text-muted);
   display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.25;
+  word-break: break-word;
+  overflow: visible;
 }
 
 /* Main Navigation Tabs: Segmented Control (Hybrid 4 tabs mobile / 2 tabs desktop) */
@@ -953,6 +956,7 @@ body {
 
 .nav-item {
   min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1666,6 +1670,7 @@ body {
   display: flex;
   align-items: center;
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2385,6 +2390,7 @@ body {
   font-weight: 700;
   max-width: 78%;
   min-width: 0;
+  flex: 1;
   border: 1px solid transparent;
 }
 
@@ -4434,6 +4440,7 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
 .ql-item-title-row {
@@ -4442,6 +4449,7 @@ input:checked + .slider:before {
   gap: 6px;
   flex-wrap: wrap;
   min-width: 0;
+  flex: 1;
 }
 
 .ql-item-title {
