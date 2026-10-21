@@ -596,13 +596,8 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     const finalDate = scheduleResult.dueDate;
     const hasSpecificTime = scheduleResult.hasSpecificTime;
 
-    // Doctor's announcement quote: prioritize clean doctor announcement text
-    const doctorAnnouncementText = sanitizeDoctorAnnouncementText(
-      cleanContent || sentence.trim(),
-      announcement.courseName,
-      announcement.courseCode,
-      title
-    );
+    // Doctor's announcement quote: prioritize complete clean doctor announcement text
+    const doctorAnnouncementText = cleanContent || sentence.trim();
 
     // Urgency priority calculation
     const now = Date.now();

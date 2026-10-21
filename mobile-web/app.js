@@ -792,14 +792,16 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
 
   let text = rawText.trim();
 
+  // Strict stream post timestamp prefixes (e.g. "1:21 PM", "14 minutes ago", "Today at 1:21 PM")
+  // NOTE: Never include standalone days or months here, so doctor's date prose is never sliced!
   const timestampPrefixPatterns = [
     /^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b\s*/i,
     /^\s*(?:\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?)\s+ago|just now)\b\s*/i,
     /^\s*(?:Today|Yesterday)(?:\s+at)?\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\b\s*/i,
-    /^\s*(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?,?\s*(?:\d{1,2}\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:\d{1,2})?(?:,?\s*\d{4})?(?:,?\s*at\s*|,?\s+)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\s*[-–—:]*\s*/i,
     /^\s*(?:منذ\s+\d+\s+(?:دقائق|دقيقة|ساعات|ساعة|أيام|يوم)|اليوم|أمس)(?:\s+الساعة)?\s*(?:\d{1,2}:\d{2}\s*(?:صباحاً|صباحا|مساءً|مساء)?)?\s*/
   ];
 
+  // Known course header banners appearing at top of stream cards
   const knownCoursePatterns = [
     /^\s*(?:Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?|مقدمة\s+في\s+هندسة\s+الحاسوب)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:مقدمة\s+في\s+هندسة\s+الحاسوب|Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?)?\s*[-–—:]*\s*/i,
     /^\s*(?:Calculus\s+I\s+(?:for\s+Engineering)?|حسبان\s*1(?:\s*للمهندسين)?)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:حسبان\s*1(?:\s*للمهندسين)?|Calculus\s+I\s+(?:for\s+Engineering)?)?\s*[-–—:]*\s*/i,
@@ -809,22 +811,25 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
     /^\s*(?:Islamic\s+Culture|ثقافة\s*إسلامية|ثقافة\s*اسلامية)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i
   ];
 
+  // Specific course name or code passed from context
   const dynamicCoursePatterns = [];
-  if (courseName && courseName !== 'General Course') {
-    const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (courseName && courseName !== 'General Course' && courseName.trim().length > 3) {
+    const escaped = courseName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     dynamicCoursePatterns.push(new RegExp(`^\\s*${escaped}\\s*[-–—:]*\\s*(?:\\b\\d{1,2}[A-Z]?\\b)?\\s*[-–—:]*`, 'i'));
   }
-  if (courseCode && courseCode !== 'UOS') {
-    const escapedCode = courseCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+  if (courseCode && courseCode !== 'UOS' && courseCode.trim().length > 2) {
+    const escapedCode = courseCode.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
     dynamicCoursePatterns.push(new RegExp(`^\\s*${escapedCode}\\s*[-–—:]*`, 'i'));
   }
 
+  // Iterate up to 4 passes to clean layered prefixes
   let changed = true;
   let passes = 0;
-  while (changed && passes < 5) {
+  while (changed && passes < 4) {
     changed = false;
     passes++;
 
+    // 1. Strip leading timestamps
     for (const pat of timestampPrefixPatterns) {
       if (pat.test(text)) {
         const next = text.replace(pat, '').trim();
@@ -835,6 +840,7 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
       }
     }
 
+    // 2. Strip dynamic course name/code
     for (const pat of dynamicCoursePatterns) {
       if (pat.test(text)) {
         const next = text.replace(pat, '').trim();
@@ -845,6 +851,7 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
       }
     }
 
+    // 3. Strip known course headers
     for (const pat of knownCoursePatterns) {
       if (pat.test(text)) {
         const next = text.replace(pat, '').trim();
@@ -855,6 +862,7 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
       }
     }
 
+    // 4. Strip stray section number leftovers
     const sectionMatch = text.match(/^[-–—:]*\s*\b(?:\d{1,2}[A-Z]?|ALL)\b\s*[-–—:]*\s*/i);
     if (sectionMatch && sectionMatch[0]) {
       const next = text.slice(sectionMatch[0].length).trim();
@@ -865,18 +873,23 @@ function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '
     }
   }
 
-  if (title && title.length > 5) {
-    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titlePat = new RegExp(`^\\s*${escapedTitle}(?:\\s*[-–—:]+\\s*|\\s*\\r?\\n|\\s*$)`, 'i');
-    if (titlePat.test(text)) {
-      const remainder = text.replace(titlePat, '').trim();
+  // Only strip title if it appears as an isolated header line followed by a newline, never if part of sentence!
+  if (title && title.trim().length > 6) {
+    const escapedTitle = title.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titleLinePat = new RegExp(`^\\s*${escapedTitle}\\s*\\r?\\n`, 'i');
+    if (titleLinePat.test(text)) {
+      const remainder = text.replace(titleLinePat, '').trim();
       if (remainder.length >= 5) {
         text = remainder;
       }
     }
   }
 
-  return text.trim();
+  // Final cleanup of leading punctuation
+  text = text.replace(/^[:\-–—|,\s]+/, '').trim();
+
+  // If cleaning somehow emptied the text or left it under 5 chars, return rawText to avoid losing content!
+  return text.length >= 5 ? text : rawText.trim();
 }
 
 // Note: SYLLABUS_INFO and DEFAULT_SYLLABUS_DATABASE are dynamically compiled above
@@ -1530,8 +1543,9 @@ async function extractAnnouncementHybrid(text, courseHint = '') {
         weight: weightInfo.weight,
         weightDisplay: weightInfo.weightDisplay,
         syllabusNote: weightInfo.syllabusNote,
-        description: item.description || text.trim(),
-        sourceSnippet: item.sourceSnippet || text.trim(),
+        description: text.trim() || item.description || '',
+        sourceSnippet: text.trim() || item.sourceSnippet || '',
+        notes: item.description && item.description !== text.trim() ? item.description : '',
         extractedBy: 'ai',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -2816,8 +2830,8 @@ async function refreshDataInBackground() {
 
 // Bump together with CACHE_NAME in sw.js on every release
 const APP_VERSION = '19';
-const APP_BUILD_COMMIT = '4810e4b';
-const APP_BUILD_TIMESTAMP = '2026-10-20T15:39:24.437Z';
+const APP_BUILD_COMMIT = '9cbd694';
+const APP_BUILD_TIMESTAMP = '2026-10-21T07:19:31.264Z';
 const GITHUB_REPO_API = 'https://api.github.com/repos/yvs1n/blackboarder/commits/main';
 const GITHUB_RAW_VERSION = 'https://raw.githubusercontent.com/yvs1n/blackboarder/main/version.json';
 

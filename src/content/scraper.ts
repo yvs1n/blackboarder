@@ -380,15 +380,9 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
       'button',
       'svg',
       'nav',
-      '[aria-hidden="true"]',
       '.bb-avatar',
       '.avatar',
-      '[class*="author"]',
-      'bb-read-more',
-      '.read-more',
-      '.show-more',
-      '[class*="more"]',
-      '[data-analytics-id*="more"]'
+      '[class*="author"]'
     ];
     noiseSelectors.forEach(sel => {
       cardClone.querySelectorAll(sel).forEach(el => el.remove());
@@ -398,16 +392,48 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
       cardClone.querySelectorAll('h1, h2, h3, h4, h5, [role="heading"], .announcement-title, .stream-entry-title, a.js-title-link').forEach(h => h.remove());
     }
 
-    const bodyEl = cardClone.querySelector('.announcement-body, .entry-content, .stream-entry-body, .stream-item-content, .stream-message, .message-body, [class*="body-content"], [bb-translate], .vtbegenerated, .summary, .content') || cardClone;
+    // Candidate body elements: iterate to select the container with the longest unabridged text
+    const candidateSelectors = [
+      '.vtbegenerated',
+      '.details',
+      'bb-read-more',
+      '.announcement-body',
+      '.entry-content',
+      '.stream-entry-body',
+      '.stream-item-content',
+      '.stream-message',
+      '.message-body',
+      '[class*="body-content"]',
+      '[bb-translate]',
+      '.content',
+      '.summary'
+    ];
 
-    let text = bodyEl?.textContent?.trim() || cardClone.textContent?.trim() || cardText;
-    let fullHtml = bodyEl?.innerHTML || '';
+    let bestBodyEl: HTMLElement | null = null;
+    let bestCandidateText = '';
+    let bestCandidateHtml = '';
+
+    for (const sel of candidateSelectors) {
+      const candidateElements = cardClone.querySelectorAll<HTMLElement>(sel);
+      candidateElements.forEach(el => {
+        const cText = el.textContent?.trim() || '';
+        if (cText.length > bestCandidateText.length) {
+          bestCandidateText = cText;
+          bestCandidateHtml = el.innerHTML || '';
+          bestBodyEl = el;
+        }
+      });
+    }
+
+    const cardCloneText = cardClone.textContent?.trim() || '';
+    let text = bestCandidateText.length >= 25 ? bestCandidateText : (cardCloneText || cardText);
+    let fullHtml = bestCandidateHtml || bestBodyEl?.innerHTML || cardClone.innerHTML || '';
 
     const attrFullText = card.getAttribute('data-full-text') || card.getAttribute('data-content') || '';
     if (attrFullText && attrFullText.length > text.length) {
       text = attrFullText.trim();
     }
-    const titleAttr = card.getAttribute('title') || bodyEl?.getAttribute('title') || card.querySelector('[title]')?.getAttribute('title') || '';
+    const titleAttr = card.getAttribute('title') || bestBodyEl?.getAttribute('title') || card.querySelector('[title]')?.getAttribute('title') || '';
     if (titleAttr && titleAttr.length > text.length && !titleAttr.startsWith('http')) {
       text = titleAttr.trim();
     }
@@ -428,9 +454,8 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
 
     if (!title) {
       const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length >= 2) {
+      if (lines.length >= 1 && lines[0].length < 75) {
         title = lines[0];
-        text = lines.slice(1).join('\n').trim();
       } else {
         title = `Announcement ${index + 1}`;
       }
@@ -492,6 +517,25 @@ async function expandAllTruncatedAnnouncements(): Promise<void> {
 }
 
 /**
+ * Resolves standard Blackboard AJAX headers including CSRF token if present.
+ */
+function getBlackboardFetchHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json, text/plain, */*',
+    'X-Requested-With': 'XMLHttpRequest'
+  };
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)(?:XSRF-TOKEN|xsrfToken|Bb-Xsrf)=([^;]+)/i);
+    if (match) {
+      const token = decodeURIComponent(match[1]);
+      headers['X-Blackboard-XSRF'] = token;
+      headers['X-XSRF-TOKEN'] = token;
+    }
+  } catch {}
+  return headers;
+}
+
+/**
  * Extracts all Blackboard course IDs from the URL, DOM elements, and student course API.
  */
 async function extractAllCourseIdsFromPage(): Promise<string[]> {
@@ -520,7 +564,7 @@ async function extractAllCourseIdsFromPage(): Promise<string[]> {
   // 4. Blackboard Learn user enrolled courses REST API
   try {
     const res = await fetch('/learn/api/public/v1/users/me/courses', {
-      headers: { 'Accept': 'application/json' },
+      headers: getBlackboardFetchHeaders(),
       credentials: 'same-origin'
     });
     if (res.ok) {
@@ -610,11 +654,13 @@ async function fetchFullAnnouncementBodyFromCode(
   title: string
 ): Promise<{ text: string; html: string } | null> {
   if (courseId) {
+    const bbHeaders = getBlackboardFetchHeaders();
+
     // 1. Try public REST API endpoint
     if (announcementId) {
       try {
         const res = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
-          headers: { 'Accept': 'application/json' },
+          headers: bbHeaders,
           credentials: 'same-origin'
         });
         if (res.ok) {
@@ -631,7 +677,7 @@ async function fetchFullAnnouncementBodyFromCode(
       // 2. Try internal v1 REST API endpoint
       try {
         const res = await fetch(`/learn/api/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
-          headers: { 'Accept': 'application/json' },
+          headers: bbHeaders,
           credentials: 'same-origin'
         });
         if (res.ok) {
@@ -674,7 +720,7 @@ async function fetchFullAnnouncementBodyFromCode(
     // 4. Try REST course announcements list endpoint
     try {
       const listRes = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements`, {
-        headers: { 'Accept': 'application/json' },
+        headers: bbHeaders,
         credentials: 'same-origin'
       });
       if (listRes.ok) {
@@ -715,7 +761,7 @@ async function fetchCourseAnnouncementsApi(
 ): Promise<Announcement[]> {
   try {
     const res = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements`, {
-      headers: { 'Accept': 'application/json' },
+      headers: getBlackboardFetchHeaders(),
       credentials: 'same-origin'
     });
     if (!res.ok) return [];
@@ -813,22 +859,19 @@ async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }): Prom
     options?.fullRescan ? undefined : knownKeys
   );
 
-  // 3. Only fetch course REST APIs if user is on a specific course page, or if explicit full re-scan
-  const isCoursePage = window.location.href.includes('/courses/');
+  // 3. Always fetch complete course announcements from Blackboard REST API in parallel
+  // This guarantees complete, unabridged announcement bodies for students on /ultra/stream as well as course pages.
   const apiAnnouncements: Announcement[] = [];
-
-  if (options?.fullRescan || isCoursePage) {
-    const courseIds = await extractAllCourseIdsFromPage();
-    if (courseIds.length > 0) {
-      const results = await Promise.all(
-        courseIds.map(cid => {
-          const matched = domAnnouncements.find(a => a.id.includes(cid) || a.sourceUrl.includes(cid));
-          return fetchCourseAnnouncementsApi(cid, matched?.courseName, matched?.courseCode).catch(() => [] as Announcement[]);
-        })
-      );
-      for (const arr of results) {
-        apiAnnouncements.push(...arr);
-      }
+  const courseIds = await extractAllCourseIdsFromPage();
+  if (courseIds.length > 0) {
+    const results = await Promise.all(
+      courseIds.map(cid => {
+        const matched = domAnnouncements.find(a => a.id.includes(cid) || a.sourceUrl.includes(cid));
+        return fetchCourseAnnouncementsApi(cid, matched?.courseName, matched?.courseCode).catch(() => [] as Announcement[]);
+      })
+    );
+    for (const arr of results) {
+      apiAnnouncements.push(...arr);
     }
   }
 
@@ -843,12 +886,52 @@ async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }): Prom
     mergedMap.set(key, ann);
   }
 
-  for (const ann of apiAnnouncements) {
-    const key = `${ann.courseCode}_${ann.title.toLowerCase().trim()}`;
-    const existing = mergedMap.get(key);
-    // Replace DOM announcement with complete API version (or keep if longer)
-    if (!existing || ann.contentText.length >= existing.contentText.length) {
-      mergedMap.set(key, ann);
+  for (const apiAnn of apiAnnouncements) {
+    const apiTitleNorm = apiAnn.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+    let matchedKey: string | null = null;
+    let matchedExisting: Announcement | null = null;
+
+    // Check direct key
+    const directKey = `${apiAnn.courseCode}_${apiAnn.title.toLowerCase().trim()}`;
+    if (mergedMap.has(directKey)) {
+      matchedKey = directKey;
+      matchedExisting = mergedMap.get(directKey)!;
+    } else {
+      // Fuzzy find by normalized title or ID
+      for (const [key, existing] of mergedMap.entries()) {
+        const existingTitleNorm = existing.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+        const idMatches = existing.id.includes(apiAnn.id.replace('ann_api_', ''));
+        const titleMatches = apiTitleNorm.length >= 4 && (
+          existingTitleNorm === apiTitleNorm ||
+          (apiTitleNorm.length >= 6 && (existingTitleNorm.includes(apiTitleNorm) || apiTitleNorm.includes(existingTitleNorm)))
+        );
+
+        if (idMatches || titleMatches) {
+          matchedKey = key;
+          matchedExisting = existing;
+          break;
+        }
+      }
+    }
+
+    if (matchedExisting && matchedKey) {
+      const isExistingTruncated = /(?:…|\.\.\.)\s*$/.test(matchedExisting.contentText) || matchedExisting.contentText.includes('…');
+      // If API announcement is longer or existing is truncated, replace body with complete API body
+      if (isExistingTruncated || apiAnn.contentText.length >= matchedExisting.contentText.length) {
+        matchedExisting.contentText = apiAnn.contentText;
+        matchedExisting.contentHtml = apiAnn.contentHtml || matchedExisting.contentHtml;
+        if (apiAnn.title && apiAnn.title.length > matchedExisting.title.length) {
+          matchedExisting.title = apiAnn.title;
+        }
+        if (!matchedExisting.courseCode && apiAnn.courseCode) {
+          matchedExisting.courseCode = apiAnn.courseCode;
+        }
+        if ((!matchedExisting.courseName || matchedExisting.courseName === 'General Course') && apiAnn.courseName) {
+          matchedExisting.courseName = apiAnn.courseName;
+        }
+      }
+    } else {
+      mergedMap.set(directKey, apiAnn);
     }
   }
 

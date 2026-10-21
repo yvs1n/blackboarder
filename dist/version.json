@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "commit": "4810e4b145631f1a6a4121611ab540d4af018d77",
-  "shortCommit": "4810e4b",
-  "timestamp": "2026-10-20T15:39:24.437Z",
-  "message": "feat: production release with Swiss Grid design system and zero-trust security hardening",
+  "commit": "9cbd6943572e3236b3f0d2188e1940df3a374400",
+  "shortCommit": "9cbd694",
+  "timestamp": "2026-10-21T07:19:31.264Z",
+  "message": "build: package production release bundles and update build metadata",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

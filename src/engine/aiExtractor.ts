@@ -152,13 +152,14 @@ ${cleanBody}`;
                   courseCode: item.courseCode || announcement.courseCode,
                   courseName: announcement.courseName,
                   title: item.title,
-                  description: item.description || '',
+                  description: cleanBody || announcement.contentText || item.description || '',
                   dueDate: item.dueDate,
                   hasSpecificTime: Boolean(item.hasSpecificTime),
                   type: item.type as any,
                   priority: item.priority || 'medium',
                   status: 'pending',
-                  sourceSnippet: item.sourceSnippet || cleanBody.slice(0, 100),
+                  sourceSnippet: cleanBody || announcement.contentText || item.sourceSnippet || '',
+                  notes: (item.description && item.description !== cleanBody) ? item.description : undefined,
                   confidence: 0.95,
                   extractedBy: 'ai',
                   createdAt: new Date().toISOString(),
@@ -274,12 +275,7 @@ ${cleanBody}`;
       return parsed.deadlines.map(item => {
         const parsedDate = new Date(item.dueDate);
         const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-        const doctorText = sanitizeDoctorAnnouncementText(
-          cleanBody || item.description || announcement.title,
-          announcement.courseName,
-          announcement.courseCode,
-          item.title
-        );
+        const fullDoctorText = cleanBody || announcement.contentText || item.description || announcement.title;
 
         const scheduleRes = resolveTaskTimeWithSchedule({
           dueDate: validDate,
@@ -311,13 +307,14 @@ ${cleanBody}`;
           courseCode: item.courseCode || announcement.courseCode,
           courseName: announcement.courseName,
           title: item.title || 'Extracted Task',
-          description: doctorText,
+          description: fullDoctorText,
           dueDate: scheduleRes.dueDate.toISOString(),
           hasSpecificTime: scheduleRes.hasSpecificTime,
           type: resolvedType,
           priority: resolvedPriority,
           status: 'pending',
-          sourceSnippet: doctorText,
+          sourceSnippet: fullDoctorText,
+          notes: (item.description && item.description !== fullDoctorText) ? item.description : undefined,
           confidence: 0.95,
           extractedBy: 'ai',
           room: roomInfo.room || undefined,

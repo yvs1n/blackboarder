@@ -227,9 +227,10 @@ export function parseCourseDetails(rawText: string): CourseInfo {
 }
 
 /**
- * Strips Blackboard system noise (posted timestamps like "1:21 PM" or "14 minutes ago",
- * course labels, course codes, section numbers, bilingual headers) from the beginning
- * of an announcement, leaving only the professor's actual announcement text.
+ * Strips Blackboard system noise (posted timestamps like "1:21 PM\n" or "14 minutes ago\n",
+ * course header banner lines, and section numbers) from the very beginning of a raw DOM scrape,
+ * leaving the professor's actual announcement text 100% intact and complete.
+ * Never trims mid-sentence words, dates, or titles.
  */
 export function sanitizeDoctorAnnouncementText(
   rawText: string,
@@ -241,26 +242,20 @@ export function sanitizeDoctorAnnouncementText(
 
   let text = rawText.trim();
 
-  // Blackboard Ultra Stream timestamps pattern (e.g. "1:21 PM", "14 minutes ago", "Today at 1:21 PM", "Yesterday at 10:00 AM")
+  // Strict stream post timestamp prefixes (e.g. "1:21 PM", "14 minutes ago", "Today at 1:21 PM")
+  // NOTE: Never include standalone days or months here, so doctor's date prose is never sliced!
   const timestampPrefixPatterns = [
     // "1:21 PM", "11:59 AM", "13:21", "01:21 PM"
     /^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b\s*/i,
     // "14 minutes ago", "2 hours ago", "yesterday", "just now"
     /^\s*(?:\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?)\s+ago|just now)\b\s*/i,
-    // "Today at 1:21 PM", "Yesterday at 10:00 AM"
+    // "Today at 1:21 PM", "Yesterday at 10:00 AM", "Today 1:21 PM"
     /^\s*(?:Today|Yesterday)(?:\s+at)?\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\b\s*/i,
-    // "Monday, 12 October 2026, 1:21 PM" (if followed by course or text)
-    /^\s*(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?,?\s*(?:\d{1,2}\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:\d{1,2})?(?:,?\s*\d{4})?(?:,?\s*at\s*|,?\s+)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\s*[-–—:]*\s*/i,
     // Arabic relative/posted timestamps: "منذ 14 دقيقة", "اليوم الساعة 1:21 مساءً", "أمس"
     /^\s*(?:منذ\s+\d+\s+(?:دقائق|دقيقة|ساعات|ساعة|أيام|يوم)|اليوم|أمس)(?:\s+الساعة)?\s*(?:\d{1,2}:\d{2}\s*(?:صباحاً|صباحا|مساءً|مساء)?)?\s*/
   ];
 
-  // Course prefix patterns:
-  // e.g. "Introduction to Computer Eng. - 01 - مقدمة في هندسة الحاسوب"
-  // "Calculus I for Engineering - 02 - حسبان 1 للمهندسين"
-  // "Physics 1 - 02", "Physics 1 Lab - 11L"
-  // "English for Academic Purposes - 09"
-  // "Islamic Culture - 13A - ثقافة إسلامية"
+  // Known course header banners appearing at top of stream cards
   const knownCoursePatterns = [
     /^\s*(?:Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?|مقدمة\s+في\s+هندسة\s+الحاسوب)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:مقدمة\s+في\s+هندسة\s+الحاسوب|Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?)?\s*[-–—:]*\s*/i,
     /^\s*(?:Calculus\s+I\s+(?:for\s+Engineering)?|حسبان\s*1(?:\s*للمهندسين)?)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:حسبان\s*1(?:\s*للمهندسين)?|Calculus\s+I\s+(?:for\s+Engineering)?)?\s*[-–—:]*\s*/i,
@@ -270,21 +265,21 @@ export function sanitizeDoctorAnnouncementText(
     /^\s*(?:Islamic\s+Culture|ثقافة\s*إسلامية|ثقافة\s*اسلامية)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i
   ];
 
-  // Specific course name passed from context
+  // Specific course name or code passed from context
   const dynamicCoursePatterns: RegExp[] = [];
-  if (courseName && courseName !== 'General Course') {
-    const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (courseName && courseName !== 'General Course' && courseName.trim().length > 3) {
+    const escaped = courseName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     dynamicCoursePatterns.push(new RegExp(`^\\s*${escaped}\\s*[-–—:]*\\s*(?:\\b\\d{1,2}[A-Z]?\\b)?\\s*[-–—:]*`, 'i'));
   }
-  if (courseCode && courseCode !== 'UOS') {
-    const escapedCode = courseCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+  if (courseCode && courseCode !== 'UOS' && courseCode.trim().length > 2) {
+    const escapedCode = courseCode.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
     dynamicCoursePatterns.push(new RegExp(`^\\s*${escapedCode}\\s*[-–—:]*`, 'i'));
   }
 
-  // Iterate up to 5 passes to clean layered prefixes (e.g. [timestamp] [course name] [section] [arabic name])
+  // Iterate up to 4 passes to clean layered prefixes (e.g. [timestamp] [course name] [section] [arabic name])
   let changed = true;
   let passes = 0;
-  while (changed && passes < 5) {
+  while (changed && passes < 4) {
     changed = false;
     passes++;
 
@@ -332,23 +327,23 @@ export function sanitizeDoctorAnnouncementText(
     }
   }
 
-  // If there's an exact duplicate of title at the beginning, strip it cleanly
-  // If there's an exact duplicate of title at the beginning on its own line or followed by separator, strip it cleanly
-  if (title && title.length > 5) {
-    const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titlePat = new RegExp(`^\\s*${escapedTitle}(?:\\s*[-–—:]+\\s*|\\s*\\r?\\n|\\s*$)`, 'i');
-    if (titlePat.test(text)) {
-      const remainder = text.replace(titlePat, '').trim();
+  // Only strip title if it appears as an isolated header line followed by a newline, never if part of sentence!
+  if (title && title.trim().length > 6) {
+    const escapedTitle = title.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titleLinePat = new RegExp(`^\\s*${escapedTitle}\\s*\\r?\\n`, 'i');
+    if (titleLinePat.test(text)) {
+      const remainder = text.replace(titleLinePat, '').trim();
       if (remainder.length >= 5) {
         text = remainder;
       }
     }
   }
 
-  // Clean remaining punctuation at the beginning
+  // Final cleanup of leading punctuation
   text = text.replace(/^[:\-–—|,\s]+/, '').trim();
 
-  return text || rawText.trim();
+  // If cleaning somehow emptied the text or left it under 5 chars, return rawText to avoid losing content!
+  return text.length >= 5 ? text : rawText.trim();
 }
 
 /**
