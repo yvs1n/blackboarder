@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"3911958c8f68","version":"1.0.0","shortCommit":"43862fb","timestamp":"2026-10-21T17:24:36.459Z"};
+const APP_BUILD = {"build":"f9d71795d230","version":"1.0.0","shortCommit":"dc464e8","timestamp":"2026-10-21T17:56:57.494Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1945,7 +1945,7 @@ function updateAllViews() {
   const drawer = document.getElementById('day-sheet-drawer');
   if (drawer && drawer.style.display !== 'none' && !drawer.classList.contains('hidden') && state.selectedDate) {
     const dayTasks = state.tasks.filter(t => {
-      if (!t.dueDate || !localDateKey(t.dueDate) === state.selectedDate) return false;
+      if (!t.dueDate || localDateKey(t.dueDate) !== state.selectedDate) return false;
       if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
       return true;
     });
@@ -2238,7 +2238,7 @@ function renderCalendar() {
     // Find tasks for this day
     const dayTasks = state.tasks.filter(t => {
       if (!t.dueDate) return false;
-      if (!localDateKey(t.dueDate) === dateStr) return false;
+      if (localDateKey(t.dueDate) !== dateStr) return false;
       if (!matchesSelectedCourseFilter(t, state.selectedCourseFilter)) return false;
       return true;
     });

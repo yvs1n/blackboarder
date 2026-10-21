@@ -133,6 +133,11 @@ describe('mobile web app behaviours', () => {
     expect(call('extractExplicitPoints', 'Assignment (10%)')).toBe(10);
   });
 
+  it('compares day keys with !==, never with a negated key', () => {
+    // `!key === date` is always false, which put every task on every calendar day
+    expect(appJs).not.toMatch(/!\s*localDateKey\([^)]*\)\s*===/);
+  });
+
   it('builds day keys from the local calendar day, not the UTC date', () => {
     // 2026-10-20 23:30 local time must stay on the 20th even when it is already the 21st in UTC
     const local = new Date(2026, 9, 20, 23, 30, 0);
