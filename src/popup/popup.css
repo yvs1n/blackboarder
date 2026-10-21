@@ -899,7 +899,8 @@ body.is-standalone .header {
   font-size: 14.5px;
   font-weight: 700;
   color: var(--text-main);
-  min-width: 140px;
+  /* Arrows sit right next to the month name, the same as in the companion app */
+  white-space: nowrap;
 }
 
 .calendar-nav-btn {

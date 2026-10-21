@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "7749d79bc44c",
-  "commit": "2ffb778746c2dc5e0708280bc54629fcb7e9050e",
-  "shortCommit": "2ffb778",
-  "timestamp": "2026-10-21T20:48:12.382Z",
-  "message": "Fix side panel clipping without waiting for a manifest reload",
+  "build": "f9e519047a08",
+  "commit": "61f77b8f9e323154f611e972b513a300d56ab0fe",
+  "shortCommit": "61f77b8",
+  "timestamp": "2026-10-21T20:54:33.663Z",
+  "message": "Merge CI build commit",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
