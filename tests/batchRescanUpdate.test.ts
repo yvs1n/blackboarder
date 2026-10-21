@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { processAnnouncementsBatch } from '../src/engine/hybridExtractor';
-import { resolveTaskRoom } from '../src/utils/courseSchedule';
+import { resolveTaskRoom } from '../src/core/courseSchedule';
 import { Announcement, DeadlineTask, UserSettings } from '../src/types';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 

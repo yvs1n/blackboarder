@@ -7,7 +7,8 @@ import { fetchRemoteVersion, isRemoteNewer } from '../utils/updateChecker';
  * An unpacked extension cannot change its own files, so a small helper does it: update.bat /
  * update.sh registers updater/ as a native messaging host once. After that the extension checks
  * GitHub every hour; when the main branch has a newer build it asks the helper to download it into
- * the extension folder, then reloads itself as soon as no popup or side panel is open.
+ * the extension folder, then reloads itself as soon as no popup or side panel is open. In a git
+ * clone the helper runs git pull --ff-only instead, and skips it when that could lose work.
  */
 
 export const NATIVE_HOST_NAME = 'com.blackboarder.updater';
@@ -135,7 +136,6 @@ async function checkAndInstall(): Promise<AutoUpdateStatus> {
 
   if (!remote) return saveStatus({ ...base, state: 'offline', helperInstalled });
   if (!isRemoteNewer(remote)) return saveStatus({ ...base, ...remoteFields, state: 'up-to-date', helperInstalled });
-  if (ping?.devCheckout) return saveStatus({ ...base, ...remoteFields, state: 'dev-checkout', helperInstalled });
   if (!helperInstalled) return saveStatus({ ...base, ...remoteFields, state: 'update-available', helperInstalled });
 
   const reply = await sendToHelper({ type: 'update', build: remote.build });

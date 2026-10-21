@@ -2,8 +2,8 @@ import { Announcement, DeadlineTask, UserSettings } from '../types';
 import { extractDeadlinesLocally } from './localExtractor';
 import { extractDeadlinesWithAi } from './aiExtractor';
 import { classifyAnnouncementWithJev } from './jevClassifier';
-import { resolveTaskWeight } from '../utils/syllabusWeights';
-import { resolveTaskRoom } from '../utils/courseSchedule';
+import { resolveTaskWeight } from '../core/syllabusWeights';
+import { resolveTaskRoom } from '../core/courseSchedule';
 
 /**
  * Normalizes title for deduplication comparison.

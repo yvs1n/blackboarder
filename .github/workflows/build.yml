@@ -29,6 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx tsc --noEmit -p .
+      # Fails if the extension, companion, landing page and README versions drift apart
+      - run: npm run lint
       - run: npm test
 
       # Pushes made with the workflow token do not start this workflow again.

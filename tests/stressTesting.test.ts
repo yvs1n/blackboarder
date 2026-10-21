@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { generateIcsFeed } from '../self-hosted/server/calendarFeed';
-import { resolveTaskWeight } from '../src/utils/syllabusWeights';
-import { resolveTaskRoom } from '../src/utils/courseSchedule';
+import { resolveTaskWeight } from '../src/core/syllabusWeights';
+import { resolveTaskRoom } from '../src/core/courseSchedule';
 import { extractDeadlinesLocally } from '../src/engine/localExtractor';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../src/utils/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText } from '../src/core/courseHelper';
 import { DeadlineTask, TaskType } from '../src/types';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 

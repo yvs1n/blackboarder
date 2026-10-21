@@ -1,6 +1,6 @@
 import { DeadlineTask, TaskType } from '../types';
-import { parseCourseDetails } from './courseHelper';
-import { resolveTaskWeight } from './syllabusWeights';
+import { parseCourseDetails } from '../core/courseHelper';
+import { resolveTaskWeight } from '../core/syllabusWeights';
 
 /**
  * Parses direct deadline cards from Blackboard Ultra activity stream timeline.

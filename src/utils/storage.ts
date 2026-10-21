@@ -1,5 +1,5 @@
 import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS, UserCourseConfig } from '../types';
-import { isValidTask, isBlackboardSystemNoise, hasValidAcademicCourseCode } from './courseHelper';
+import { isValidTask, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../core/courseHelper';
 import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './taskMerge';
 import { DEFAULT_USER_COURSES, setActiveUserCourses } from '../core/userCourses';
 import { resolveTaskWeight } from '../core/syllabusWeights';

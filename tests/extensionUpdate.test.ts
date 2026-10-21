@@ -46,8 +46,12 @@ describe('Extension automatic updates', () => {
       const script = read(rel);
       expect(script).toContain(NATIVE_HOST_NAME);
       expect(script).toContain('archive/refs/heads/main.zip');
-      // A git clone is updated with git pull, never overwritten
+      // A git clone is updated with a fast-forward git pull, never overwritten
       expect(script).toContain('.git');
+      expect(script).toContain('pull --ff-only');
+      expect(script).toContain('--untracked-files=no');
+      // Run from the repository's own updater/ folder, the extension is dist/
+      expect(script).toMatch(/dist[\\/]manifest\.json/);
     }
     // cmd keeps reading a running batch file, so the host line must end the script itself
     expect(read('updater/host.bat').trim()).toMatch(/-NativeHost & exit \/b$/);

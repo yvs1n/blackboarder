@@ -437,6 +437,16 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - Auto-update for git clones, Firebase-only status, calendar names
+- **Auto-update never ran on the owner's machine.** The extension loads from `Desktop/blackboard_sidekick/dist` (Brave), inside a git clone. The helper skipped git clones by design, and it had been registered from the repository's top-level `updater/` folder, so it treated the repository root as the extension and allowed a different extension ID. The old helper would also have copied downloaded files into the repository root if it had ever run.
+  - `updater/blackboarder-updater.ps1` / `.sh` now use `dist/` when run from a clone's top-level `updater/`, and update a clone with `git pull --ff-only origin main`, only on `main` with no uncommitted tracked changes; otherwise they reply `dev-checkout` with the reason, which Settings shows. Tested on a throwaway clone: behind (pulls), uncommitted edit, other branch, diverged (all skipped), up to date.
+  - `src/background/autoUpdate.ts` no longer stops at `ping.devCheckout`; it asks the helper and reports its answer.
+  - Owner action: after pulling, run `update.bat` once so the helper is registered for `dist/` and the right extension ID.
+- **Local sync server is opt-in.** `DEFAULT_SETTINGS.syncServerUrl` is `''`; `normalizeSyncUrl('')` returns `''`; `pushTasksToSyncServer` and `getSyncServerStatus` return `{ skipped: true }` without a request. Old saved `http://localhost:3456` values are cleared on load. Settings shows no server line unless a server is set.
+- **Calendar names** wrap to two lines without the icon when a day cell is under 72px wide (container query on `.cal-day`).
+- **Cleanup**: removed `scripts/generate_icons.js`, `scripts/generate_vector_icons.py`, `scripts/parsePhy1.py`, `scripts/package.bat` (use `npm run package`), and `self-hosted/server/data/*.json` (runtime data, now in `.gitignore`). `src/utils/courseColors|courseHelper|courseSchedule|syllabusWeights.ts` only re-exported `src/core`; all imports now use `src/core/*` and the shims are gone.
+- **CI** runs `npm run lint`, so version drift across extension, companion, landing page and README fails the build.
+
 ### 2026-10-22 - Side panel layout fixed for good
 The side panel still showed the cut-off calendar: Chrome keeps the old side panel path until the extension is reloaded, so the page never saw `?view=panel` and kept the fixed 480px popup size.
 - `isToolbarPopup()` in `src/popup/popup.ts` asks Chrome (`chrome.extension.getViews({ type: 'popup' })`) whether the page is the toolbar popup. Only the popup keeps 480 x 600; the side panel and tabs use the full width whatever URL opened them.

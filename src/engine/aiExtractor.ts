@@ -1,6 +1,6 @@
 import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
-import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../utils/courseSchedule';
-import { sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
+import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../core/courseSchedule';
+import { sanitizeDoctorAnnouncementText } from '../core/courseHelper';
 import { isExtensionContextValid, canUseSameOriginProxy } from '../utils/storage';
 
 interface AiExtractedItem {

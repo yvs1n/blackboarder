@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-BfABwCOP.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-6vFclfHs.css">
+  <title>Blackboarder</title>
+  <script type="module" crossorigin src="../../assets/popup-XZqujby0.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-CETYTd9f.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -792,9 +792,9 @@
           </summary>
           <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
             <div class="form-group">
-              <label class="form-label" for="setting-sync-url">Sync Server Endpoint</label>
-              <input type="text" id="setting-sync-url" class="form-input" placeholder="http://localhost:3456" value="http://localhost:3456">
-              <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Local server (run <code>npm run server</code>) or custom deployed URL.</span>
+              <label class="form-label" for="setting-sync-url">Own Sync Server (optional)</label>
+              <input type="text" id="setting-sync-url" class="form-input" placeholder="Leave empty to sync through Firebase only" value="">
+              <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Only for a self-hosted server. Firebase handles sync without it.</span>
             </div>
             <div class="form-group">
               <label class="form-label" for="setting-hosted-url">Hosted Web Dashboard URL</label>
@@ -1598,6 +1598,6 @@
 
   <!-- Floating Action Toast Container -->
   <div id="toast-container" class="toast-container"></div>
-
+
 </body>
 </html>

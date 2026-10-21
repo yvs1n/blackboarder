@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { extractDeadlinesLocally } from '../src/engine/localExtractor';
-import { sanitizeDoctorAnnouncementText } from '../src/utils/courseHelper';
+import { sanitizeDoctorAnnouncementText } from '../src/core/courseHelper';
 import { Announcement } from '../src/types';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 

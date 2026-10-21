@@ -1,7 +1,7 @@
 import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
-import { resolveTaskWeight } from '../utils/syllabusWeights';
-import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../utils/courseSchedule';
-import { sanitizeDoctorAnnouncementText } from '../utils/courseHelper';
+import { resolveTaskWeight } from '../core/syllabusWeights';
+import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../core/courseSchedule';
+import { sanitizeDoctorAnnouncementText } from '../core/courseHelper';
 
 interface DateMatchResult {
   date: Date;

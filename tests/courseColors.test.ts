@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCourseHex, getCourseColorTheme, PERMANENT_COURSE_LEGEND } from '../src/utils/courseColors';
+import { getCourseHex, getCourseColorTheme, PERMANENT_COURSE_LEGEND } from '../src/core/courseColors';
 
 describe('Permanent Course Colors Mapping', () => {
   it('assigns #7c7c7c to Intro to Computer Engineering', () => {

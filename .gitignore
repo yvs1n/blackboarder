@@ -42,3 +42,6 @@ release/
 
 # Personal schedule documents
 schedule.pdf
+
+# Local server runtime data (self-hosted/server creates it)
+self-hosted/server/data/

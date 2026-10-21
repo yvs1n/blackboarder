@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { resolveTaskWeight, findCourseSyllabus, DEFAULT_SYLLABUS_DATABASE, extractAssessmentNumber } from '../src/utils/syllabusWeights';
+import { resolveTaskWeight, findCourseSyllabus, DEFAULT_SYLLABUS_DATABASE, extractAssessmentNumber } from '../src/core/syllabusWeights';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Syllabus Weights Database & Resolution', () => {

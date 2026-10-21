@@ -7,7 +7,9 @@
   -NativeHost  (run by host.bat when the extension asks) answers one native message:
                {"type":"ping"} or {"type":"update"}.
 
-  The extension folder is the parent of the folder this script is in.
+  The extension folder is the parent of the folder this script is in, or dist/ next to it when
+  the script runs from a git clone's own updater/ folder. Inside a git clone the helper updates
+  with git pull --ff-only, and only when that cannot lose work (on main, nothing uncommitted).
 #>
 param(
   [switch]$Install,
@@ -19,7 +21,12 @@ $ProgressPreference = 'SilentlyContinue'
 
 $HostName = 'com.blackboarder.updater'
 $ZipUrl = 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip'
-$ExtDir = Split-Path -Parent $PSScriptRoot
+$ScriptParent = Split-Path -Parent $PSScriptRoot
+# Run from a git clone's own updater/ folder, the browser loads dist/ next to it
+$ExtDir = $ScriptParent
+if (-not (Test-Path -LiteralPath (Join-Path $ScriptParent 'manifest.json')) -and (Test-Path -LiteralPath (Join-Path $ScriptParent 'dist\manifest.json'))) {
+  $ExtDir = Join-Path $ScriptParent 'dist'
+}
 $HelperVersion = 1
 
 function Test-DevCheckout {
@@ -32,10 +39,29 @@ function Read-VersionFile([string]$file) {
   try { return Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return $null }
 }
 
+function Get-GitText([string[]]$gitArgs) {
+  # Output never reaches stdout, which carries the native messages
+  return ((& git -C (Split-Path -Parent $ExtDir) @gitArgs 2>$null) | Out-String).Trim()
+}
+
+function Update-GitCheckout {
+  # Built files are committed, so a fast-forward pull is the whole update. Anything that could
+  # lose work (another branch, uncommitted edits, local commits) is left alone.
+  $ErrorActionPreference = 'Continue'
+  $skip = { param($why) @{ ok = $false; code = 'dev-checkout'; error = $why } }
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return & $skip 'This folder is a git clone, but git was not found. Run git pull yourself.' }
+  $branch = Get-GitText @('rev-parse', '--abbrev-ref', 'HEAD')
+  if ($branch -ne 'main') { return & $skip "The git clone is on branch '$branch', not main, so it was not updated." }
+  if (Get-GitText @('status', '--porcelain', '--untracked-files=no')) { return & $skip 'The git clone has uncommitted changes, so it was not updated. Commit or stash them, then run git pull.' }
+  $before = Get-GitText @('rev-parse', 'HEAD')
+  & git -C (Split-Path -Parent $ExtDir) pull --ff-only --quiet origin main 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { return & $skip 'git pull --ff-only failed (the clone has commits GitHub does not). Run git pull yourself.' }
+  $info = Read-VersionFile (Join-Path $ExtDir 'version.json')
+  return @{ ok = $true; changed = ($before -ne (Get-GitText @('rev-parse', 'HEAD'))); build = $(if ($info) { $info.build } else { $null }) }
+}
+
 function Update-ExtensionFiles {
-  if (Test-DevCheckout) {
-    return @{ ok = $false; code = 'dev-checkout'; error = 'This folder is inside a git clone. Run git pull and npm run build instead.' }
-  }
+  if (Test-DevCheckout) { return Update-GitCheckout }
 
   $work = Join-Path $env:TEMP ('blackboarder-update-' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $work | Out-Null
@@ -215,14 +241,15 @@ function Invoke-Install {
   if (-not (Test-Path -LiteralPath (Join-Path $ExtDir 'manifest.json'))) {
     throw "Could not find the extension next to this script ($ExtDir)."
   }
+  Write-Host "Extension folder: $ExtDir"
   if (Test-DevCheckout) {
-    Write-Host 'This folder is inside a git clone. Update it with: git pull, then npm run build.'
-    return
+    Write-Host '[1/2] This is a git clone; updating with git pull...'
+  } else {
+    Write-Host '[1/2] Downloading the latest version from GitHub...'
   }
-
-  Write-Host '[1/2] Downloading the latest version from GitHub...'
   $result = Update-ExtensionFiles
-  if ($result.changed) { Write-Host "      Updated to build $($result.build)." } else { Write-Host '      Already up to date.' }
+  if (-not $result.ok) { Write-Host "      $($result.error)" }
+  elseif ($result.changed) { Write-Host "      Updated to build $($result.build)." } else { Write-Host '      Already up to date.' }
 
   Write-Host '[2/2] Turning on automatic updates...'
   $ids = Register-NativeHost

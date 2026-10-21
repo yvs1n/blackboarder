@@ -7,13 +7,17 @@
 #   chrome-extension://.../   (the browser starts it this way) answers one native message:
 #                             {"type":"ping"} or {"type":"update"}.
 #
-# The extension folder is the parent of the folder this script is in.
+# The extension folder is the parent of the folder this script is in, or dist/ next to it when the
+# script runs from a git clone's own updater/ folder. Inside a git clone the helper updates with
+# git pull --ff-only, and only when that cannot lose work (on main, nothing uncommitted).
 set -uo pipefail
 
 HOST_NAME="com.blackboarder.updater"
 ZIP_URL="https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 EXT_DIR="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+# Run from a git clone's own updater/ folder, the browser loads dist/ next to it
+if [ ! -f "$EXT_DIR/manifest.json" ] && [ -f "$EXT_DIR/dist/manifest.json" ]; then EXT_DIR="$EXT_DIR/dist"; fi
 HELPER_VERSION=1
 
 is_dev_checkout() { [ -e "$EXT_DIR/../.git" ]; }
@@ -23,9 +27,25 @@ json_files() { sed -n '/"files": *\[/,/\]/p' "$1" 2>/dev/null | grep -o '"[^"]*"
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n'; }
 
 # Prints a JSON result line
+# Built files are committed, so a fast-forward pull is the whole update. Anything that could lose
+# work (another branch, uncommitted edits, local commits) is left alone.
+git_skip() { echo "{\"ok\":false,\"code\":\"dev-checkout\",\"error\":\"$1\"}"; }
+
+update_git_checkout() {
+  local repo="$EXT_DIR/.." before branch changed=false
+  command -v git >/dev/null 2>&1 || { git_skip "This folder is a git clone, but git was not found. Run git pull yourself."; return; }
+  branch="$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  [ "$branch" = "main" ] || { git_skip "The git clone is on branch $branch, not main, so it was not updated."; return; }
+  [ -z "$(git -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ] || { git_skip "The git clone has uncommitted changes, so it was not updated."; return; }
+  before="$(git -C "$repo" rev-parse HEAD)"
+  git -C "$repo" pull --ff-only --quiet origin main >/dev/null 2>&1 || { git_skip "git pull --ff-only failed. Run git pull yourself."; return; }
+  [ "$before" = "$(git -C "$repo" rev-parse HEAD)" ] || changed=true
+  echo "{\"ok\":true,\"changed\":$changed,\"build\":\"$(json_build "$EXT_DIR/version.json")\"}"
+}
+
 update_extension_files() {
   if is_dev_checkout; then
-    echo '{"ok":false,"code":"dev-checkout","error":"This folder is inside a git clone. Run git pull and npm run build instead."}'
+    update_git_checkout
     return
   fi
   local work
@@ -173,16 +193,18 @@ run_install() {
     echo "[ERROR] Could not find the extension next to this script ($EXT_DIR)."
     exit 1
   fi
+  echo "Extension folder: $EXT_DIR"
   if is_dev_checkout; then
-    echo "This folder is inside a git clone. Update it with: git pull, then npm run build."
-    exit 0
+    echo "[1/2] This is a git clone; updating with git pull..."
+  else
+    echo "[1/2] Downloading the latest version from GitHub..."
   fi
-  echo "[1/2] Downloading the latest version from GitHub..."
   local result
   result="$(update_extension_files | tail -n 1)"
   case "$result" in
     *'"changed":true'*) echo "      Updated." ;;
     *'"ok":true'*) echo "      Already up to date." ;;
+    *'"dev-checkout"'*) echo "      $result" ;;
     *) echo "[ERROR] $result"; exit 1 ;;
   esac
   echo "[2/2] Turning on automatic updates..."

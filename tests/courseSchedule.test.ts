@@ -6,7 +6,7 @@ import {
   getAllCourseSchedules,
   extractRoomFromText,
   resolveTaskRoom
-} from '../src/utils/courseSchedule';
+} from '../src/core/courseSchedule';
 import { setActiveUserCourses, DEFAULT_USER_COURSES } from '../src/core/userCourses';
 
 describe('Student Class Schedule Engine (schedule.pdf)', () => {

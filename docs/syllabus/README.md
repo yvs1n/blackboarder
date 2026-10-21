@@ -13,6 +13,3 @@ You can place your course syllabus PDFs here for local analysis:
 - `docs/syllabus/introtocompeng.pdf` - Intro to Computer Engineering Syllabus
 - `docs/syllabus/eap.pdf` - English for Academic Purposes Syllabus
 - `docs/syllabus/islamicculture.pdf` - Islamic Culture Syllabus
-
-## Helper Scripts
-- `scripts/parsePhy1.py`: Parses locally added Physics 1 syllabus text and extracts grade distributions.

@@ -145,7 +145,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   badgeNotification: true,
   reminderHoursBefore: 24,
   customDomains: ['blackboard.sharjah.ac.ae', 'elearning.sharjah.ac.ae', 'blackboard.com'],
-  syncServerUrl: 'http://localhost:3456',
+  // Optional self-hosted server. Empty by default: sync goes through Firebase
+  syncServerUrl: '',
   syncSecretKey: '',
   autoSyncMidnight: true,
   autoSyncOnScan: true,

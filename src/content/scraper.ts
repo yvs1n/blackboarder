@@ -2,7 +2,7 @@ import { Announcement, DeadlineTask, TaskSubmissionUpdate } from '../types';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../utils/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../core/courseHelper';
 import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
 

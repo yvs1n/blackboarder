@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCourseDetails, resolveCourseInfo } from '../src/utils/courseHelper';
+import { parseCourseDetails, resolveCourseInfo } from '../src/core/courseHelper';
 
 describe('Course Details Extraction', () => {
   it('extracts course name and code from UOS hyphenated format', () => {
@@ -92,7 +92,7 @@ describe('Course Details Extraction', () => {
 });
 
 import { parseDirectStreamCard } from '../src/utils/streamParser';
-import { isValidTask } from '../src/utils/courseHelper';
+import { isValidTask } from '../src/core/courseHelper';
 
 describe('Ghost Task Prevention & Stream Parser Resilience', () => {
   it('ignores submission receipts and attempt confirmation cards', () => {
@@ -153,7 +153,7 @@ describe('Ghost Task Prevention & Stream Parser Resilience', () => {
   });
 
   it('matchesSelectedCourseFilter matches tasks by name, code, or regex pattern', async () => {
-    const { matchesSelectedCourseFilter } = await import('../src/utils/courseHelper');
+    const { matchesSelectedCourseFilter } = await import('../src/core/courseHelper');
 
     const taskCalc = {
       courseName: 'Calculus I for Engineering',
@@ -191,7 +191,7 @@ describe('Ghost Task Prevention & Stream Parser Resilience', () => {
   });
 
   it('detects Blackboard navigation noise and prevents UI tabs from becoming courses', async () => {
-    const { isBlackboardSystemNoise, parseCourseDetails } = await import('../src/utils/courseHelper');
+    const { isBlackboardSystemNoise, parseCourseDetails } = await import('../src/core/courseHelper');
 
     // UI navigation tabs that should never be courses
     expect(isBlackboardSystemNoise('Content')).toBe(true);

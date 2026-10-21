@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "3b98d99eef20",
-  "commit": "915b69a428322d9e1ce9cb4f59d6b88c902ff66f",
-  "shortCommit": "915b69a",
-  "timestamp": "2026-10-21T20:35:38.189Z",
-  "message": "build: update generated files for c50630e",
+  "build": "7749d79bc44c",
+  "commit": "2ffb778746c2dc5e0708280bc54629fcb7e9050e",
+  "shortCommit": "2ffb778",
+  "timestamp": "2026-10-21T20:48:12.382Z",
+  "message": "Fix side panel clipping without waiting for a manifest reload",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

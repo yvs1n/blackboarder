@@ -3,10 +3,10 @@ import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveAnnounceme
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../utils/courseHelper';
-import { getCourseHex, getCourseColorTheme } from '../utils/courseColors';
-import { resolveTaskWeight, getAllSyllabi } from '../utils/syllabusWeights';
-import { findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../utils/courseSchedule';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
+import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
+import { resolveTaskWeight, getAllSyllabi } from '../core/syllabusWeights';
+import { findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../core/courseSchedule';
 import { pushTasksToSyncServer, getSyncServerStatus, normalizeSyncUrl } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { sanitizeCloudTasks } from '../utils/cloudSanitize';
@@ -2482,7 +2482,7 @@ async function loadSettingsForm() {
   if (settingBbDark) settingBbDark.checked = settings.blackboardDarkMode !== false;
 
   const settingSyncUrl = document.getElementById('setting-sync-url') as HTMLInputElement | null;
-  if (settingSyncUrl) settingSyncUrl.value = normalizeSyncUrl(settings.syncServerUrl || 'http://localhost:3456');
+  if (settingSyncUrl) settingSyncUrl.value = normalizeSyncUrl(settings.syncServerUrl);
   const settingSyncMidnight = document.getElementById('setting-sync-midnight') as HTMLInputElement | null;
   if (settingSyncMidnight) settingSyncMidnight.checked = settings.autoSyncMidnight !== false;
   const settingSyncOnScan = document.getElementById('setting-sync-onscan') as HTMLInputElement | null;
@@ -2523,15 +2523,17 @@ async function loadSettingsForm() {
     }).catch(() => {});
   }
 
-  // Check sync server status
+  // Check the optional self-hosted server; with none set, Firebase is the only sync and there is nothing to show
   const statusEl = document.getElementById('sync-status-msg');
   if (statusEl) {
-    statusEl.textContent = 'Checking sync server status...';
+    statusEl.textContent = normalizeSyncUrl(settings.syncServerUrl) ? 'Checking sync server status...' : '';
     getSyncServerStatus(settings).then(res => {
-      if (res.success) {
+      if (res.skipped) {
+        statusEl.textContent = '';
+      } else if (res.success) {
         statusEl.innerHTML = `<span style="color: #16a34a; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Server Online (${res.count || 0} tasks synced)</span></span>`;
       } else {
-        statusEl.innerHTML = `<span style="color: #d97706; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>Server Offline (Run npm run server to sync)</span></span>`;
+        statusEl.innerHTML = `<span style="color: #d97706; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>Your sync server is not responding (Firebase sync still works)</span></span>`;
       }
     });
   }
@@ -3241,7 +3243,7 @@ function setupEvents() {
     const badgeNotif = (document.getElementById('setting-badge-notif') as HTMLInputElement).checked;
     const reminderHours = parseInt((document.getElementById('setting-reminder-hours') as HTMLSelectElement).value, 10);
 
-    const rawSyncUrl = (document.getElementById('setting-sync-url') as HTMLInputElement)?.value || 'http://localhost:3456';
+    const rawSyncUrl = (document.getElementById('setting-sync-url') as HTMLInputElement)?.value || '';
     const syncUrl = normalizeSyncUrl(rawSyncUrl);
     const settingSyncUrl = document.getElementById('setting-sync-url') as HTMLInputElement | null;
     if (settingSyncUrl) settingSyncUrl.value = syncUrl;
@@ -4164,7 +4166,8 @@ async function refreshDataInBackground() {
     // 2. Auto-upgrade legacy HTTP remote sync server URL to HTTPS to prevent CORS preflight redirect errors
     const currentSettings = await getSettings();
     if (currentSettings.syncServerUrl) {
-      const normalized = normalizeSyncUrl(currentSettings.syncServerUrl);
+      // Older builds filled in a local server nobody runs; drop it so nothing pings localhost
+      const normalized = currentSettings.syncServerUrl.replace(/\/+$/, '') === 'http://localhost:3456' ? '' : normalizeSyncUrl(currentSettings.syncServerUrl);
       if (normalized !== currentSettings.syncServerUrl) {
         await saveSettings({ syncServerUrl: normalized });
       }
@@ -4608,8 +4611,8 @@ function initExtensionUpdateSystem() {
       case 'dev-checkout':
         setPill('Dev Build', 'gray');
         hideBanner();
-        if (statusDesc) statusDesc.textContent = `Development checkout: Auto-updates paused. Update with git pull && npm run build.`;
-        if (manual) showToast('Git checkout: use git pull and npm run build.');
+        if (statusDesc) statusDesc.textContent = `Git clone: a new version${remoteNote} is on GitHub but was not pulled automatically. ${status.error || 'Run git pull.'}`;
+        if (manual) showToast('New version on GitHub. See Settings for why it was not pulled.');
         break;
       case 'offline':
         setPill('Offline', 'gray');

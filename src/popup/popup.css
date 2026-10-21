@@ -1054,6 +1054,28 @@ body.is-standalone .header {
   flex-shrink: 0;
 }
 
+/* Narrow day cells (side panel): drop the icon and let names use two lines instead of "P..." */
+.cal-day {
+  container-type: inline-size;
+}
+
+@container (max-width: 72px) {
+  .cal-event-chip {
+    padding: 1.5px 2px;
+  }
+  .cal-event-chip .ui-icon {
+    display: none;
+  }
+  .cal-event-chip span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
 .cal-event-chip:hover {
   opacity: 0.9;
   transform: translateY(-0.5px);

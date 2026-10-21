@@ -104,6 +104,16 @@ describe('sync client', () => {
     expect(body.tombstones).toEqual({ gone: '2026-10-02T00:00:00.000Z' });
     expect(normalizeSyncUrl('sync.example.com')).toBe('https://sync.example.com');
   });
+
+  it('sends nothing when no own sync server is set (Firebase-only, the default)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect(DEFAULT_SETTINGS.syncServerUrl).toBe('');
+    expect(normalizeSyncUrl('')).toBe('');
+    const res = await pushTasksToSyncServer([baseTask()], { ...DEFAULT_SETTINGS, syncKey: 'BBS-TESTKEY1' });
+    expect(res.skipped).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 });
 
 describe('Firebase updates keep the rest of the cloud document', () => {

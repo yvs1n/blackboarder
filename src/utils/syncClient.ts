@@ -9,6 +9,8 @@ export interface SyncResponse {
   feedUrl?: string;
   webcalUrl?: string;
   quickLinks?: QuickLink[];
+  /** True when no sync server is set, so nothing was sent */
+  skipped?: boolean;
 }
 
 /** True for a hosted Cloudflare Pages dashboard (which syncs through Firebase directly). */
@@ -27,8 +29,12 @@ export interface SyncExtras {
   tombstones?: Record<string, string>;
 }
 
+const NO_SERVER: SyncResponse = { success: false, skipped: true, message: 'No sync server set; syncing through Firebase only' };
+
+/** '' when no server is set (the normal case: everything syncs through Firebase). */
 export function normalizeSyncUrl(rawUrl?: string): string {
-  let url = (rawUrl || 'http://localhost:3456').trim().replace(/\/+$/, '');
+  let url = (rawUrl || '').trim().replace(/\/+$/, '');
+  if (!url) return '';
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
@@ -51,6 +57,7 @@ export async function pushTasksToSyncServer(
 ): Promise<SyncResponse> {
   const currentSettings = settings || DEFAULT_SETTINGS;
   const baseUrl = normalizeSyncUrl(currentSettings.syncServerUrl);
+  if (!baseUrl) return NO_SERVER;
 
   // Cloudflare Pages hosts the static web dashboard which syncs directly via Firebase Cloud
   if (isPagesDevUrl(baseUrl)) {
@@ -113,6 +120,7 @@ export async function pushTasksToSyncServer(
 export async function getSyncServerStatus(settings?: UserSettings): Promise<SyncResponse> {
   const currentSettings = settings || DEFAULT_SETTINGS;
   const baseUrl = normalizeSyncUrl(currentSettings.syncServerUrl);
+  if (!baseUrl) return NO_SERVER;
 
   if (isPagesDevUrl(baseUrl)) {
     return {

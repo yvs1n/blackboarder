@@ -1,5 +1,5 @@
 import { DeadlineTask } from '../types';
-import { findCourseSchedule } from './courseSchedule';
+import { findCourseSchedule } from '../core/courseSchedule';
 
 /**
  * Formats a Date into Google Calendar UTC string: YYYYMMDDTHHmmssZ or YYYYMMDD.
