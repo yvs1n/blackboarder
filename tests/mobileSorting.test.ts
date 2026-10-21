@@ -27,18 +27,16 @@ describe('Mobile Web App Sorting Verification', () => {
   };
   vm.createContext(sandbox);
 
-  // Extract the necessary definitions from appJsCode
+  // Sorting lives in the shared core (mobile-web/core.js); the app's course block feeds it the schedule
+  vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
   const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
-  const matchGetSort = appJsCode.match(/function getTaskSortTimestamp\(task\) \{[\s\S]*?\n\}/);
-  const matchCompare = appJsCode.match(/function compareTasksByTime\(a, b\) \{[\s\S]*?\n\}/);
 
-  if (!matchCourseBlock || !matchGetSort || !matchCompare) {
-    throw new Error('Could not extract sorting functions from mobile-web/app.js');
+  if (!matchCourseBlock) {
+    throw new Error('Could not extract the course block from mobile-web/app.js');
   }
 
   vm.runInContext(matchCourseBlock[0], sandbox);
-  vm.runInContext(matchGetSort[0], sandbox);
-  vm.runInContext(matchCompare[0], sandbox);
+  sandbox.compareTasksByTime = vm.runInContext('compareTasksByTime', sandbox);
 
   const { compareTasksByTime } = sandbox;
 

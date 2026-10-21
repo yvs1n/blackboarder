@@ -37,6 +37,7 @@ function escapeIcsText(text: string): string {
  */
 export function createGoogleCalendarUrl(task: DeadlineTask): string {
   const startDate = new Date(task.dueDate);
+  if (isNaN(startDate.getTime())) return '#';
   // Default duration: 1 hour if specific time, or full day
   const endDate = new Date(startDate.getTime() + (task.hasSpecificTime ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
 
@@ -51,7 +52,7 @@ export function createGoogleCalendarUrl(task: DeadlineTask): string {
   const details = [
     `Course: ${task.courseName || 'General Course'} (${task.courseCode || 'UOS'})`,
     task.room ? `Room: ${task.room}` : '',
-    `Type: ${task.type.toUpperCase()}`,
+    `Type: ${(task.type || 'other').toUpperCase()}`,
     isDone ? 'Status: Completed (Done)' : 'Status: Pending',
     task.notes ? `Student Notes: ${task.notes}` : '',
     (task.description || task.sourceSnippet) ? `Doctor's Announcement:\n"${task.description || task.sourceSnippet}"` : '',
@@ -76,7 +77,8 @@ export function createGoogleCalendarUrl(task: DeadlineTask): string {
 export function generateIcsContent(tasks: DeadlineTask[]): string {
   const nowUtc = formatGCalDate(new Date());
 
-  const events = tasks.map(task => {
+  // Tasks can come from the cloud; one without a usable date would produce an invalid VEVENT
+  const events = tasks.filter(task => !isNaN(new Date(task.dueDate).getTime())).map(task => {
     const startDate = new Date(task.dueDate);
     const endDate = new Date(startDate.getTime() + (task.hasSpecificTime ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
     const isAllDay = !task.hasSpecificTime;
@@ -110,7 +112,7 @@ export function generateIcsContent(tasks: DeadlineTask[]): string {
       `SUMMARY:${escapeIcsText(eventSummary)}`,
       task.room ? `LOCATION:${escapeIcsText(task.room)}` : null,
       `DESCRIPTION:${cleanDesc}`,
-      `CATEGORIES:${task.type.toUpperCase()}`,
+      `CATEGORIES:${(task.type || 'other').toUpperCase()}`,
       // COMPLETED is not a valid VEVENT status; completion is shown in the summary instead
       'STATUS:CONFIRMED',
       'END:VEVENT'
@@ -161,6 +163,9 @@ export function formatCountdown(
 
   const now = new Date();
   const due = new Date(dueDateIso);
+  if (isNaN(due.getTime())) {
+    return { label: 'Date pending', urgency: 'future' };
+  }
 
   const diffMs = due.getTime() - now.getTime();
   const isPast = diffMs < 0;

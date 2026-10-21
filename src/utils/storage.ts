@@ -4,7 +4,7 @@ import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './t
 import { DEFAULT_USER_COURSES, setActiveUserCourses } from '../core/userCourses';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskRoom, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
-import { sanitizeCloudCourses } from './cloudSanitize';
+import { filterCleanUserCourses } from '../core/courseFilter';
 
 const STORAGE_KEYS = {
   TASKS: 'bbs_tasks',
@@ -694,52 +694,8 @@ export async function resetQuickLinksToDefault(): Promise<QuickLink[]> {
   return DEFAULT_QUICK_LINKS;
 }
 
-/**
- * Filters out Blackboard navigation tabs (Content, Calendar, Discussions, Gradebook, etc.)
- * from registered user courses so that UI elements never masquerade as courses.
- */
-export function filterCleanUserCourses(rawCourses: UserCourseConfig[]): UserCourseConfig[] {
-  if (!Array.isArray(rawCourses)) return [];
-  // Stored courses can originate from the cloud: repair missing arrays and unsafe colors up front
-  const courses = sanitizeCloudCourses(rawCourses) ?? [];
-  const defaultIds = new Set(DEFAULT_USER_COURSES.map(d => d.id));
-  const seenCodes = new Set<string>();
-  const seenNames = new Set<string>();
-  const result: UserCourseConfig[] = [];
-
-  for (const c of courses) {
-    const name = (c.courseName || '').trim();
-    const code = (c.courseCode || '').trim();
-    if (!name && !code) continue;
-
-    // Reject Blackboard system noise, navigation tabs, and Details & Actions items
-    if (isBlackboardSystemNoise(name) || isBlackboardSystemNoise(code)) {
-      continue;
-    }
-
-    // Require either a valid academic course code or an entry matching default courses
-    const isDefault = defaultIds.has(c.id);
-    if (!isDefault && !hasValidAcademicCourseCode(code) && !hasValidAcademicCourseCode(name)) {
-      continue;
-    }
-
-    const normCode = code.replace(/[\s_-]+/g, '').toLowerCase();
-    const normName = name.toLowerCase();
-
-    if (normCode && seenCodes.has(normCode)) {
-      continue;
-    }
-    if (normName && seenNames.has(normName)) {
-      continue;
-    }
-
-    if (normCode) seenCodes.add(normCode);
-    if (normName) seenNames.add(normName);
-    result.push(c);
-  }
-
-  return result;
-}
+// Lives in core so the phone app runs the same filter
+export { filterCleanUserCourses };
 
 export function getCachedCoursesSync(): UserCourseConfig[] {
   const raw = safeGetLocalStorage(STORAGE_KEYS.COURSES);

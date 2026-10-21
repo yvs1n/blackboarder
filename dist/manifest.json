@@ -60,13 +60,13 @@
     "notifications",
     "sidePanel",
     "downloads",
-    "tabs"
+    "tabs",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "https://blackboard.sharjah.ac.ae/*",
     "https://*.blackboard.com/*",
     "https://*.sharjah.ac.ae/*",
-    "https://api.github.com/*",
     "https://raw.githubusercontent.com/*",
     "https://github.com/*",
     "https://openrouter.ai/*",

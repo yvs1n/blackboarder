@@ -311,7 +311,7 @@ export interface ResolvedWeight {
  *           "Assignment 1 (10%)" -> 10
  *           "Quiz 2 - 5 marks" -> 5
  */
-function extractExplicitPoints(text: string): number | null {
+export function extractExplicitPoints(text: string): number | null {
   if (!text) return null;
 
   // Arabic: "15 درجة" or "10 درجات" or "5 علامات"

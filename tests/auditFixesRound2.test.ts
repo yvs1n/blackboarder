@@ -100,9 +100,9 @@ describe('mobile web app behaviours', () => {
     // The region reads localStorage when it loads
     sandbox.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
     sandbox.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
+    // The app's helpers come from the shared core, which index.html loads before app.js
+    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
     vm.runInContext(region[0], sandbox);
-    vm.runInContext(appJs.match(/function extractRoomFromText\(text\) \{[\s\S]*?\n\}/)![0], sandbox);
-    vm.runInContext(appJs.match(/function extractExplicitPoints\(text\) \{[\s\S]*?\n\}/)![0], sandbox);
     vm.runInContext(appJs.match(/function localDateKey\(input\) \{[\s\S]*?\n\}/)![0], sandbox);
   });
 

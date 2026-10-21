@@ -4,6 +4,7 @@ import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSy
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
 import { getUserCourses, getCoursesUpdatedAt, saveUserCourses } from '../utils/storage';
+import { initAutoUpdate } from './autoUpdate';
 
 const ALARM_NAME = 'bbs_check_deadlines';
 const MIDNIGHT_ALARM_NAME = 'bbs_midnight_sync';
@@ -218,6 +219,9 @@ async function reinjectDarkModeIntoOpenBlackboardTabs() {
 
 // Run immediately when service worker wakes/reloads
 reinjectDarkModeIntoOpenBlackboardTabs();
+
+// Updates itself from GitHub (see autoUpdate.ts)
+initAutoUpdate();
 
 // Listeners
 chrome.runtime.onInstalled.addListener(() => {

@@ -4,6 +4,7 @@
  * Handles API endpoints, live RFC 5545 calendar feed, and static assets.
  */
 
+// ---- calendar feed start: scripts/build.js copies this section into server/calendarFeed.js ----
 function escapeIcsText(text) {
   if (!text) return '';
   return text
@@ -175,6 +176,8 @@ function generateIcsFeed(tasks = [], options = {}) {
   lines.push('END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
 }
+
+// ---- calendar feed end ----
 
 const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast1.firebasedatabase.app';
 

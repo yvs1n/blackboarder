@@ -56,11 +56,65 @@ try {
 // Data Processing & Sorting
 // ----------------------------------------------------------------------------
 const rawTasks = res && Array.isArray(res.tasks) ? res.tasks : [];
+const customCourses = res && Array.isArray(res.courses) ? res.courses : [];
 const allTasks = rawTasks.filter(
   t => t.status !== "completed" && t.status !== "dismissed"
 );
 const tasks = allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 const nextTask = tasks[0];
+
+const DEFAULT_COURSE_COLORS = [
+  { pattern: /(?:phys(?:ics)?.*lab|lab.*phys(?:ics)?|مختبر.*فيزياء|1430116|1430117|0401116)/i, hex: "#4b99d2" },
+  { pattern: /(?:phys(?:ics)?|الفيزياء|فيزياء|1430115|1430111|0401115)/i, hex: "#4b99d2" },
+  { pattern: /(?:calculus|calc\b|حسبان|1440133|1440131|0401101|0401201)/i, hex: "#dc2626" },
+  { pattern: /(?:islamic|إسلام|اسلام|0104100|0104101)/i, hex: "#489160" },
+  { pattern: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|حاسوب|1502101|0402101|0402102)/i, hex: "#7c7c7c" },
+  { pattern: /(?:english|eap\b|academic\s*english|إنجليز|انجليز|0202112|0202111)/i, hex: "#525252" }
+];
+
+function getCourseColor(t) {
+  if (t.courseColor) return t.courseColor;
+
+  const targetText = `${t.courseName || ''} ${t.courseCode || ''} ${t.title || ''}`.trim();
+  const targetCode = (t.courseCode || '').trim().toLowerCase();
+  const targetName = (t.courseName || '').trim().toLowerCase();
+
+  // 1. Try matching against custom courses from Firebase payload
+  if (customCourses.length > 0) {
+    for (const c of customCourses) {
+      if (!c.colorHex) continue;
+      const cCode = (c.courseCode || '').trim().toLowerCase();
+      const cName = (c.courseName || '').trim().toLowerCase();
+
+      // Direct match on code or name
+      if (cCode && (targetCode === cCode || targetText.toLowerCase().includes(cCode))) {
+        return c.colorHex;
+      }
+      if (cName && (targetName === cName || targetText.toLowerCase().includes(cName))) {
+        return c.colorHex;
+      }
+
+      // Check aliases
+      if (Array.isArray(c.aliases)) {
+        for (const alias of c.aliases) {
+          const a = (alias || '').trim().toLowerCase();
+          if (a && targetText.toLowerCase().includes(a)) {
+            return c.colorHex;
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Fall back to default course colors
+  for (const entry of DEFAULT_COURSE_COLORS) {
+    if (entry.pattern.test(targetText)) {
+      return entry.hex;
+    }
+  }
+
+  return "#60a5fa";
+}
 
 // ----------------------------------------------------------------------------
 // Helpers
@@ -255,7 +309,7 @@ if (config.runsInAccessoryWidget) {
       courseRow.centerAlignContent();
       const dot = courseRow.addText("● ");
       dot.font = Font.boldSystemFont(9);
-      dot.textColor = new Color(t.courseColor || "#60a5fa");
+      dot.textColor = new Color(getCourseColor(t));
 
       const courseText = courseRow.addText(getCleanCourse(t));
       courseText.font = Font.boldSystemFont(11);

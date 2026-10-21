@@ -1,9 +1,0 @@
-{
-  "version": "1.0.0",
-  "commit": "9cbd6943572e3236b3f0d2188e1940df3a374400",
-  "shortCommit": "9cbd694",
-  "timestamp": "2026-10-21T07:19:31.264Z",
-  "message": "build: package production release bundles and update build metadata",
-  "repo": "yvs1n/blackboarder",
-  "branch": "main"
-}

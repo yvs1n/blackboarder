@@ -70,18 +70,10 @@ async function runPackaging() {
   console.log('📁 Step 3: Staging extension files...');
   fs.cpSync(EXT_SRC_DIR, RELEASE_EXT_DIR, { recursive: true });
 
-  // Copy quick install guide and in-place auto-updaters to extension folder
+  // Copy the quick install guide (the updater is already part of dist/)
   const installGuideSrc = path.join(ROOT_DIR, 'INSTALL_EXTENSION.md');
   if (fs.existsSync(installGuideSrc)) {
     fs.copyFileSync(installGuideSrc, path.join(RELEASE_EXT_DIR, 'INSTALL_EXTENSION.md'));
-  }
-  const updateBatSrc = path.join(ROOT_DIR, 'update.bat');
-  if (fs.existsSync(updateBatSrc)) {
-    fs.copyFileSync(updateBatSrc, path.join(RELEASE_EXT_DIR, 'update.bat'));
-  }
-  const updateShSrc = path.join(ROOT_DIR, 'update.sh');
-  if (fs.existsSync(updateShSrc)) {
-    fs.copyFileSync(updateShSrc, path.join(RELEASE_EXT_DIR, 'update.sh'));
   }
 
   // Step 4: Copy website files

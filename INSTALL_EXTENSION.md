@@ -64,14 +64,16 @@ Look in the top-right (or left sidebar in Edge) for the **Developer mode** toggl
 
 Your deadlines, courses, custom syllabus weights, and Personal Sync Key are **permanently preserved** during updates across all devices.
 
-### Option A: 1-Click Auto-Updater (Recommended)
+### Turn on automatic updates (once)
 1. Open your extracted Blackboarder folder.
-2. Double-click **`update.bat`** (Windows) or run `./update.sh` (Mac/Linux).
-3. The script automatically downloads the latest release from GitHub and updates your extension files in place in 2 seconds.
-4. Click the Blackboarder icon in Chrome to continue. No re-pairing needed!
+2. Double-click **`update.bat`** (Windows) or run `./update.sh` in a terminal (Mac/Linux).
+3. The script downloads the latest version into the folder and registers a small update helper with your browser.
+4. The first time only: open `chrome://extensions` and click the reload arrow on Blackboarder.
 
-### Option B: From the Extension Popup
-1. When a new version is published, an **Update Available** banner appears.
-2. Click **Download Update** to download `blackboarder-extension.zip`.
-3. Extract over your existing folder and click **Reload**. Your Sync Key stays identical.
+From then on Blackboarder checks GitHub every hour, like an extension from the Chrome Web Store. When a new version is pushed it downloads it into the folder and restarts itself as soon as the popup is closed. **Settings → Extension Updates** shows whether automatic updates are on, and **Check for Updates** checks right away.
+
+### Without the helper
+If you skip the step above, the popup shows an **Update Available** banner when a new version is on GitHub. Run `update.bat` / `update.sh` then, or download the zip, extract it over your folder and click **Reload**.
+
+> If you loaded the extension from a `git clone`, update with `git pull` and `npm run build` instead; the helper never overwrites a git checkout.
 

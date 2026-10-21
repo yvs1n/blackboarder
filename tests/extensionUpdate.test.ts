@@ -1,139 +1,57 @@
 import { describe, it, expect } from 'vitest';
-import { isRemoteNewer, RemoteUpdateInfo, fetchRemoteGitHubVersion } from '../src/utils/updateChecker';
-import { BUILD_INFO, BuildInfo } from '../src/buildInfo';
+import fs from 'node:fs';
+import path from 'node:path';
+import { isRemoteNewer } from '../src/utils/updateChecker';
+import { NATIVE_HOST_NAME } from '../src/background/autoUpdate';
+import { BUILD_INFO } from '../src/buildInfo';
 
-describe('Extension GitHub Update Checker Suite', () => {
-  const mockLocal: BuildInfo = {
-    version: '1.0.0',
-    commit: '20bf1df90f2dfbe5b1350a938be2e84b66cdadaa',
-    shortCommit: '20bf1df',
-    timestamp: '2026-10-16T20:58:37Z',
-    message: 'Initial local build',
-    repo: 'yvs1n/blackboarder',
-    branch: 'main'
-  };
+const read = (rel: string) => fs.readFileSync(path.resolve(rel), 'utf8');
 
-  it('detects no update when remote commit matches local commit', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: '20bf1df90f2dfbe5b1350a938be2e84b66cdadaa',
-      shortCommit: '20bf1df',
-      timestamp: '2026-10-16T20:58:37Z',
-      message: 'Initial local build',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
+describe('Extension automatic updates', () => {
+  const local = { build: 'aaaaaaaaaaaa', timestamp: '2026-10-20T10:00:00.000Z' };
 
-    expect(isRemoteNewer(remote, mockLocal)).toBe(false);
+  it('treats only a different, not-older build on GitHub as an update', () => {
+    expect(isRemoteNewer({ build: 'aaaaaaaaaaaa', timestamp: '2026-10-21T00:00:00Z' }, local)).toBe(false);
+    expect(isRemoteNewer({ build: 'bbbbbbbbbbbb', timestamp: '2026-10-21T00:00:00Z' }, local)).toBe(true);
+    expect(isRemoteNewer({ build: 'bbbbbbbbbbbb' }, local)).toBe(true);
+    // A cached copy of an older build, or a local build with uncommitted changes, is not an update
+    expect(isRemoteNewer({ build: 'bbbbbbbbbbbb', timestamp: '2026-10-19T00:00:00Z' }, local)).toBe(false);
+    expect(isRemoteNewer(null, local)).toBe(false);
+    expect(isRemoteNewer({ build: '' }, local)).toBe(false);
   });
 
-  it('detects update when remote commit has newer timestamp', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: 'abc1234567890abcdef1234567890abcdef12345',
-      shortCommit: 'abc1234',
-      timestamp: '2026-10-19T10:00:00Z',
-      message: 'New features and fixes pushed to GitHub',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
-
-    expect(isRemoteNewer(remote, mockLocal)).toBe(true);
-  });
-
-  it('does not treat older remote commit as an update', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: '0000000000000000000000000000000000000000',
-      shortCommit: '0000000',
-      timestamp: '2026-10-01T00:00:00Z',
-      message: 'Ancient commit',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
-
-    expect(isRemoteNewer(remote, mockLocal)).toBe(false);
-  });
-
-  it('detects update when timestamps are missing or equal but commit differs', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: 'fedcba9876543210fedcba9876543210fedcba98',
-      shortCommit: 'fedcba9',
-      timestamp: '',
-      message: 'Fresh commit without timestamp',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
-
-    expect(isRemoteNewer(remote, mockLocal)).toBe(true);
-  });
-
-  it('verifies BUILD_INFO contains valid repository and commit attributes', () => {
-    expect(BUILD_INFO.repo).toBe('yvs1n/blackboarder');
-    expect(BUILD_INFO.branch).toBe('main');
-    expect(BUILD_INFO.commit).toBeDefined();
-    expect(BUILD_INFO.shortCommit).toBeDefined();
-    expect(BUILD_INFO.version).toBeDefined();
-  });
-
-  it('does not treat immediate post-build commit (parentCommit matches local) as a new update', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: '9999999999999999999999999999999999999999',
-      shortCommit: '9999999',
-      parentCommit: '20bf1df90f2dfbe5b1350a938be2e84b66cdadaa',
-      parentShortCommit: '20bf1df',
-      timestamp: '2026-10-16T21:00:00Z', // 1m23s after local build
-      message: 'Build and package commit',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
-
-    expect(isRemoteNewer(remote, mockLocal)).toBe(false);
-  });
-
-  it('does not treat an already acknowledged commit as a new update', () => {
-    const remote: RemoteUpdateInfo = {
-      commit: 'abc1234567890abcdef1234567890abcdef12345',
-      shortCommit: 'abc1234',
-      timestamp: '2026-10-19T10:00:00Z',
-      message: 'New features and fixes pushed to GitHub',
-      htmlUrl: 'https://github.com/yvs1n/blackboarder',
-      downloadZipUrl: 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip',
-      source: 'github-api'
-    };
-
-    expect(isRemoteNewer(remote, mockLocal, 'abc1234')).toBe(false);
-  });
-
-  it('fetches remote commit details from GitHub or fallback endpoint', async () => {
-    const remote = await fetchRemoteGitHubVersion();
-    if (remote) {
-      expect(remote.commit).toBeDefined();
-      expect(remote.shortCommit).toBeDefined();
-      expect(remote.downloadZipUrl).toContain('blackboarder');
-      expect(['github-api', 'github-raw']).toContain(remote.source);
-    }
-  });
-
-  it('preserves unpacked folder extension ID by omitting static key and includes in-place auto-updaters', () => {
-    const fs = require('fs');
-    const path = require('path');
-
-    const manifest = JSON.parse(fs.readFileSync(path.resolve('public/manifest.json'), 'utf8'));
+  it('asks for native messaging and keeps the folder-based extension ID', () => {
+    const manifest = JSON.parse(read('public/manifest.json'));
     expect(manifest.key).toBeUndefined();
-    expect(manifest.permissions).toContain('downloads');
+    expect(manifest.permissions).toContain('nativeMessaging');
+    expect(manifest.host_permissions).toContain('https://raw.githubusercontent.com/*');
+  });
 
-    expect(fs.existsSync(path.resolve('update.bat'))).toBe(true);
-    expect(fs.existsSync(path.resolve('update.sh'))).toBe(true);
+  it('ships the updater with the built extension', () => {
+    for (const rel of ['update.bat', 'update.sh', 'updater/host.bat', 'updater/blackboarder-updater.ps1', 'updater/blackboarder-updater.sh']) {
+      expect(fs.existsSync(path.resolve('dist', rel)), rel).toBe(true);
+    }
+    // cmd.exe needs CRLF line endings in batch files
+    expect(fs.readFileSync(path.resolve('dist/update.bat'), 'latin1')).toContain('\r\n');
 
-    const updateBat = fs.readFileSync(path.resolve('update.bat'), 'utf8');
-    // The release zip is gitignored, so the updater must download the repository archive instead
-    expect(updateBat).toContain('archive/refs/heads/main.zip');
-    expect(updateBat).not.toContain('release/blackboarder-extension.zip');
-    expect(updateBat).toContain('Expand-Archive');
+    const version = JSON.parse(read('dist/version.json'));
+    expect(version.build).toBe(BUILD_INFO.build);
+    expect(version.files).toContain('manifest.json');
+    expect(version.files).toContain('updater/blackboarder-updater.ps1');
+    expect(version.files).not.toContain('version.json');
+  });
+
+  it('uses one helper name everywhere and downloads the repository archive', () => {
+    for (const rel of ['updater/blackboarder-updater.ps1', 'updater/blackboarder-updater.sh']) {
+      const script = read(rel);
+      expect(script).toContain(NATIVE_HOST_NAME);
+      expect(script).toContain('archive/refs/heads/main.zip');
+      // A git clone is updated with git pull, never overwritten
+      expect(script).toContain('.git');
+    }
+    // cmd keeps reading a running batch file, so the host line must end the script itself
+    expect(read('updater/host.bat').trim()).toMatch(/-NativeHost & exit \/b$/);
+    expect(read('updater/update.bat')).toContain('-Install');
+    expect(read('updater/update.sh')).toContain('--install');
   });
 });
-
-

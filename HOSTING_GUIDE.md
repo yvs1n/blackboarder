@@ -27,6 +27,8 @@ Cloudflare Pages natively runs the included `_worker.js`, giving you global edge
    - **Build output directory**: `mobile-web`
 4. Click **Save and Deploy**.
 
+Every push to `main` now deploys by itself. The repository's GitHub Actions workflow (`.github/workflows/build.yml`) rebuilds the generated files and commits them, and the web app compares its build with the deployed `version.json`: open copies (including the installed PWA) load the new version the next time they are opened or brought back to the foreground, without losing any data.
+
 ---
 
 ## Option 2: Vercel

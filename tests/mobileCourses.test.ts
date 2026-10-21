@@ -37,26 +37,18 @@ describe('Mobile Web App Custom Courses Dynamic Engine', () => {
     };
     vm.createContext(sandbox);
 
-    // Extract dynamic course configuration and syllabus resolution functions
-    const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
-    const matchResolveCourse = appJsCode.match(/function resolveCourseInfo\(task\) \{[\s\S]*?\n\}/);
-    const matchResolveRoom = appJsCode.match(/function resolveTaskRoom\(task\) \{[\s\S]*?\n\}/);
-    const matchResolveWeight = appJsCode.match(/function resolveTaskWeight\(courseNameOrCode = ''[\s\S]*?\n\}/);
-    const matchPoints = appJsCode.match(/function extractExplicitPoints\(text\) \{[\s\S]*?\n\}/);
-    const matchExtractNumber = appJsCode.match(/function extractAssessmentNumber\(title, context\) \{[\s\S]*?\n\}/);
-    const matchExtractRoom = appJsCode.match(/function extractRoomFromText\(text\) \{[\s\S]*?\n\}/);
+    // The app takes its course helpers from the shared core, which index.html loads first
+    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
 
-    if (!matchCourseBlock || !matchResolveCourse || !matchResolveRoom || !matchResolveWeight || !matchPoints || !matchExtractNumber || !matchExtractRoom) {
+    const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
+    const matchResolveRoom = appJsCode.match(/function resolveTaskRoom\(task\) \{[\s\S]*?\n\}/);
+
+    if (!matchCourseBlock || !matchResolveRoom) {
       throw new Error('Could not extract required dynamic course functions from mobile-web/app.js');
     }
 
     vm.runInContext(matchCourseBlock[0], sandbox);
-    vm.runInContext(matchPoints[0], sandbox);
-    vm.runInContext(matchExtractNumber[0], sandbox);
-    vm.runInContext(matchExtractRoom[0], sandbox);
-    vm.runInContext(matchResolveCourse[0], sandbox);
     vm.runInContext(matchResolveRoom[0], sandbox);
-    vm.runInContext(matchResolveWeight[0], sandbox);
   });
 
   const getLegend = () => vm.runInContext('PERMANENT_COURSE_LEGEND', sandbox);

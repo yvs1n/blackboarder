@@ -1,9 +1,30 @@
 {
   "version": "1.0.0",
-  "commit": "9cbd6943572e3236b3f0d2188e1940df3a374400",
-  "shortCommit": "9cbd694",
-  "timestamp": "2026-10-21T07:19:31.264Z",
-  "message": "build: package production release bundles and update build metadata",
+  "build": "2fa1090711f0",
+  "commit": "43862fbb13ea6172e6d1664a583f4650512dd253",
+  "shortCommit": "43862fb",
+  "timestamp": "2026-10-21T17:32:29.099Z",
+  "message": "fix: second audit pass over popup, scraper, mobile web app and core logic",
   "repo": "yvs1n/blackboarder",
-  "branch": "main"
+  "branch": "main",
+  "files": [
+    "assets/popup-C3L1FjV_.js",
+    "assets/popup-Da_NMAyQ.css",
+    "background.js",
+    "blackboard-dark.css",
+    "blackboard-dark.js",
+    "content.css",
+    "content.js",
+    "icons/icon128.png",
+    "icons/icon16.png",
+    "icons/icon32.png",
+    "icons/icon48.png",
+    "manifest.json",
+    "src/popup/index.html",
+    "update.bat",
+    "update.sh",
+    "updater/blackboarder-updater.ps1",
+    "updater/blackboarder-updater.sh",
+    "updater/host.bat"
+  ]
 }

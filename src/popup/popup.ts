@@ -13,7 +13,8 @@ import { sanitizeCloudTasks } from '../utils/cloudSanitize';
 import { mergeCloudTasks, mergeTombstones, getTaskSeriesInfo, deduplicateTaskList } from '../utils/taskMerge';
 import { parseBannerScheduleText, parseSyllabusWeightsText, parseCoursesFromJson, mergeImportedCourses } from '../core/courseImporter';
 import { getActiveCourseLegend } from '../core/userCourses';
-import { checkExtensionUpdate, dismissExtensionUpdate, acknowledgeExtensionUpdate, reloadExtension } from '../utils/updateChecker';
+import { GITHUB_REPO_URL, GITHUB_ZIP_URL } from '../utils/updateChecker';
+import { POPUP_PORT_NAME, type AutoUpdateStatus } from '../background/autoUpdate';
 import { BUILD_INFO } from '../buildInfo';
 
 // State
@@ -4488,19 +4489,22 @@ function initExtensionUpdateSystem() {
   if (versionBadge) versionBadge.textContent = 'v' + BUILD_INFO.version;
   if (localCommitEl) localCommitEl.textContent = BUILD_INFO.shortCommit;
   if (localDateEl) {
-    try {
-      const d = new Date(BUILD_INFO.timestamp);
-      localDateEl.textContent = isNaN(d.getTime()) ? 'latest build' : d.toLocaleDateString();
-    } catch {
-      localDateEl.textContent = 'latest build';
-    }
+    const d = new Date(BUILD_INFO.timestamp);
+    localDateEl.textContent = isNaN(d.getTime()) ? 'latest build' : d.toLocaleDateString();
   }
 
-  let latestRemoteSha: string | null = null;
+  // While this port is open the background waits; closing the popup lets a downloaded update apply
+  try {
+    chrome.runtime.connect({ name: POPUP_PORT_NAME });
+  } catch {}
+
+  const DISMISSED_KEY = 'bbs_dismissed_update_build';
+  const ENABLE_HINT = 'run update.bat (Windows) or update.sh (Mac/Linux) in your Blackboarder folder once';
+  let shownStatus: AutoUpdateStatus | null = null;
 
   const openUrl = (url: string) => {
     try {
-      if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      if (chrome.tabs?.create) {
         chrome.tabs.create({ url });
         return;
       }
@@ -4509,124 +4513,155 @@ function initExtensionUpdateSystem() {
   };
 
   const downloadUpdatePackage = () => {
-    // release/*.zip is gitignored, so the repository archive is the download that actually exists
-    const updateZipUrl = 'https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip';
     try {
-      if (typeof chrome !== 'undefined' && chrome.downloads?.download) {
-        chrome.downloads.download({
-          url: updateZipUrl,
-          filename: 'blackboarder-main.zip',
-          conflictAction: 'overwrite',
-          saveAs: false
-        }, () => {
-          if (chrome.runtime?.lastError) {
-            openUrl(updateZipUrl);
-          } else {
-            showToast('Update zip downloaded! Run update.bat in your folder to apply in-place.');
-          }
+      if (chrome.downloads?.download) {
+        chrome.downloads.download({ url: GITHUB_ZIP_URL, filename: 'blackboarder-main.zip', conflictAction: 'overwrite', saveAs: false }, () => {
+          if (chrome.runtime?.lastError) openUrl(GITHUB_ZIP_URL);
+          else showToast('Downloaded. Easier: ' + ENABLE_HINT + ' and updates install by themselves.');
         });
         return;
       }
     } catch {}
-    openUrl(updateZipUrl);
+    openUrl(GITHUB_ZIP_URL);
   };
+
+  const setLabel = (btn: HTMLElement | null, text: string) => {
+    const span = btn?.querySelector('span');
+    if (span) span.textContent = text;
+  };
+
+  const setPill = (text: string, color: 'green' | 'blue' | 'orange' | 'gray') => {
+    if (!statusPill) return;
+    statusPill.textContent = text;
+    statusPill.className = `settings-pill pill-${color}`;
+  };
+
+  const showBanner = (title: string, desc: string, primary: 'download' | 'restart') => {
+    if (!updateBanner) return;
+    updateBanner.style.display = 'flex';
+    if (commitBadge) commitBadge.textContent = shownStatus?.remoteShortCommit || shownStatus?.remoteBuild || 'new';
+    if (bannerTitle) bannerTitle.textContent = title;
+    if (bannerDesc) bannerDesc.textContent = desc;
+    if (btnDownloadBanner) btnDownloadBanner.style.display = primary === 'download' ? '' : 'none';
+    setLabel(btnReloadBanner, primary === 'restart' ? 'Restart now' : 'Reload');
+  };
+
+  const hideBanner = () => {
+    if (updateBanner) updateBanner.style.display = 'none';
+  };
+
+  const render = (status: AutoUpdateStatus | null, manual: boolean) => {
+    shownStatus = status;
+    const installed = `build ${BUILD_INFO.build || 'dev'} (${BUILD_INFO.shortCommit})`;
+    if (!status) {
+      setPill('Checking...', 'blue');
+      return;
+    }
+    const remoteNote = status.remoteMessage ? ` - "${status.remoteMessage}"` : '';
+    const dismissed = (() => {
+      try {
+        return localStorage.getItem(DISMISSED_KEY) === status.remoteBuild;
+      } catch {
+        return false;
+      }
+    })();
+
+    switch (status.state) {
+      case 'updated':
+        setPill('Restart pending', 'blue');
+        if (statusDesc) statusDesc.textContent = `A new version${remoteNote} was installed. Blackboarder restarts into it when you close this window. Your data stays intact.`;
+        showBanner('Update installed', 'Blackboarder restarts into the new version when you close this window. Your tasks, courses and Sync Key stay intact.', 'restart');
+        if (manual) showToast('Update installed. It applies when you close this window.');
+        break;
+      case 'update-available':
+        setPill('Update Available', 'orange');
+        if (statusDesc) {
+          statusDesc.textContent = status.helperInstalled
+            ? `A new version${remoteNote} is on GitHub and will install with the next check.`
+            : `A new version${remoteNote} is on GitHub. To install it and every future update automatically, ${ENABLE_HINT}.`;
+        }
+        if (!dismissed || manual) {
+          showBanner('New version on GitHub', `To update now and turn on automatic updates, ${ENABLE_HINT}. Your data stays intact.`, 'download');
+        }
+        if (manual) showToast('A new version is available.');
+        break;
+      case 'dev-checkout':
+        setPill('Git checkout', 'gray');
+        hideBanner();
+        if (statusDesc) statusDesc.textContent = `Loaded from a git clone (${installed}). Update with git pull, then npm run build.`;
+        if (manual) showToast('Git checkout: use git pull and npm run build.');
+        break;
+      case 'offline':
+        setPill('Offline', 'gray');
+        if (statusDesc) statusDesc.textContent = `Could not reach GitHub. Installed ${installed}; Blackboarder checks again every hour.`;
+        if (manual) showToast('Could not reach GitHub right now.');
+        break;
+      case 'error':
+        setPill('Update failed', 'orange');
+        if (statusDesc) statusDesc.textContent = `The automatic update failed (${status.error || 'unknown error'}). It retries every hour, or ${ENABLE_HINT} to update by hand.`;
+        if (manual) showToast('Update failed. See Settings for details.');
+        break;
+      default:
+        setPill('Up to Date', 'green');
+        hideBanner();
+        if (statusDesc) {
+          statusDesc.textContent = status.helperInstalled
+            ? `Automatic updates are on. You have the latest version (${installed}).`
+            : `You have the latest version (${installed}). Automatic updates are off: ${ENABLE_HINT} to turn them on.`;
+        }
+        if (manual) showToast('Blackboarder is up to date!');
+    }
+  };
+
+  const askBackground = (type: 'RUN_AUTO_UPDATE' | 'GET_AUTO_UPDATE_STATUS'): Promise<AutoUpdateStatus | null> =>
+    new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage({ type }, res => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(res?.ok ? (res.status as AutoUpdateStatus) || null : null);
+        });
+      } catch {
+        resolve(null);
+      }
+    });
+
+  const performCheck = async (manual: boolean) => {
+    if (manual) {
+      setPill('Checking...', 'blue');
+      if (statusDesc) statusDesc.textContent = 'Checking GitHub for a newer version...';
+    }
+    const status = await askBackground('RUN_AUTO_UPDATE');
+    if (status) render(status, manual);
+    else if (manual) showToast('Could not check for updates right now.');
+  };
+
+  const restart = () => chrome.runtime.reload();
 
   btnDownloadBanner?.addEventListener('click', downloadUpdatePackage);
   btnDownloadSettings?.addEventListener('click', downloadUpdatePackage);
-
-  btnOpenGithub?.addEventListener('click', () => {
-    openUrl('https://github.com/yvs1n/blackboarder');
-  });
-
-  const handleReloadClick = async () => {
-    if (latestRemoteSha) {
-      await acknowledgeExtensionUpdate(latestRemoteSha);
-    }
-    reloadExtension();
-  };
-
-  btnReloadBanner?.addEventListener('click', handleReloadClick);
-
-  btnReloadSettings?.addEventListener('click', handleReloadClick);
+  btnOpenGithub?.addEventListener('click', () => openUrl(GITHUB_REPO_URL));
+  btnReloadBanner?.addEventListener('click', restart);
+  btnReloadSettings?.addEventListener('click', restart);
+  btnCheckManual?.addEventListener('click', () => performCheck(true));
 
   const dismissCurrentBanner = () => {
-    if (updateBanner) updateBanner.style.display = 'none';
-    if (latestRemoteSha) {
-      dismissExtensionUpdate(latestRemoteSha);
+    hideBanner();
+    if (shownStatus?.remoteBuild) {
+      try {
+        localStorage.setItem(DISMISSED_KEY, shownStatus.remoteBuild);
+      } catch {}
     }
   };
-
   btnDismiss?.addEventListener('click', dismissCurrentBanner);
   btnLater?.addEventListener('click', dismissCurrentBanner);
 
-  const performCheck = async (manual = false) => {
-    if (manual) {
-      if (statusPill) {
-        statusPill.textContent = 'Checking...';
-        statusPill.className = 'settings-pill pill-blue';
-      }
-      if (statusDesc) {
-        statusDesc.textContent = 'Connecting to GitHub repository to check for latest commits...';
-      }
-    }
-
-    try {
-      const res = await checkExtensionUpdate(manual);
-      if (res.updateAvailable && res.remote) {
-        latestRemoteSha = res.remote.commit;
-        if (!res.dismissed || manual) {
-          if (updateBanner) updateBanner.style.display = 'flex';
-          if (commitBadge) commitBadge.textContent = res.remote.shortCommit;
-          if (bannerTitle) bannerTitle.textContent = 'New update available on GitHub';
-          if (bannerDesc) {
-            bannerDesc.textContent = `${res.remote.message}. Run update.bat in your folder for 1-click update, or click Download. Your data and Sync Key stay 100% intact.`;
-          }
-        }
-
-        if (statusPill) {
-          statusPill.textContent = 'Update Available';
-          statusPill.className = 'settings-pill pill-orange';
-        }
-        if (statusDesc) {
-          statusDesc.textContent = `New GitHub commit: ${res.remote.shortCommit} - "${res.remote.message}". Run update.bat or click Download Update. All tasks, courses, and Sync Key stay preserved.`;
-        }
-
-        if (manual) {
-          showToast('New update found on GitHub!');
-        }
-      } else if (res.error) {
-        if (statusPill) {
-          statusPill.textContent = 'Offline';
-          statusPill.className = 'settings-pill pill-gray';
-        }
-        if (statusDesc) {
-          statusDesc.textContent = `Could not query GitHub (${res.error}).`;
-        }
-        if (manual) {
-          showToast('Could not reach GitHub right now.');
-        }
-      } else {
-        if (updateBanner) updateBanner.style.display = 'none';
-        if (statusPill) {
-          statusPill.textContent = 'Up to Date';
-          statusPill.className = 'settings-pill pill-green';
-        }
-        if (statusDesc) {
-          statusDesc.textContent = `Installed build: ${BUILD_INFO.shortCommit}. You are running the latest code from GitHub.`;
-        }
-        if (manual) {
-          showToast('Blackboarder is up to date!');
-        }
-      }
-    } catch (e) {
-      if (manual) showToast('Failed to check for updates.');
-    }
-  };
-
-  btnCheckManual?.addEventListener('click', () => performCheck(true));
-
-  // Perform non-blocking check on popup launch
-  setTimeout(() => performCheck(false), 350);
+  // Show the last result at once; check again if it is older than the hourly background check
+  setTimeout(async () => {
+    const saved = await askBackground('GET_AUTO_UPDATE_STATUS');
+    const fresh = saved && saved.installedBuild === BUILD_INFO.build && Date.now() - Date.parse(saved.checkedAt) < 60 * 60 * 1000;
+    if (fresh) render(saved, false);
+    else performCheck(false);
+  }, 350);
 }
 
 function initApp() {

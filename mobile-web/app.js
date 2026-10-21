@@ -73,183 +73,42 @@ function getFirebaseDataUrl() {
 // Dynamic Course Configurations, Schedules & Syllabus Mark Allocations
 // ==========================================================================
 
-// Cloud data is only protected by the sync key, so treat everything read back from it as untrusted:
-// drop or repair records that could crash a renderer or act as an HTML/CSS injection payload.
-const SAFE_CLOUD_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
-const SAFE_HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
-const SAFE_TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
-const SAFE_PRIORITIES = ['high', 'medium', 'low'];
-const SAFE_STATUSES = ['pending', 'completed', 'dismissed'];
-const SAFE_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+// Shared logic: the extension's TypeScript core (src/), bundled into core.js by scripts/build.js and
+// loaded before this file. Change behaviour there instead of re-implementing it here.
+const BB = globalThis.BBCore;
+const {
+  sanitizeCloudTasks,
+  safeHexColor,
+  compileCoursePattern,
+  compileSyllabusComponentMatcher,
+  DEFAULT_USER_COURSES,
+  extractRoomFromText,
+  sanitizeDoctorAnnouncementText,
+  extractExplicitPoints,
+  extractAssessmentNumber,
+  resolveTaskWeight,
+  getCourseColorTheme,
+  resolveCourseInfo,
+  formatCountdown,
+  createGoogleCalendarUrl,
+  getTaskSortTimestamp,
+  compareTasksByTime,
+  normalizeAssessmentType,
+  getTaskSeriesInfo,
+  areTasksDuplicates,
+  mergeDuplicatePair,
+  deduplicateTaskList,
+  isValidTask,
+  matchesSelectedCourseFilter
+} = BB;
 
-function cloudStr(v) { return typeof v === 'string' ? v : ''; }
-function cloudOptNum(v) {
-  const n = typeof v === 'number' ? v : (typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
-  return Number.isFinite(n) ? n : undefined;
-}
-function safeHexColor(v, fallback = '#2563eb') {
-  return typeof v === 'string' && SAFE_HEX_COLOR.test(v) ? v : fallback;
-}
-
-function sanitizeCloudTasks(tasks) {
-  if (!Array.isArray(tasks)) return [];
-  const out = [];
-  for (const t of tasks) {
-    if (!t || typeof t !== 'object' || typeof t.id !== 'string' || !SAFE_CLOUD_ID.test(t.id)) continue;
-    if (isNaN(new Date(t.dueDate).getTime())) continue;
-    const clean = {
-      ...t,
-      title: cloudStr(t.title),
-      courseCode: cloudStr(t.courseCode),
-      courseName: cloudStr(t.courseName),
-      description: cloudStr(t.description),
-      sourceSnippet: cloudStr(t.sourceSnippet),
-      hasSpecificTime: Boolean(t.hasSpecificTime),
-      type: SAFE_TASK_TYPES.includes(t.type) ? t.type : 'other',
-      priority: SAFE_PRIORITIES.includes(t.priority) ? t.priority : 'medium',
-      status: SAFE_STATUSES.includes(t.status) ? t.status : 'pending'
-    };
-    for (const key of ['weight', 'score', 'maxScore', 'confidence']) {
-      const n = cloudOptNum(t[key]);
-      if (n === undefined) delete clean[key];
-      else clean[key] = n;
-    }
-    out.push(clean);
-  }
-  return out;
-}
-
+// The shared versions return undefined for anything that is not a list; callers here expect a list
 function sanitizeCloudQuickLinks(links) {
-  if (!Array.isArray(links)) return [];
-  return links
-    .filter(l => l && typeof l === 'object' && typeof l.id === 'string' && SAFE_CLOUD_ID.test(l.id) && typeof l.url === 'string')
-    .map(l => ({ ...l, title: cloudStr(l.title) }));
+  return BB.sanitizeCloudQuickLinks(links) || [];
 }
 
 function sanitizeCloudCourses(courses) {
-  if (!Array.isArray(courses)) return [];
-  const out = [];
-  for (const c of courses) {
-    if (!c || typeof c !== 'object') continue;
-    const fallbackId = 'course_' + (cloudStr(c.courseCode || c.courseName).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) || 'unnamed');
-    const id = typeof c.id === 'string' && SAFE_CLOUD_ID.test(c.id) ? c.id : fallbackId;
-    out.push({
-      ...c,
-      id,
-      courseCode: cloudStr(c.courseCode),
-      courseName: cloudStr(c.courseName),
-      colorHex: safeHexColor(c.colorHex),
-      aliases: Array.isArray(c.aliases) ? c.aliases.filter(a => typeof a === 'string') : [],
-      scheduleSlots: (Array.isArray(c.scheduleSlots) ? c.scheduleSlots : [])
-        .filter(sl => sl && typeof sl === 'object')
-        .map(sl => ({
-          ...sl,
-          days: (Array.isArray(sl.days) ? sl.days : []).filter(d => typeof d === 'string' && SAFE_WEEKDAYS.includes(d.toLowerCase())),
-          startTime: cloudStr(sl.startTime) || '00:00',
-          endTime: cloudStr(sl.endTime) || '00:00',
-          room: cloudStr(sl.room)
-        })),
-      syllabus: (Array.isArray(c.syllabus) ? c.syllabus : [])
-        .filter(sy => sy && typeof sy === 'object')
-        .map((sy, idx) => ({
-          ...sy,
-          id: typeof sy.id === 'string' && sy.id ? sy.id : `${id}_comp_${idx + 1}`,
-          name: cloudStr(sy.name),
-          type: SAFE_TASK_TYPES.includes(sy.type) ? sy.type : 'other',
-          totalWeight: cloudOptNum(sy.totalWeight) ?? 0,
-          count: cloudOptNum(sy.count),
-          unitWeight: cloudOptNum(sy.unitWeight)
-        }))
-    });
-  }
-  return out;
-}
-
-
-function escapeRegex(str) {
-  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Aliases/keywords can come from the cloud: use pattern-looking ones only if they compile and are
-// short and free of nested quantifiers, otherwise match them literally so nothing can throw or hang.
-function toPatternPart(raw) {
-  const trimmed = String(raw || '').trim();
-  if (/(?:\.\*|\\s\*|\(\?!|\[|\^|\$)/.test(trimmed)) {
-    const nestedQuantifier = /\([^)]*[+*][^)]*\)[+*{]/.test(trimmed);
-    if (trimmed.length <= 120 && !nestedQuantifier) {
-      try {
-        new RegExp(trimmed, 'i');
-        return trimmed;
-      } catch (e) {
-        // fall through to literal matching
-      }
-    }
-  }
-  return escapeRegex(trimmed);
-}
-
-function compileCoursePattern(course) {
-  const parts = [];
-
-  if (course.courseCode) {
-    const rawCode = course.courseCode.trim();
-    parts.push(escapeRegex(rawCode));
-    const noSpaces = rawCode.replace(/\s+/g, '');
-    if (noSpaces !== rawCode) {
-      parts.push(escapeRegex(noSpaces));
-    }
-  }
-
-  if (course.courseName) {
-    const name = course.courseName.trim();
-    if (course.id === 'phy1' || name.toLowerCase() === 'physics 1') {
-      parts.push(`${escapeRegex(name)}(?!\\s*lab)`);
-    } else {
-      parts.push(escapeRegex(name));
-    }
-  }
-
-  if (Array.isArray(course.aliases)) {
-    for (const a of course.aliases) {
-      if (typeof a !== 'string' || !a.trim()) continue;
-      parts.push(toPatternPart(a));
-    }
-  }
-
-  if (parts.length === 0) {
-    return new RegExp(escapeRegex(course.id || 'general'), 'i');
-  }
-
-  return new RegExp(`(?:${parts.join('|')})`, 'i');
-}
-
-function compileSyllabusComponentMatcher(comp) {
-  const parts = [];
-
-  if (Array.isArray(comp.keywords) && comp.keywords.length > 0) {
-    for (const kw of comp.keywords) {
-      if (typeof kw !== 'string' || !kw.trim()) continue;
-      parts.push(toPatternPart(kw));
-    }
-  }
-
-  if (comp.name && parts.length === 0) {
-    parts.push(escapeRegex(comp.name.trim()));
-  }
-
-  if (parts.length === 0) {
-    return new RegExp(escapeRegex(comp.id || 'item'), 'i');
-  }
-
-  return new RegExp(`(?:${parts.join('|')})`, 'i');
-}
-
-function format12Hour(hour, minute) {
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const h12 = hour % 12 === 0 ? 12 : hour % 12;
-  const padH = String(h12).padStart(2, '0');
-  const padM = String(minute).padStart(2, '0');
-  return `${padH}:${padM} ${period}`;
+  return BB.sanitizeCloudCourses(courses) || [];
 }
 
 const DAY_ABBR = {
@@ -262,488 +121,46 @@ const DAY_ABBR = {
   Saturday: 'Sat'
 };
 
-const DEFAULT_USER_COURSES = [
-  // 1. Introduction to Computer Eng.
-  {
-    id: 'compeng',
-    courseCode: '1502101',
-    courseName: 'Introduction to Computer Eng.',
-    crn: '12056',
-    colorHex: '#7c7c7c',
-    aliases: [
-      'intro.*comp',
-      'comp(?:uter)?\\s*eng',
-      'هندسة.*حاسوب',
-      'حاسوب',
-      '1502 101 01',
-      '1502 101',
-      '1502101',
-      '0402101',
-      '0402102'
-    ],
-    scheduleSlots: [
-      {
-        days: ['Tuesday', 'Thursday'],
-        startTime: '11:00',
-        endTime: '12:15',
-        room: 'A8-103',
-        location: "UOS Men's Campus, A8, 103",
-        instructor: 'Arain, Bilal'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'compeng_final',
-        name: 'Final Exam',
-        type: 'exam',
-        totalWeight: 45,
-        unitWeight: 45,
-        note: 'TBA (45%)',
-        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
-      },
-      {
-        id: 'compeng_midterm',
-        name: 'Midterm Exam',
-        type: 'exam',
-        totalWeight: 30,
-        unitWeight: 30,
-        note: 'TBA (30%)',
-        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
-      },
-      {
-        id: 'compeng_quizzes',
-        name: 'Quizzes',
-        type: 'quiz',
-        totalWeight: 25,
-        count: 3,
-        unitWeight: 8.33,
-        note: 'Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)',
-        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
-      }
-    ]
-  },
-
-  // 2. Calculus I for Engineering
-  {
-    id: 'calc1',
-    courseCode: '1440133',
-    courseName: 'Calculus I for Engineering',
-    crn: '10806',
-    colorHex: '#dc2626',
-    aliases: [
-      'calculus',
-      'calc\\b',
-      'حسبان',
-      '1440 133 02',
-      '1440 133',
-      '1440133',
-      '1440131',
-      '0401101',
-      '0401201'
-    ],
-    scheduleSlots: [
-      {
-        days: ['Tuesday', 'Thursday'],
-        startTime: '12:30',
-        endTime: '13:45',
-        room: 'A12-110',
-        location: "UOS Men's Campus, A12, 110",
-        instructor: 'Al-Teraifi, Randa'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'calc1_final',
-        name: 'Final Exam',
-        type: 'exam',
-        totalWeight: 40,
-        unitWeight: 40,
-        note: 'On paper (40%)',
-        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
-      },
-      {
-        id: 'calc1_midterm',
-        name: 'Midterm Exam',
-        type: 'exam',
-        totalWeight: 30,
-        unitWeight: 30,
-        note: 'On paper (30%)',
-        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
-      },
-      {
-        id: 'calc1_quizzes',
-        name: 'Quizzes',
-        type: 'quiz',
-        totalWeight: 20,
-        count: 2,
-        unitWeight: 10,
-        note: 'On paper, best 2 of 3 quizzes (10% each, 20% total)',
-        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
-      },
-      {
-        id: 'calc1_assignments',
-        name: 'Homeworks',
-        type: 'assignment',
-        totalWeight: 10,
-        count: 3,
-        unitWeight: 3.33,
-        note: 'Online, best 3 of 4 homeworks (~3.33% each, 10% total)',
-        keywords: ['assignment', 'hw', 'homework', 'واجب', 'connect']
-      }
-    ]
-  },
-
-  // 3. English for Academic Purposes
-  {
-    id: 'eap',
-    courseCode: '0202112',
-    courseName: 'English for Academic Purposes',
-    crn: '10175',
-    colorHex: '#525252',
-    aliases: [
-      'english',
-      'eap\\b',
-      'academic\\s*purposes',
-      'academic\\s*english',
-      'إنجليزي',
-      'انجليزي',
-      '0202 112 09',
-      '0202 112',
-      '0202112',
-      '0202111'
-    ],
-    scheduleSlots: [
-      {
-        days: ['Tuesday', 'Thursday'],
-        startTime: '14:00',
-        endTime: '15:15',
-        room: 'A3-184',
-        location: "UOS Men's Campus, A3, 184",
-        instructor: 'Manzol, Mutwakil'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'eap_final',
-        name: 'Final Exam',
-        type: 'exam',
-        totalWeight: 40,
-        unitWeight: 40,
-        note: 'Week 16 (40%)',
-        keywords: ['final\\s*exam', 'final', 'نهائي']
-      },
-      {
-        id: 'eap_midterm',
-        name: 'Midterm Exam',
-        type: 'exam',
-        totalWeight: 20,
-        unitWeight: 20,
-        note: 'Week 8 (20%)',
-        keywords: ['midterm\\s*exam', 'midterm', 'نصفي', 'منتصف']
-      },
-      {
-        id: 'eap_quizzes',
-        name: 'Quizzes',
-        type: 'quiz',
-        totalWeight: 20,
-        count: 2,
-        unitWeight: 10,
-        note: '2 Quizzes: Quiz 1 in Wk 4, Quiz 2 in Wk 7 (10% each, 20% total)',
-        keywords: ['quiz', 'كويز']
-      },
-      {
-        id: 'eap_essay',
-        name: 'Cause-Effect Essay',
-        type: 'assignment',
-        totalWeight: 10,
-        unitWeight: 10,
-        note: 'Week 12 Writing Assignment (10%)',
-        keywords: ['essay', 'cause.*effect', 'writing\\s*assignment', 'مقال']
-      },
-      {
-        id: 'eap_employability',
-        name: 'Employability Skills',
-        type: 'assignment',
-        totalWeight: 10,
-        count: 5,
-        unitWeight: 2,
-        note: '5 Employability Tasks across Weeks 2-13 (2% each, 10% total)',
-        keywords: ['employability', 'skill', 'task', 'مهام', 'مهارات']
-      }
-    ]
-  },
-
-  // 4. Physics 1 Lab
-  {
-    id: 'phy1lab',
-    courseCode: '1430116',
-    courseName: 'Physics 1 Lab',
-    crn: '10708',
-    colorHex: '#4b99d2',
-    aliases: [
-      'physics.*lab',
-      'phy(?:sics)?\\s*1\\s*lab',
-      'مختبر.*فيزياء',
-      'فيزياء.*عملي',
-      '1430 116 11L',
-      '1430 116',
-      '1430116',
-      '1430117',
-      '0401116',
-      'measuring\\s*density',
-      'free\\s*fall',
-      "student'?s\\s*lab"
-    ],
-    scheduleSlots: [
-      {
-        days: ['Wednesday'],
-        startTime: '14:00',
-        endTime: '16:45',
-        room: 'Central Lab Men - 105',
-        location: "UOS Men's Campus, Central Laboratories (Men), 105",
-        instructor: 'Khudada Mohamed, Abdulraheem'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'phy1lab_final',
-        name: 'Final Examination',
-        type: 'exam',
-        totalWeight: 40,
-        unitWeight: 40,
-        note: 'Practical Final Exam during last week (40%)',
-        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي', 'عملي']
-      },
-      {
-        id: 'phy1lab_quizzes',
-        name: 'Lab Quizzes',
-        type: 'quiz',
-        totalWeight: 30,
-        count: 3,
-        unitWeight: 10,
-        note: '4 scheduled, top 3 counted (10% each, 30% total)',
-        keywords: ['quiz', 'كويز']
-      },
-      {
-        id: 'phy1lab_reports',
-        name: 'Experiments & Lab Reports',
-        type: 'lab',
-        totalWeight: 30,
-        count: 9,
-        unitWeight: 3.33,
-        note: '9 Weekly lab reports (approx 3.33% each, 30% total)',
-        keywords: ['report', 'experiment', 'تقرير', 'تجربة', 'مختبر']
-      }
-    ]
-  },
-
-  // 5. Physics 1
-  {
-    id: 'phy1',
-    courseCode: '1430115',
-    courseName: 'Physics 1',
-    crn: '10668',
-    colorHex: '#4b99d2',
-    aliases: [
-      'physics\\s*1(?!\\s*lab)',
-      'general\\s*physics\\s*1',
-      'فيزياء\\s*1(?!\\s*عملي)',
-      'فيزياء\\s*عامة\\s*1',
-      '1430 115 02',
-      '1430 115',
-      '1430115',
-      '1430111',
-      '0401115'
-    ],
-    scheduleSlots: [
-      {
-        days: ['Monday', 'Wednesday'],
-        startTime: '11:00',
-        endTime: '12:15',
-        room: 'A8-110',
-        location: "UOS Men's Campus, A8, 110",
-        instructor: 'Ahriche, Amine'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'phy1_final',
-        name: 'Final Exam',
-        type: 'exam',
-        totalWeight: 45,
-        unitWeight: 45,
-        note: 'Final Examination (45 marks)',
-        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
-      },
-      {
-        id: 'phy1_midterm',
-        name: 'Midterm Exam',
-        type: 'exam',
-        totalWeight: 25,
-        unitWeight: 25,
-        note: 'Midterm Exam (25 marks)',
-        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
-      },
-      {
-        id: 'phy1_quizzes',
-        name: 'Quizzes',
-        type: 'quiz',
-        totalWeight: 20,
-        unitWeight: 20,
-        note: 'Quizzes throughout semester (average = 20 marks)',
-        keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
-      },
-      {
-        id: 'phy1_assignments',
-        name: 'Assignments',
-        type: 'assignment',
-        totalWeight: 10,
-        unitWeight: 10,
-        note: 'Assignments / Homework (10 marks total)',
-        keywords: ['assignment', 'hw', 'homework', 'واجب']
-      }
-    ]
-  },
-
-  // 6. Islamic Culture
-  {
-    id: 'islamic',
-    courseCode: '0104100',
-    courseName: 'Islamic Culture',
-    crn: '10475',
-    colorHex: '#489160',
-    aliases: [
-      'islamic',
-      'ثقافة\\s*إسلامية',
-      'ثقافة\\s*اسلامية',
-      'إسلام',
-      'اسلام',
-      '0104 100 13A',
-      '0104 100',
-      '0104100',
-      '0104101'
-    ],
-    scheduleSlots: [
-      {
-        days: ['Monday', 'Wednesday'],
-        startTime: '17:00',
-        endTime: '18:15',
-        room: 'A8-TH005',
-        location: "UOS Men's Campus, A8, TH005",
-        instructor: 'Haq, Zia Ul'
-      }
-    ],
-    syllabus: [
-      {
-        id: 'islamic_final',
-        name: 'Final Exam',
-        type: 'exam',
-        totalWeight: 50,
-        unitWeight: 50,
-        note: 'Comprehensive final exam (50%)',
-        keywords: ['final\\s*exam', 'final', 'امتحان\\s*نهائي', 'نهائي']
-      },
-      {
-        id: 'islamic_midterm',
-        name: 'Midterm Exam',
-        type: 'exam',
-        totalWeight: 25,
-        unitWeight: 25,
-        note: 'Midterm exam (25%)',
-        keywords: ['midterm\\s*exam', 'midterm', 'امتحان\\s*نصفي', 'نصفي', 'منتصف']
-      },
-      {
-        id: 'islamic_coursework',
-        name: 'Coursework & Research',
-        type: 'project',
-        totalWeight: 25,
-        unitWeight: 15,
-        note: 'Coursework and reports (25% total)',
-        keywords: ['بحث', 'مشروع', 'تقرير', 'واجب', 'عرض', 'project', 'research', 'assignment', 'report', 'quiz', 'كويز']
-      }
-    ]
-  }
-];
-
 // Runtime dynamic arrays consumed across mobile views
 let PERMANENT_COURSE_LEGEND = [];
 let STUDENT_CLASS_SCHEDULE = [];
 let DEFAULT_SYLLABUS_DATABASE = [];
 let SYLLABUS_INFO = [];
 
-// Fallback palette for any unexpected courses
-const FALLBACK_PALETTE = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#db2777', '#0891b2'];
-
 function recompileDynamicCourseData(courses) {
   const BLACKLIST_TABS = ['content', 'course content', 'calendar', 'discussions', 'gradebook', 'grades', 'messages', 'analytics', 'groups', 'announcements', 'roster', 'attendance', 'tools', 'stream', 'general course', 'uos'];
   const courseList = (Array.isArray(courses) ? courses : []).filter(c => {
+    if (!c || typeof c !== 'object') return false;
     const n = (c.courseName || '').trim().toLowerCase();
     const cd = (c.courseCode || '').trim().toLowerCase();
     if (BLACKLIST_TABS.includes(n) && (!cd || BLACKLIST_TABS.includes(cd) || cd === n)) return false;
     return true;
   });
 
+  // The shared core keeps the active courses; schedule lookups, weights and colours all read from it
+  BB.setActiveUserCourses(sanitizeCloudCourses(courseList));
+
   // 1. Recompile PERMANENT_COURSE_LEGEND
-  const newLegend = courseList.map(course => ({
-    code: course.courseCode,
-    name: course.courseName,
-    color: safeHexColor(course.colorHex),
-    pattern: compileCoursePattern(course)
-  }));
   PERMANENT_COURSE_LEGEND.length = 0;
-  PERMANENT_COURSE_LEGEND.push(...newLegend);
+  PERMANENT_COURSE_LEGEND.push(...BB.getActiveCourseLegend().map(item => ({
+    code: item.code,
+    name: item.name,
+    color: safeHexColor(item.hex),
+    pattern: item.pattern
+  })));
 
-  // 2. Recompile STUDENT_CLASS_SCHEDULE
-  const newSchedule = [];
-  for (const course of courseList) {
-    const matcher = compileCoursePattern(course);
-    for (const slot of (course.scheduleSlots || [])) {
-      const [sh, sm] = (slot.startTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
-      const [eh, em] = (slot.endTime || '00:00').split(':').map(n => parseInt(n, 10) || 0);
-      const daysStr = (slot.days || []).map(d => DAY_ABBR[d] || d).join(' / ');
-      const timeStr = `${format12Hour(sh, sm)} - ${format12Hour(eh, em)}`;
-
-      newSchedule.push({
-        courseCode: course.courseCode,
-        courseName: course.courseName,
-        days: daysStr,
-        time: timeStr,
-        room: slot.room,
-        location: slot.location || slot.room,
-        instructor: slot.instructor || '',
-        matcher
-      });
-    }
-  }
+  // 2. Recompile STUDENT_CLASS_SCHEDULE (display fields on top of the shared entries)
   STUDENT_CLASS_SCHEDULE.length = 0;
-  STUDENT_CLASS_SCHEDULE.push(...newSchedule);
+  STUDENT_CLASS_SCHEDULE.push(...BB.getActiveScheduleEntries().map(entry => ({
+    ...entry,
+    days: (entry.days || []).map(d => DAY_ABBR[d] || d).join(' / '),
+    time: entry.timeRangeDisplay,
+    location: entry.location || entry.room
+  })));
 
   // 3. Recompile DEFAULT_SYLLABUS_DATABASE
-  const newSyllabusDb = courseList.map(course => {
-    const components = (course.syllabus || []).map(comp => ({
-      id: comp.id,
-      name: comp.name,
-      type: comp.type,
-      totalWeight: comp.totalWeight,
-      count: comp.count,
-      unitWeight: comp.unitWeight !== undefined ? comp.unitWeight : (comp.count && comp.count > 0 ? Number((comp.totalWeight / comp.count).toFixed(2)) : comp.totalWeight),
-      note: comp.note,
-      matcher: compileSyllabusComponentMatcher(comp)
-    }));
-
-    const totalWeight = components.reduce((acc, c) => acc + (c.totalWeight || 0), 0) || 100;
-
-    return {
-      courseId: course.id,
-      courseName: course.courseName,
-      courseCodePattern: compileCoursePattern(course),
-      sourcePdf: `${course.id}.pdf`,
-      totalWeight,
-      components
-    };
-  });
   DEFAULT_SYLLABUS_DATABASE.length = 0;
-  DEFAULT_SYLLABUS_DATABASE.push(...newSyllabusDb);
+  DEFAULT_SYLLABUS_DATABASE.push(...BB.getActiveSyllabi());
 
   // 4. Recompile SYLLABUS_INFO
   const newSyllabusInfo = courseList.map(course => ({
@@ -755,61 +172,8 @@ function recompileDynamicCourseData(courses) {
   SYLLABUS_INFO.push(...newSyllabusInfo);
 }
 
-function isMobileBlackboardSystemNoise(text) {
-  if (!text) return true;
-  const clean = text.trim().toLowerCase();
-  const blacklist = new Set([
-    'content', 'calendar', 'discussions', 'gradebook', 'messages', 'analytics',
-    'announcements', 'groups', 'achievements', 'tools', 'books & tools',
-    'institution page', 'activity stream', 'courses', 'organizations', 'grades',
-    'assist', 'help', 'sign out', 'profile', 'stream', 'ultra', 'blackboard',
-    'course content', 'details & actions', 'roster', 'attendance', 'course image',
-    'course staff', 'course room', 'join session', 'room', 'class collaborate',
-    'lockdown browser', 'microsoft teams', 'turnitin'
-  ]);
-  if (blacklist.has(clean)) return true;
-  if (/^(?:roster\s+view|attendance\s+view|books\s*&\s*tools|class\s+collaborate|join\s+session|course\s+room|view\s+everyone\s+in\s+your|view\s+your\s+attendance|view\s+course\s+&\s+institution\s+tools|topic\s+of\s+a\s+paragraph)/i.test(clean)) {
-    return true;
-  }
-  return false;
-}
-
-function hasValidMobileCourseCode(code) {
-  if (!code) return false;
-  const clean = code.trim();
-  if (isMobileBlackboardSystemNoise(clean)) return false;
-  if (/^\d{4}\s*\d{3}$/.test(clean) || /^\d{6,8}$/.test(clean)) return true;
-  if (/^[A-Za-z]{2,4}[\s-]?\d{3,4}[A-Za-z]?$/.test(clean)) return true;
-  if (/^\d{7}[_\s-]/.test(clean)) return true;
-  return false;
-}
-
 function filterCleanMobileCourses(courses) {
-  if (!Array.isArray(courses)) return [];
-  const defaultIds = new Set((DEFAULT_USER_COURSES || []).map(d => d.id));
-  const seenCodes = new Set();
-  const seenNames = new Set();
-  const result = [];
-
-  for (const c of courses) {
-    if (!c || typeof c !== 'object') continue;
-    const name = (c.courseName || '').trim();
-    const code = (c.courseCode || '').trim();
-    if (!name && !code) continue;
-    if (isMobileBlackboardSystemNoise(name) || isMobileBlackboardSystemNoise(code)) continue;
-    const isDefault = defaultIds.has(c.id);
-    if (!isDefault && !hasValidMobileCourseCode(code) && !hasValidMobileCourseCode(name)) continue;
-
-    const normCode = code.replace(/[\s_-]+/g, '').toLowerCase();
-    const normName = name.toLowerCase();
-    if (normCode && seenCodes.has(normCode)) continue;
-    if (normName && seenNames.has(normName)) continue;
-
-    if (normCode) seenCodes.add(normCode);
-    if (normName) seenNames.add(normName);
-    result.push(c);
-  }
-  return result;
+  return BB.filterCleanUserCourses(courses);
 }
 
 function loadInitialUserCourses() {
@@ -823,7 +187,7 @@ function loadInitialUserCourses() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return filterCleanMobileCourses(sanitizeCloudCourses(parsed));
+        return filterCleanMobileCourses(parsed);
       }
     }
   } catch (e) {
@@ -837,297 +201,16 @@ const initialMobileCourses = loadInitialUserCourses();
 recompileDynamicCourseData(initialMobileCourses);
 
 /**
- * Extracts explicit room/hall/lab numbers mentioned by professors in announcement text.
- */
-function extractRoomFromText(text) {
-  if (!text) return null;
-
-  // 0. Positive relocation / explicit room indicator (e.g. "moved to room A8-204", "held in A8-103", "in room A8-204", "قاعة A8-204")
-  const targetRoomRegex = /(?:moved\s*to(?:\s*room)?|transferred\s*to|held\s*in|location:?|venue:?|in\s*room|في\s*قاعة|قاعة)\s*[:\-–]?\s*([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/i;
-  const targetMatch = text.match(targetRoomRegex);
-  if (targetMatch) {
-    return targetMatch[1].replace(/\s*[-–—/]\s*/, '-').toUpperCase();
-  }
-
-  // 1. Explicit Building + Room or Lab patterns (e.g. "A8-103", "A12 - 110", "A3-184", "A8-TH005", "W8-Lab 3", "M9-102")
-  // Exclude rooms explicitly negated (e.g. "NOT in A12-110", "not take place in A12-110")
-  const allBldMatches = Array.from(text.matchAll(/\b([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/gi));
-  for (const m of allBldMatches) {
-    const matchIndex = m.index ?? 0;
-    const precedingSnippet = text.slice(Math.max(0, matchIndex - 35), matchIndex).toLowerCase();
-    const isNegated = /not\s*(?:take\s*place\s*)?in\s*$|not\s*in\s*$|never\s*in\s*$|instead\s*of\s*$|ليس\s*في\s*$/i.test(precedingSnippet);
-    if (!isNegated) {
-      return m[1].replace(/\s*[-–—/]\s*/, '-').toUpperCase();
-    }
-  }
-
-  const centralLabRegex = /\b(?:central\s*lab(?:orator(?:y|ies))?(?:\s*\(?men\)?)?)\s*[-–—:]*\s*(\d{2,4}[A-Za-z]?)\b/i;
-  const centralMatch = text.match(centralLabRegex);
-  if (centralMatch) {
-    return `Central Lab Men - ${centralMatch[1]}`;
-  }
-  // Whole-word keyword and a token containing a digit: "lab report" / "label" are not rooms
-  const enRoomRegex = /\b(?:in\s+)?(?:room|rm|classroom|hall|auditorium|lecture\s*hall|lab|laboratory)\b\s*(?:#|no\.?|number)?\s*[:\-–]?\s*([A-Za-z0-9]{1,6}(?:\s*[-–—/]\s*[A-Za-z0-9]+)?)\b/i;
-  const enMatch = text.match(enRoomRegex);
-  if (enMatch) {
-    const raw = enMatch[1].trim();
-    if (/\d/.test(raw) && !/^(?:temperature|conditions|for|and|or|the|to|with|all|due|today|tomorrow|yesterday)$/i.test(raw)) {
-      return raw.replace(/\s*[-–—/]\s*/, '-');
-    }
-  }
-  const arRoomRegex = /(?:في\s+)?(?:قاعة|غرفة|مدرج|مختبر|معمل)\s*(?:رقم)?\s*[:\-–]?\s*([A-Za-z0-9\s/–-]{2,15})/i;
-  const arMatch = text.match(arRoomRegex);
-  if (arMatch) {
-    const raw = arMatch[1].trim();
-    if (raw && /\d/.test(raw) && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) {
-      return raw.replace(/\s*[-–—/]\s*/, '-');
-    }
-  }
-  return null;
-}
-
-/**
- * Resolves room for a task: prioritizes professor's announced room, then schedule default.
+ * Room for a task: the room the professor announced, then the task's own room, then the class schedule.
  */
 function resolveTaskRoom(task) {
-  const type = (task?.type || '').toLowerCase();
-  if (type === 'assignment' || type === 'hw' || type === 'project') {
-    return '';
-  }
-  const combined = `${task?.title || ''} ${task?.sourceSnippet || ''} ${task?.description || ''}`.trim();
-  const announced = extractRoomFromText(combined);
-  if (announced) return announced;
-
-  if (task.room && task.room.trim()) {
-    return task.room.trim();
-  }
-
-  const courseContext = `${task.courseName || ''} ${task.courseCode || ''} ${combined}`;
-  for (const s of STUDENT_CLASS_SCHEDULE) {
-    if (s.matcher.test(courseContext)) {
-      return s.room;
-    }
-  }
-  return '';
-}
-
-/**
- * Strips UI artifacts, timestamps, and redundant course headers from the text
- * of an announcement, leaving only the professor's actual announcement text.
- */
-function sanitizeDoctorAnnouncementText(rawText, courseName = '', courseCode = '', title = '') {
-  if (!rawText || !rawText.trim()) return '';
-
-  let text = rawText.trim();
-
-  // Strict stream post timestamp prefixes (e.g. "1:21 PM", "14 minutes ago", "Today at 1:21 PM")
-  // NOTE: Never include standalone days or months here, so doctor's date prose is never sliced!
-  const timestampPrefixPatterns = [
-    /^\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b\s*/i,
-    /^\s*(?:\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?)\s+ago|just now)\b\s*/i,
-    /^\s*(?:Today|Yesterday)(?:\s+at)?\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?\b\s*/i,
-    /^\s*(?:منذ\s+\d+\s+(?:دقائق|دقيقة|ساعات|ساعة|أيام|يوم)|اليوم|أمس)(?:\s+الساعة)?\s*(?:\d{1,2}:\d{2}\s*(?:صباحاً|صباحا|مساءً|مساء)?)?\s*/
-  ];
-
-  // Known course header banners appearing at top of stream cards
-  const knownCoursePatterns = [
-    /^\s*(?:Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?|مقدمة\s+في\s+هندسة\s+الحاسوب)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:مقدمة\s+في\s+هندسة\s+الحاسوب|Introduction\s+to\s+Computer\s+Eng(?:\.|ineering)?)?\s*[-–—:]*\s*/i,
-    /^\s*(?:Calculus\s+I\s+(?:for\s+Engineering)?|حسبان\s*1(?:\s*للمهندسين)?)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*(?:حسبان\s*1(?:\s*للمهندسين)?|Calculus\s+I\s+(?:for\s+Engineering)?)?\s*[-–—:]*\s*/i,
-    /^\s*(?:Physics\s*1\s*Lab|مختبر\s*فيزياء\s*1|فيزياء\s*1\s*عملي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
-    /^\s*(?:Physics\s*1|General\s*Physics\s*1|فيزياء\s*1|فيزياء\s*عامة\s*1)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
-    /^\s*(?:English\s+for\s+Academic\s+Purposes|EAP|إنجليزي|انجليزي)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i,
-    /^\s*(?:Islamic\s+Culture|ثقافة\s*إسلامية|ثقافة\s*اسلامية)\s*[-–—:]*\s*(?:\b\d{1,2}[A-Z]?\b)?\s*[-–—:]*\s*/i
-  ];
-
-  // Specific course name or code passed from context
-  const dynamicCoursePatterns = [];
-  if (courseName && courseName !== 'General Course' && courseName.trim().length > 3) {
-    const escaped = courseName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    dynamicCoursePatterns.push(new RegExp(`^\\s*${escaped}\\s*[-–—:]*\\s*(?:\\b\\d{1,2}[A-Z]?\\b)?\\s*[-–—:]*`, 'i'));
-  }
-  if (courseCode && courseCode !== 'UOS' && courseCode.trim().length > 2) {
-    const escapedCode = courseCode.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
-    dynamicCoursePatterns.push(new RegExp(`^\\s*${escapedCode}\\s*[-–—:]*`, 'i'));
-  }
-
-  // Iterate up to 4 passes to clean layered prefixes
-  let changed = true;
-  let passes = 0;
-  while (changed && passes < 4) {
-    changed = false;
-    passes++;
-
-    // 1. Strip leading timestamps
-    for (const pat of timestampPrefixPatterns) {
-      if (pat.test(text)) {
-        const next = text.replace(pat, '').trim();
-        if (next.length >= 5) {
-          text = next;
-          changed = true;
-        }
-      }
-    }
-
-    // 2. Strip dynamic course name/code
-    for (const pat of dynamicCoursePatterns) {
-      if (pat.test(text)) {
-        const next = text.replace(pat, '').trim();
-        if (next.length >= 5) {
-          text = next;
-          changed = true;
-        }
-      }
-    }
-
-    // 3. Strip known course headers
-    for (const pat of knownCoursePatterns) {
-      if (pat.test(text)) {
-        const next = text.replace(pat, '').trim();
-        if (next.length >= 5) {
-          text = next;
-          changed = true;
-        }
-      }
-    }
-
-    // 4. Strip stray section number leftovers
-    const sectionMatch = text.match(/^[-–—:]*\s*\b(?:\d{1,2}[A-Z]?|ALL)\b\s*[-–—:]*\s*/i);
-    if (sectionMatch && sectionMatch[0]) {
-      const next = text.slice(sectionMatch[0].length).trim();
-      if (next.length >= 5) {
-        text = next;
-        changed = true;
-      }
-    }
-  }
-
-  // Only strip title if it appears as an isolated header line followed by a newline, never if part of sentence!
-  if (title && title.trim().length > 6) {
-    const escapedTitle = title.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleLinePat = new RegExp(`^\\s*${escapedTitle}\\s*\\r?\\n`, 'i');
-    if (titleLinePat.test(text)) {
-      const remainder = text.replace(titleLinePat, '').trim();
-      if (remainder.length >= 5) {
-        text = remainder;
-      }
-    }
-  }
-
-  // Final cleanup of leading punctuation
-  text = text.replace(/^[:\-–—|,\s]+/, '').trim();
-
-  // If cleaning somehow emptied the text or left it under 5 chars, return rawText to avoid losing content!
-  return text.length >= 5 ? text : rawText.trim();
-}
-
-// Note: SYLLABUS_INFO and DEFAULT_SYLLABUS_DATABASE are dynamically compiled above
-// from active user courses and re-synced on startup and cloud updates.
-
-
-function extractExplicitPoints(text) {
-  if (!text) return null;
-  const arMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:درجة|درجات|علامة|علامات)/);
-  if (arMatch) {
-    const val = parseFloat(arMatch[1]);
-    if (val > 0 && val <= 100) return val;
-  }
-  const pctMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent\b)/i);
-  if (pctMatch) {
-    const val = parseFloat(pctMatch[1]);
-    if (val > 0 && val <= 100) return val;
-  }
-  const marksMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:marks?|points?|pts?)\b/i);
-  if (marksMatch) {
-    const val = parseFloat(marksMatch[1]);
-    if (val > 0 && val <= 100) return val;
-  }
-  return null;
-}
-
-/**
- * Extracts assessment sequence number from title or context (e.g. "Quiz 2" -> 2, "HW 1" -> 1).
- */
-function extractAssessmentNumber(title, context) {
-  const combined = `${title || ''} ${context || ''}`;
-
-  // 1. Explicit numbering like "Quiz 2", "Quiz #2", "Quiz (2)", "Quiz [2]", "Quiz - 2", "HW2", "Assignment 2", "Lab 2"
-  const m = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*#?\s*\(?\s*(\d+)\s*\)?/i);
-  if (m) {
-    const num = parseInt(m[1], 10);
-    if (!isNaN(num) && num > 0) return num;
-  }
-
-  // 2. Roman numerals: "Quiz I", "Quiz II", "Quiz (II)", "Quiz III", "Quiz IV", "Quiz V"
-  const romanMatch = combined.match(/(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)[^0-9a-z\n]*\(?\s*(I|II|III|IV|V)\b\s*\)?/i);
-  if (romanMatch) {
-    const map = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
-    const roman = romanMatch[1].toUpperCase();
-    if (map[roman]) return map[roman];
-  }
-
-  // 3. Ordinal words: "First Quiz", "Second Quiz", "1st Quiz", "2nd Quiz"
-  const ordMatch = combined.match(/\b(1st|2nd|3rd|4th|5th|first|second|third|fourth|fifth)\s+(?:quiz|test|exam|assignment|hw|homework|lab|report|activity|task)/i);
-  if (ordMatch) {
-    const ord = ordMatch[1].toLowerCase();
-    const map = {
-      '1st': 1, 'first': 1,
-      '2nd': 2, 'second': 2,
-      '3rd': 3, 'third': 3,
-      '4th': 4, 'fourth': 4,
-      '5th': 5, 'fifth': 5
-    };
-    if (map[ord]) return map[ord];
-  }
-
-  return null;
-}
-
-function resolveTaskWeight(courseNameOrCode = '', title = '', type = 'assignment', notes = '', seriesIndex = null) {
-  const combinedContext = `${title} ${notes}`.trim();
-  const explicitPts = extractExplicitPoints(combinedContext);
-  if (explicitPts !== null) {
-    return {
-      weight: explicitPts,
-      weightDisplay: `${explicitPts}% of Grade`,
-      syllabusNote: `Explicitly stated in announcement (${explicitPts} marks)`
-    };
-  }
-
-  const courseStr = `${courseNameOrCode} ${combinedContext}`;
-  for (const s of DEFAULT_SYLLABUS_DATABASE) {
-    if (s.courseCodePattern.test(courseStr)) {
-      for (const comp of s.components) {
-        if (comp.matcher.test(combinedContext) || (comp.type === type && comp.matcher.test(title))) {
-          const w = comp.unitWeight || comp.totalWeight;
-          let display = `${w}% of Grade`;
-          if (comp.name.toLowerCase().includes('midterm')) {
-            display = `${w}% (Midterm Exam)`;
-          } else if (comp.name.toLowerCase().includes('final')) {
-            display = `${w}% (Final Exam)`;
-          } else if (comp.count && comp.count > 1) {
-            const explicitNum = extractAssessmentNumber(title, combinedContext);
-            const itemIndex = explicitNum || (seriesIndex && seriesIndex > 0 ? seriesIndex : 1);
-            const totalCount = Math.max(comp.count, itemIndex);
-            display = `${w}% (${comp.name} ${itemIndex} of ${totalCount})`;
-          } else {
-            display = `${w}% (${comp.name})`;
-          }
-          return {
-            weight: w,
-            weightDisplay: display,
-            syllabusNote: comp.note || `${comp.name} from ${s.courseName} syllabus`,
-            componentName: comp.name
-          };
-        }
-      }
-    }
-  }
-
-  return {
-    weight: undefined,
-    weightDisplay: undefined,
-    syllabusNote: undefined
-  };
+  return BB.resolveTaskRoom({
+    courseNameOrCode: `${task?.courseName || ''} ${task?.courseCode || ''}`.trim(),
+    announcementText: `${task?.sourceSnippet || ''} ${task?.description || ''}`.trim(),
+    title: task?.title || '',
+    existingRoom: task?.room,
+    type: task?.type || ''
+  }).room;
 }
 
 // AI & Jev Configuration
@@ -1160,538 +243,10 @@ function saveAiSettings(settings) {
   }
 }
 
-// Jev Fast Classifier (~100ms Gatekeeper)
-async function callJevClassifier(text, apiKey) {
-  const fallbackResult = {
-    isDeadline: true,
-    deadlineProbability: 0.5,
-    category: 'other',
-    categoryConfidence: 0.5,
-    priority: 'medium',
-    urgencyScore: 2.0
-  };
-
-  if (!apiKey || !apiKey.trim() || !text || !text.trim()) {
-    return fallbackResult;
-  }
-
-  const payload = {
-    model: 'jev-latest',
-    state: text.length > 1200 ? text.slice(0, 1200) : text,
-    questions: {
-      is_deadline: {
-        type: 'noul',
-        instructions: 'Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?'
-      },
-      category: {
-        type: 'choice',
-        instructions: 'What type of academic task or event is described?',
-        criteria: {
-          quiz: 'A quiz, pop quiz, short assessment, or test',
-          exam: 'A midterm exam, final exam, or major examination',
-          assignment: 'A homework assignment, problem set, essay, paper, or exercise',
-          lab: 'A laboratory session, lab report, lab experiment, or lab manual work',
-          project: 'A semester project, group project, milestone, presentation, or term project',
-          not_a_task: 'General announcement, lecture slides notice, office hours, syllabus info, or greetings with no upcoming assessment'
-        }
-      },
-      urgency: {
-        type: 'score',
-        instructions: 'How urgent or high-priority is this academic event?',
-        criteria: [
-          'Low priority or non-mandatory notice',
-          'Standard homework or recurring reading',
-          'Medium priority assignment or lab report',
-          'High priority quiz or milestone',
-          'Critical high-stakes midterm or final exam'
-        ]
-      },
-      has_room: {
-        type: 'noul',
-        instructions: 'Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?'
-      },
-      has_time: {
-        type: 'noul',
-        instructions: 'Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?'
-      }
-    }
-  };
-
-  try {
-    const response = await fetch('https://api.typesafe.ai/v1/systemone', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Jev API error (${response.status})`);
-    }
-
-    const data = await response.json();
-    const answers = data.answers || {};
-    const isDeadlineProb = answers.is_deadline?.noul ?? 0.5;
-    const chosenCat = answers.category?.choice ?? 'not_a_task';
-    const chosenConf = answers.category?.confidence ?? 0.5;
-    const urgency = answers.urgency?.score ?? 2.0;
-
-    const hasRoomProb = answers.has_room?.noul ?? 0.5;
-    const hasTimeProb = answers.has_time?.noul ?? 0.5;
-    const hasRoom = hasRoomProb >= 0.5;
-    const hasTime = hasTimeProb >= 0.5;
-
-    let priority = 'medium';
-    if (urgency >= 2.8) priority = 'high';
-    else if (urgency < 1.3) priority = 'low';
-
-    const isNotTask = chosenCat === 'not_a_task';
-    const isDeadline = !isNotTask && isDeadlineProb >= 0.35;
-
-    let mappedType = 'other';
-    if (isNotTask) mappedType = 'not_a_task';
-    else if (['quiz', 'exam', 'assignment', 'lab', 'project'].includes(chosenCat)) {
-      mappedType = chosenCat;
-    }
-
-    return {
-      isDeadline,
-      deadlineProbability: isDeadlineProb,
-      category: mappedType,
-      categoryConfidence: chosenConf,
-      priority,
-      urgencyScore: urgency,
-      hasRoom,
-      hasRoomProbability: hasRoomProb,
-      hasTime,
-      hasTimeProbability: hasTimeProb
-    };
-  } catch (err) {
-    console.warn('[Jev Classifier] Client-side fetch failed, using fallback:', err);
-    return fallbackResult;
-  }
-}
-
-// OpenRouter Generative AI Caller
-async function callOpenRouterAi(text, apiKey, model = 'google/gemini-3.8-flash', jevHint, courseHint = '') {
-  if (!apiKey || !apiKey.trim()) {
-    throw new Error('OpenRouter API key not configured.');
-  }
-
-  const now = new Date();
-  const baseDateStr = now.toISOString().slice(0, 10);
-
-  const systemPrompt = `You are an expert academic assistant designed to extract due dates, assignments, quizzes, midterms, labs, exams, and projects from university Blackboard course announcements (English and Arabic).
-Reference Context:
-- Reference Date for relative terms ("tomorrow", "next Tuesday", "this Friday"): ${baseDateStr}.
-- Current Year: ${now.getFullYear()}.
-${courseHint ? `- Course: ${courseHint}.` : ''}
-
-CRITICAL TIME & DATE RULES:
-1. NEVER USE TODAY'S DATE AS THE DEADLINE OR ASSESSMENT TIME unless explicitly stated!
-2. If the instructor states an explicit time or range for the assessment (e.g. "from 12:30 pm to 13:30 pm", "at 11:00 am", "12:30 - 1:30 pm", "من 12:30 إلى 13:30"):
-   - Extract the START time (e.g. 12:30:00).
-   - Set "hasSpecificTime": true.
-3. If NO specific time of day is stated:
-   - Set "hasSpecificTime": false.
-   - For quizzes and exams, use 10:00:00 as a placeholder.
-   - For homework/assignments, use 23:59:00 as a placeholder.
-4. Calculate exact ISO 8601 timestamps (format: "YYYY-MM-DDTHH:mm:00").
-5. Return a strict JSON object with key "deadlines" matching this schema:
-{
-  "deadlines": [
-    {
-      "title": "Short title, e.g., Midterm Exam",
-      "courseCode": "0401101 (or null if unknown)",
-      "courseName": "Calculus 1 (or detected course)",
-      "dueDate": "2026-10-12T12:30:00",
-      "hasSpecificTime": true,
-      "type": "quiz" | "assignment" | "exam" | "project" | "lab" | "other",
-      "priority": "high" | "medium" | "low",
-      "room": "A8-204 (or specific room/lab if mentioned by doctor, otherwise null)",
-      "description": "Clean explanation written by the doctor",
-      "sourceSnippet": "Exact text sentence mentioning the deadline"
-    }
-  ]
-}
-6. If the doctor mentions a specific classroom, hall, or lab to attend in (e.g. "room A8-204", "hall TH005", "Lab 3", "قاعة 103", "مختبر 105"), extract it into "room". Otherwise set "room" to null.
-If no deadlines or tasks are found, return { "deadlines": [] }. Output valid JSON only.`;
-
-  const hintLines = [];
-  if (jevHint?.category && jevHint.category !== 'not_a_task') {
-    hintLines.push(`Assessment Type: "${jevHint.category}" with priority: "${jevHint.priority || 'medium'}". Use this type unless clear evidence indicates otherwise.`);
-  }
-  if (jevHint?.hasRoom !== undefined) {
-    hintLines.push(
-      jevHint.hasRoom
-        ? 'Doctor mentions an explicit room/location in text: YES (You MUST extract this exact room/hall/lab into "room").'
-        : 'Doctor mentions an explicit room/location in text: NO (Leave "room" as null; do not guess or hallucinate a room so the schedule default room is preserved).'
-    );
-  }
-  if (jevHint?.hasTime !== undefined) {
-    hintLines.push(
-      jevHint.hasTime
-        ? 'Doctor states an explicit clock time: YES (Extract the start time and set "hasSpecificTime": true).'
-        : 'Doctor states an explicit clock time: NO (Set "hasSpecificTime": false so the schedule class time is preserved).'
-    );
-  }
-
-  const hintBlock = hintLines.length > 0 ? `PRE-CLASSIFICATION GUIDANCE (from fast classifier):\n${hintLines.map(h => `- ${h}`).join('\n')}\n` : '';
-
-  const userContent = `${courseHint ? `Course Hint: ${courseHint}\n` : ''}${hintBlock}Doctor's Announcement Body:
-${text}`;
-
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey.trim()}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://blackboarder.pages.dev',
-      'X-Title': 'Blackboarder Web App'
-    },
-    body: JSON.stringify({
-      model: model || 'google/gemini-3.8-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 1000
-    })
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenRouter error (${response.status}): ${errText}`);
-  }
-
-  const data = await response.json();
-  const raw = data.choices?.[0]?.message?.content || '{}';
-  const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-  try {
-    const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed.deadlines) ? parsed.deadlines : (Array.isArray(parsed) ? parsed : []);
-  } catch (parseErr) {
-    console.warn('[OpenRouter AI] Failed to parse JSON response:', parseErr);
-    return [];
-  }
-}
-
-// Local Regex Extractor Engine (instant, client-side)
-function extractDeadlinesLocallyClient(text, courseHint = '') {
-  if (!text || !text.trim()) return [];
-
-  const MONTHS = {
-    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-    apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-    aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9,
-    nov: 10, november: 10, dec: 11, december: 11,
-    'يناير': 0, 'فبراير': 1, 'مارس': 2, 'أبريل': 3, 'ابريل': 3,
-    'مايو': 4, 'يونيو': 5, 'يوليو': 6, 'أغسطس': 7, 'اغسطس': 7,
-    'سبتمبر': 8, 'أكتوبر': 9, 'اكتوبر': 9, 'نوفمبر': 10, 'ديسمبر': 11
-  };
-
-  const DAYS = {
-    sunday: 0, sun: 0, 'الأحد': 0, 'الاحد': 0,
-    monday: 1, mon: 1, 'الاثنين': 1, 'الإثنين': 1,
-    tuesday: 2, tue: 2, tues: 2, 'الثلاثاء': 2,
-    wednesday: 3, wed: 3, 'الأربعاء': 3, 'الاربعاء': 3,
-    thursday: 4, thu: 4, thur: 4, thurs: 4, 'الخميس': 4,
-    friday: 5, fri: 5, 'الجمعة': 5,
-    saturday: 6, sat: 6, 'السبت': 6
-  };
-
-  const tasks = [];
-  const now = new Date();
-  const currentYear = now.getFullYear();
-
-  // Task type detection
-  let taskType = 'assignment';
-  let priority = 'medium';
-  if (/(?:quiz|كويز|اختبار\s*قصير)/i.test(text)) {
-    taskType = 'quiz';
-    priority = 'high';
-  } else if (/(?:midterm|final|exam|امتحان|اختبار)/i.test(text)) {
-    taskType = 'exam';
-    priority = 'high';
-  } else if (/(?:lab\b|مختبر|تقرير\s*مختبر)/i.test(text)) {
-    taskType = 'lab';
-    priority = 'medium';
-  } else if (/(?:project|مشروع)/i.test(text)) {
-    taskType = 'project';
-    priority = 'high';
-  }
-
-  // Time detection
-  let startHour = 23;
-  let startMinute = 59;
-  let hasSpecificTime = false;
-
-  // Check every number-like token: the first one is often not a time ("Quiz 2 ... at 11:00 am")
-  const timeRegex = /(?:at|from|من|الساعة)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|صباحاً|صباحا|مساءً|مساء)?\b/gi;
-  for (const timeMatch of text.matchAll(timeRegex)) {
-    let h = parseInt(timeMatch[1], 10);
-    const m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
-    const tag = (timeMatch[3] || '').toLowerCase();
-    const isPm = tag === 'pm' || /مساء/.test(tag);
-    const isAm = tag === 'am' || /صباح/.test(tag);
-
-    if (h >= 1 && h <= 12 && (isPm || isAm)) {
-      if (isPm && h < 12) h += 12;
-      if (isAm && h === 12) h = 0;
-      startHour = h;
-      startMinute = m;
-      hasSpecificTime = true;
-      break;
-    } else if (h >= 8 && h <= 21 && timeMatch[2]) {
-      startHour = h;
-      startMinute = m;
-      hasSpecificTime = true;
-      break;
-    }
-  }
-
-  // Date detection
-  let targetDate = null;
-
-  // 1. "Oct 14", "14 Oct", "October 14th", "14 أكتوبر"
-  const monthNameRegex = /(?:(\d{1,2})(?:st|nd|rd|th)?\s+)?(?<![A-Za-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر)(?![A-Za-z])(?:\s+(\d{1,2})(?:st|nd|rd|th)?)?(?:,?\s*(\d{4}))?/i;
-  const monthMatch = text.match(monthNameRegex);
-  if (monthMatch) {
-    const day = parseInt(monthMatch[1] || monthMatch[3], 10);
-    const monthKey = monthMatch[2].toLowerCase();
-    const month = MONTHS[monthKey];
-    const year = monthMatch[4] ? parseInt(monthMatch[4], 10) : currentYear;
-
-    if (!isNaN(day) && day >= 1 && day <= 31 && month !== undefined) {
-      targetDate = new Date(year, month, day, startHour, startMinute, 0);
-      if (targetDate < now && !monthMatch[4]) {
-        targetDate.setFullYear(currentYear + 1);
-      }
-    }
-  }
-
-  // 2. Numeric date: "DD/MM/YYYY" or "YYYY-MM-DD"
-  if (!targetDate) {
-    const numDateMatch = text.match(/\b(?:(\d{4})[-/](\d{1,2})[-/](\d{1,2})|(\d{1,2})[-/](\d{1,2})[-/](\d{4}))\b/);
-    if (numDateMatch) {
-      if (numDateMatch[1]) {
-        targetDate = new Date(parseInt(numDateMatch[1], 10), parseInt(numDateMatch[2], 10) - 1, parseInt(numDateMatch[3], 10), startHour, startMinute, 0);
-      } else {
-        targetDate = new Date(parseInt(numDateMatch[6], 10), parseInt(numDateMatch[5], 10) - 1, parseInt(numDateMatch[4], 10), startHour, startMinute, 0);
-      }
-    }
-  }
-
-  // 3. Relative weekday: "Monday", "next Tuesday", "on Wednesday", "يوم الأحد"
-  if (!targetDate) {
-    const dayRegex = /\b(?:on\s+|next\s+|يوم\s+)?(sunday|sun|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|الأحد|الاحد|الاثنين|الإثنين|الثلاثاء|الأربعاء|الاربعاء|الخميس|الجمعة|السبت)\b/i;
-    const dayMatch = text.match(dayRegex);
-    if (dayMatch) {
-      const targetDayOfWeek = DAYS[dayMatch[1].toLowerCase()];
-      if (targetDayOfWeek !== undefined) {
-        const curDay = now.getDay();
-        let daysAhead = targetDayOfWeek - curDay;
-        if (daysAhead <= 0) daysAhead += 7;
-        targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead, startHour, startMinute, 0);
-      }
-    }
-  }
-
-  // 4. "Tomorrow", "غدا", "غداً"
-  if (!targetDate && /\b(tomorrow|غداً|غدا)\b/i.test(text)) {
-    targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, startHour, startMinute, 0);
-  }
-
-  if (targetDate && !isNaN(targetDate.getTime())) {
-    // Course resolution
-    let detectedCourse = courseHint || '';
-    if (!detectedCourse) {
-      for (const item of PERMANENT_COURSE_LEGEND) {
-        if (item.pattern.test(text)) {
-          detectedCourse = item.name;
-          break;
-        }
-      }
-    }
-
-    // Default class meeting time if no explicit time was stated
-    if (!hasSpecificTime && detectedCourse) {
-      for (const s of STUDENT_CLASS_SCHEDULE) {
-        if (s.matcher.test(detectedCourse)) {
-          const parts = s.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-          if (parts) {
-            let h = parseInt(parts[1], 10);
-            const m = parseInt(parts[2], 10);
-            const isPm = parts[3].toUpperCase() === 'PM';
-            if (isPm && h < 12) h += 12;
-            if (!isPm && h === 12) h = 0;
-            targetDate.setHours(h, m, 0, 0);
-            hasSpecificTime = true;
-          }
-          break;
-        }
-      }
-    }
-
-    const room = resolveTaskRoom({
-      courseName: detectedCourse,
-      title: text.slice(0, 50),
-      description: text,
-      sourceSnippet: text
-    });
-
-    const weightInfo = resolveTaskWeight(detectedCourse, text.slice(0, 50), taskType, text);
-
-    const titleWords = text.trim().split(/\s+/).slice(0, 6).join(' ');
-    const fallbackTitle = `${taskType.charAt(0).toUpperCase() + taskType.slice(1)}: ${titleWords}`;
-
-    tasks.push({
-      id: `task_local_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      title: fallbackTitle,
-      courseName: detectedCourse || 'General Course',
-      courseCode: '',
-      dueDate: targetDate.toISOString(),
-      hasSpecificTime,
-      type: taskType,
-      priority,
-      status: 'pending',
-      room: room || undefined,
-      weight: weightInfo.weight,
-      weightDisplay: weightInfo.weightDisplay,
-      syllabusNote: weightInfo.syllabusNote,
-      description: text.trim(),
-      sourceSnippet: text.trim(),
-      extractedBy: 'local',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-  }
-
-  return tasks;
-}
-
-// 3-Tier Hybrid Extractor for Web Client
+// Paste-an-announcement extraction runs the extension's pipeline: local parser, then the optional
+// Jev classifier and OpenRouter model configured in Settings.
 async function extractAnnouncementHybrid(text, courseHint = '') {
-  const settings = getAiSettings();
-
-  // Tier 1: Local Regex Engine
-  const localTasks = extractDeadlinesLocallyClient(text, courseHint);
-
-  // If local found deadlines and has generic 'other' category, refine with Jev
-  if (localTasks.length > 0) {
-    if (settings.useJevClassification && settings.jevApiKey && localTasks.some(t => t.type === 'other')) {
-      try {
-        const jevRes = await callJevClassifier(text, settings.jevApiKey);
-        if (jevRes.isDeadline && jevRes.category !== 'not_a_task' && jevRes.category !== 'other') {
-          for (const t of localTasks) {
-            if (t.type === 'other') {
-              t.type = jevRes.category;
-              if (jevRes.priority) t.priority = jevRes.priority;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[Hybrid] Jev category refinement error:', err);
-      }
-    }
-    return { tasks: localTasks, tier: 'Tier 1: Local Regex' };
-  }
-
-  // If AI is disabled or no OpenRouter key, return local tasks
-  if (!settings.useAiExtraction || !settings.openRouterApiKey) {
-    return { tasks: localTasks, tier: 'Tier 1: Local Regex' };
-  }
-
-  // Check if text contains assessment triggers
-  const hasAcademicKeywords = /\b(quiz|exam|midterm|final|assignment|homework|hw|project|lab|due|deadline|postponed|rescheduled|واجب|كويز|امتحان|تسليم|تأجيل)\b/i.test(text);
-  if (!hasAcademicKeywords) {
-    return { tasks: [], tier: 'No academic keywords detected' };
-  }
-
-  // Tier 2: Jev Decision Classifier (~100ms)
-  let jevHint = null;
-  if (settings.useJevClassification && settings.jevApiKey) {
-    try {
-      const jevResult = await callJevClassifier(text, settings.jevApiKey);
-      if (!jevResult.isDeadline || jevResult.category === 'not_a_task') {
-        return {
-          tasks: [],
-          tier: 'Tier 2: Jev Fast Gatekeeper',
-          rejected: true,
-          reason: `Filtered out as non-deadline (${jevResult.category}, prob=${jevResult.deadlineProbability}) without calling Generative AI!`
-        };
-      }
-      jevHint = {
-        category: jevResult.category,
-        priority: jevResult.priority,
-        urgencyScore: jevResult.urgencyScore,
-        hasRoom: jevResult.hasRoom,
-        hasTime: jevResult.hasTime
-      };
-    } catch (jevErr) {
-      console.warn('[Hybrid] Jev classifier error, falling back to Generative AI:', jevErr);
-    }
-  }
-
-  // Tier 3: Generative AI (Gemini via OpenRouter)
-  try {
-    const rawAiTasks = await callOpenRouterAi(
-      text,
-      settings.openRouterApiKey,
-      settings.openRouterModel,
-      jevHint,
-      courseHint
-    );
-
-    const formattedTasks = rawAiTasks.filter(item => item && !isNaN(new Date(item.dueDate).getTime())).map(item => {
-      const validDate = new Date(item.dueDate);
-      const detectedCourse = item.courseName || courseHint || 'General Course';
-
-      const room = resolveTaskRoom({
-        courseName: detectedCourse,
-        title: item.title,
-        description: text,
-        sourceSnippet: text,
-        room: item.room
-      });
-
-      const weightInfo = resolveTaskWeight(detectedCourse, item.title, item.type, text);
-
-      return {
-        id: `task_ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        title: item.title || 'Extracted Assessment',
-        courseName: detectedCourse,
-        courseCode: item.courseCode || '',
-        dueDate: validDate.toISOString(),
-        hasSpecificTime: Boolean(item.hasSpecificTime),
-        type: (item.type && item.type !== 'other') ? item.type : (jevHint?.category || item.type || 'other'),
-        priority: item.priority || jevHint?.priority || 'medium',
-        status: 'pending',
-        room: room || undefined,
-        weight: weightInfo.weight,
-        weightDisplay: weightInfo.weightDisplay,
-        syllabusNote: weightInfo.syllabusNote,
-        description: text.trim() || item.description || '',
-        sourceSnippet: text.trim() || item.sourceSnippet || '',
-        notes: item.description && item.description !== text.trim() ? item.description : '',
-        extractedBy: 'ai',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-    });
-
-    return {
-      tasks: formattedTasks,
-      tier: jevHint ? 'Tier 3: Generative AI (with Jev Gatekeeper Hint)' : 'Tier 3: Generative AI'
-    };
-  } catch (aiErr) {
-    console.warn('[Hybrid] Generative AI error:', aiErr);
-    return { tasks: localTasks, tier: 'Tier 1 Fallback (AI error)' };
-  }
+  return BB.extractFromText(text, courseHint, getAiSettings());
 }
 
 // Backup & Data Export Utilities
@@ -1726,18 +281,14 @@ async function handleRestoreJson(file) {
       return;
     }
 
+    // A backup file is untrusted input, so it gets the same checks as cloud data
+    const restored = sanitizeCloudTasks(data.tasks).filter(t => t.title);
     const taskMap = new Map();
     state.tasks.forEach(t => taskMap.set(t.id, t));
-    data.tasks.forEach(t => {
-      if (t.id && t.title && t.dueDate) {
-        taskMap.set(t.id, t);
-      }
-    });
+    restored.forEach(t => taskMap.set(t.id, t));
 
-    const merged = Array.from(taskMap.values()).sort(compareTasksByTime);
-
-    state.tasks = merged;
-    saveCachedTasks(merged);
+    // syncToCloudAndLocal below saves the merged list
+    state.tasks = Array.from(taskMap.values()).sort(compareTasksByTime);
     updateAllViews();
 
     if (data.settings) {
@@ -1745,7 +296,7 @@ async function handleRestoreJson(file) {
     }
 
     await syncToCloudAndLocal();
-    showToast(`Successfully restored ${data.tasks.length} deadlines!`);
+    showToast(`Successfully restored ${restored.length} deadlines!`);
   } catch (err) {
     console.error('Restore error:', err);
     showToast('Failed to parse backup file.');
@@ -1759,68 +310,7 @@ function exportAllIcs() {
     return;
   }
 
-  function escapeIcs(str) {
-    return (str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-  }
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-  function formatUtc(d) {
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-  }
-  function formatDateOnly(d) {
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-  }
-
-  const now = new Date();
-  const nowUtc = formatUtc(now);
-
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Blackboarder//UOS Calendar Feed//EN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
-    'X-WR-CALNAME:Blackboard Deadlines (UOS)',
-    'X-WR-CALDESC:Live academic deadlines feed from Blackboarder Cloud',
-    'X-WR-TIMEZONE:Asia/Dubai'
-  ];
-
-  for (const t of activeTasks) {
-    const due = new Date(t.dueDate);
-    if (isNaN(due.getTime())) continue;
-
-    lines.push('BEGIN:VEVENT');
-    lines.push(`UID:${t.id}@blackboarder`);
-    lines.push(`DTSTAMP:${nowUtc}`);
-
-    if (t.hasSpecificTime) {
-      const end = new Date(due.getTime() + 60 * 60 * 1000);
-      lines.push(`DTSTART:${formatUtc(due)}`);
-      lines.push(`DTEND:${formatUtc(end)}`);
-    } else {
-      lines.push(`DTSTART;VALUE=DATE:${formatDateOnly(due)}`);
-    }
-
-    const { courseName, courseCode } = resolveCourseInfo(t);
-    const courseTag = courseCode ? `${courseName} (${courseCode})` : courseName;
-    lines.push(`SUMMARY:${escapeIcs(`[${courseTag}] ${t.title}`)}`);
-
-    const descParts = [
-      `Course: ${courseTag}`,
-      `Type: ${(t.type || 'assignment').toUpperCase()}`,
-      t.room ? `Location: ${t.room}` : '',
-      t.weightDisplay ? `Grade Weight: ${t.weightDisplay}` : '',
-      t.description ? `Notes:\n${t.description}` : ''
-    ].filter(Boolean);
-
-    lines.push(`DESCRIPTION:${escapeIcs(descParts.join('\n\n'))}`);
-    if (t.room) lines.push(`LOCATION:${escapeIcs(t.room)}`);
-    lines.push('STATUS:CONFIRMED');
-    lines.push('END:VEVENT');
-  }
-
-  lines.push('END:VCALENDAR');
-  const icsContent = lines.join('\r\n');
+  const icsContent = BB.generateIcsContent(activeTasks);
 
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -1835,99 +325,7 @@ function exportAllIcs() {
 }
 
 function getCourseColor(courseCode = '', courseName = '', extraContext = '') {
-  const combined = `${courseName} ${courseCode} ${extraContext}`.trim();
-  for (const item of PERMANENT_COURSE_LEGEND) {
-    if (item.pattern.test(combined)) {
-      return item.color;
-    }
-  }
-  let hash = 0;
-  for (let i = 0; i < combined.length; i++) {
-    hash = (hash << 5) - hash + combined.charCodeAt(i);
-    hash |= 0;
-  }
-  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
-}
-
-function getCourseColorTheme(courseName = '', courseCode = '', extraContext = '') {
-  const hex = getCourseColor(courseCode, courseName, extraContext);
-  return {
-    hex,
-    bgLight: `${hex}18`,
-    border: `${hex}45`,
-    textDark: hex
-  };
-}
-
-/**
- * Resolves full course name and code even if Blackboard provided empty, generic "UOS", or numeric-only strings.
- */
-function resolveCourseInfo(task) {
-  let courseName = (task.courseName || '').trim();
-  let courseCode = (task.courseCode || '').trim();
-  const title = (task.title || '').trim();
-
-  // Fix messy Ultra stream direct assignments (e.g. "Measuring Density, Student's Lab. ReportDue date: ...")
-  if (/measuring\s*density/i.test(courseName) || /measuring\s*density/i.test(title)) {
-    courseName = 'Physics 1 Lab';
-    courseCode = '1430 116';
-    if (!task.title || task.title === 'Assignment') {
-      task.title = 'Measuring Density - Lab Report';
-    }
-  } else if (/free\s*fall/i.test(courseName) || /free\s*fall/i.test(title)) {
-    courseName = 'Physics 1 Lab';
-    courseCode = '1430 116';
-    if (!task.title || task.title === 'Assignment') {
-      task.title = 'Free Fall Exp. - Lab Report';
-    }
-  } else if (/lab\.?\s*report/i.test(courseName) || /student's\s*lab/i.test(courseName)) {
-    courseName = 'Physics 1 Lab';
-    courseCode = '1430 116';
-  } else {
-    // Strip trailing stream card metadata
-    courseName = courseName
-      .replace(/(?:Report)?Due\s*date:.*$/gi, '')
-      .replace(/New\s*Group\s*\d+/gi, '')
-      .replace(/\(UTC[+-]?\d+\)/gi, '')
-      .replace(/^[:\-–—|\s]+|[:\-–—|\s]+$/g, '')
-      .trim();
-  }
-
-  const isGeneric = !courseName || 
-                    courseName.toLowerCase() === 'uos' || 
-                    courseName.toLowerCase() === 'course' || 
-                    courseName.toLowerCase() === 'general course' ||
-                    courseName === courseCode;
-
-  if (isGeneric) {
-    const combined = `${courseCode} ${courseName} ${title} ${task.description || ''} ${task.sourceSnippet || ''} ${task.notes || ''}`;
-    for (const item of PERMANENT_COURSE_LEGEND) {
-      if (item.pattern.test(combined)) {
-        courseName = item.name;
-        if (!courseCode || courseCode.toLowerCase() === 'uos') {
-          courseCode = item.code;
-        }
-        break;
-      }
-    }
-    if (!courseName || courseName.toLowerCase() === 'uos') {
-      for (const sched of STUDENT_CLASS_SCHEDULE) {
-        if (sched.matcher && sched.matcher.test(combined)) {
-          courseName = sched.courseName;
-          if (!courseCode) courseCode = sched.courseCode;
-          break;
-        }
-      }
-    }
-  }
-
-  const finalName = (!courseName || courseName.toLowerCase() === 'uos') ? 'General Course' : courseName;
-  const finalCode = (courseCode && courseCode.toLowerCase() !== 'uos' && courseCode !== finalName) ? courseCode : '';
-
-  return {
-    courseName: finalName,
-    courseCode: finalCode
-  };
+  return safeHexColor(BB.getCourseHex(courseName, courseCode, extraContext));
 }
 
 function getSvgIcon(name, extraClass = '') {
@@ -1944,381 +342,6 @@ function getTaskTypeIcon(type = '', extraClass = '') {
     case 'meeting': return getSvgIcon('users', extraClass);
     default: return getSvgIcon('pin', extraClass);
   }
-}
-
-function formatCountdown(dueDateIso, hasSpecificTime = true, status = 'pending') {
-  if (status === 'completed') {
-    return { label: 'Marked as Done', urgency: 'completed' };
-  }
-
-  const now = new Date();
-  const due = new Date(dueDateIso);
-
-  if (isNaN(due.getTime())) {
-    return { label: 'Date pending', urgency: 'future' };
-  }
-
-  const diffMs = due.getTime() - now.getTime();
-  const isPast = diffMs < 0;
-  const absDiffHours = Math.abs(diffMs) / (1000 * 60 * 60);
-  const absDiffDays = Math.floor(absDiffHours / 24);
-
-  const timeStr = hasSpecificTime
-    ? due.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
-
-  if (isPast) {
-    if (absDiffHours < 24) {
-      return { label: `Overdue (${Math.round(absDiffHours)}h ago)`, urgency: 'overdue' };
-    }
-    return { label: `Overdue by ${absDiffDays}d`, urgency: 'overdue' };
-  }
-
-  const isToday = now.toDateString() === due.toDateString();
-  if (isToday) {
-    return {
-      label: hasSpecificTime ? `Due Today at ${timeStr}` : 'Due Today',
-      urgency: 'today'
-    };
-  }
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = tomorrow.toDateString() === due.toDateString();
-  if (isTomorrow) {
-    return {
-      label: hasSpecificTime ? `Due Tomorrow at ${timeStr}` : 'Due Tomorrow',
-      urgency: 'tomorrow'
-    };
-  }
-
-  if (absDiffDays < 7) {
-    const weekday = due.toLocaleDateString([], { weekday: 'short' });
-    return {
-      label: `${weekday} (in ${absDiffDays} days${hasSpecificTime ? ` at ${timeStr}` : ''})`,
-      urgency: 'soon'
-    };
-  }
-
-  const formattedDate = due.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  return {
-    label: `${formattedDate}${hasSpecificTime ? ` at ${timeStr}` : ''}`,
-    urgency: 'future'
-  };
-}
-
-function createGoogleCalendarUrl(task) {
-  const startDate = new Date(task.dueDate);
-  if (isNaN(startDate.getTime())) return '#';
-  const endDate = new Date(startDate.getTime() + (task.hasSpecificTime ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-  function formatGCal(d, allDay) {
-    if (allDay) {
-      return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
-    }
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-  }
-
-  const { courseName, courseCode } = resolveCourseInfo(task);
-  const courseTag = courseCode ? `${courseName} (${courseCode})` : courseName;
-  const title = `[${courseTag}] ${task.title}`;
-  const dates = `${formatGCal(startDate, !task.hasSpecificTime)}/${formatGCal(endDate, !task.hasSpecificTime)}`;
-  const cleanSnippet = (task.description || task.sourceSnippet || '').trim();
-  const details = [
-    `Course: ${courseTag}`,
-    `Type: ${(task.type || 'assignment').toUpperCase()}`,
-    task.room ? `Room: ${task.room}` : '',
-    task.notes ? `Student Notes: ${task.notes}` : '',
-    cleanSnippet ? `Extracted announcement:\n"${cleanSnippet}"` : '',
-    '',
-    'Added automatically via Blackboarder'
-  ].filter(Boolean).join('\n');
-
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: title,
-    dates,
-    details,
-    location: task.room ? `${task.room} (${courseTag})` : courseName
-  });
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-/**
- * Helper to get the effective timestamp of a task for chronological sorting.
- * If task has specific time, uses its timestamp.
- * If task has no specific time:
- *   - uses resolved class start time if matching student class schedule
- *   - otherwise defaults to 23:59 of that day
- */
-function getTaskSortTimestamp(task) {
-  if (!task || !task.dueDate) return Infinity;
-  const d = new Date(task.dueDate);
-  if (isNaN(d.getTime())) return Infinity;
-
-  if (task.hasSpecificTime === false) {
-    const courseContext = `${task.courseName || ''} ${task.courseCode || ''} ${task.title || ''}`;
-    let matchedSched = null;
-    for (const s of STUDENT_CLASS_SCHEDULE) {
-      if (s.matcher && s.matcher.test(courseContext)) {
-        matchedSched = s;
-        break;
-      }
-    }
-    if (matchedSched) {
-      const parts = matchedSched.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (parts) {
-        let h = parseInt(parts[1], 10);
-        const m = parseInt(parts[2], 10);
-        const isPm = parts[3].toUpperCase() === 'PM';
-        if (isPm && h < 12) h += 12;
-        if (!isPm && h === 12) h = 0;
-        const schedDate = new Date(d.getTime());
-        schedDate.setHours(h, m, 0, 0);
-        return schedDate.getTime();
-      }
-    }
-    if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
-      const endOfDay = new Date(d.getTime());
-      endOfDay.setHours(23, 59, 0, 0);
-      return endOfDay.getTime();
-    }
-  }
-
-  return d.getTime();
-}
-
-/**
- * Chronological comparator for tasks:
- * 1. Earliest effective time comes first.
- * 2. If effective times match, tie-breaks alphabetically by task title.
- */
-function compareTasksByTime(a, b) {
-  const timeA = getTaskSortTimestamp(a);
-  const timeB = getTaskSortTimestamp(b);
-
-  if (timeA !== timeB) {
-    return timeA - timeB;
-  }
-
-  return (a.title || '').localeCompare(b.title || '');
-}
-
-/**
- * Normalizes assessment type into standard canonical categories.
- */
-function normalizeAssessmentType(type) {
-  const clean = (type || '').toLowerCase().trim();
-  if (clean === 'hw' || clean === 'assignment') return 'assignment';
-  if (clean === 'quiz') return 'quiz';
-  if (clean === 'exam' || clean === 'midterm' || clean === 'final') return 'exam';
-  if (clean === 'project') return 'project';
-  if (clean === 'lab') return 'lab';
-  return clean || 'assignment';
-}
-
-/**
- * Calculates series numbering (e.g. "1 of 2", "2 of 2", "1 of 3") for tasks
- * belonging to the same course and assessment type.
- */
-function getTaskSeriesInfo(task, allTasks) {
-  if (!task || !allTasks || allTasks.length === 0) return null;
-
-  const resolved = resolveCourseInfo(task);
-  const taskCourseKey = (resolved.courseCode || resolved.courseName || '').toLowerCase().trim();
-  const taskType = normalizeAssessmentType(task.type);
-
-  // Consider all non-dismissed tasks for this course and assessment type
-  const siblings = allTasks.filter(t => {
-    if (t.status === 'dismissed') return false;
-    const r = resolveCourseInfo(t);
-    const cKey = (r.courseCode || r.courseName || '').toLowerCase().trim();
-    const tType = normalizeAssessmentType(t.type);
-    return cKey === taskCourseKey && tType === taskType;
-  });
-
-  if (siblings.length <= 1) {
-    return null; // Standalone assessment, no series label needed
-  }
-
-  // Sort siblings chronologically ascending
-  siblings.sort((a, b) => {
-    const timeA = new Date(a.dueDate).getTime();
-    const timeB = new Date(b.dueDate).getTime();
-    if (timeA !== timeB) return timeA - timeB;
-    return (a.title || '').localeCompare(b.title || '');
-  });
-
-  const index = siblings.findIndex(s => s.id === task.id);
-  if (index === -1) {
-    return null;
-  }
-
-  const currentNumber = index + 1;
-  const totalNumber = siblings.length;
-
-  return {
-    index: currentNumber,
-    total: totalNumber,
-    label: `${currentNumber} of ${totalNumber}`
-  };
-}
-
-/**
- * Checks if two tasks are duplicates representing the same real-world assessment.
- */
-function areTasksDuplicates(a, b) {
-  if (!a || !b) return false;
-  if (a.id === b.id) return true;
-
-  if (a.announcementId && b.announcementId && a.announcementId === b.announcementId) {
-    return true;
-  }
-
-  const resA = resolveCourseInfo(a);
-  const resB = resolveCourseInfo(b);
-  const sameCourse =
-    (resA.courseCode && resB.courseCode && resA.courseCode === resB.courseCode) ||
-    (resA.courseName && resB.courseName && resA.courseName.toLowerCase() === resB.courseName.toLowerCase());
-
-  const cleanTitleA = (a.title || '').toLowerCase().trim().replace(/[_\W]+/g, ' ');
-  const cleanTitleB = (b.title || '').toLowerCase().trim().replace(/[_\W]+/g, ' ');
-
-  const dateA = new Date(a.dueDate);
-  const dateB = new Date(b.dueDate);
-  const hasValidDates = !isNaN(dateA.getTime()) && !isNaN(dateB.getTime());
-
-  if (hasValidDates) {
-    const dateStrA = dateA.toISOString().split('T')[0];
-    const dateStrB = dateB.toISOString().split('T')[0];
-    const timeDiffMs = Math.abs(dateA.getTime() - dateB.getTime());
-
-    // Case 1: Exact or near-identical time (within 5 minutes)
-    if (timeDiffMs <= 5 * 60 * 1000) {
-      if (sameCourse) return true;
-
-      const isGenericA = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(cleanTitleA);
-      const isGenericB = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(cleanTitleB);
-      if (isGenericA || isGenericB) {
-        const rawSnippetOrCourseA = ((a.courseName || '') + ' ' + (a.description || '')).toLowerCase();
-        const rawSnippetOrCourseB = ((b.courseName || '') + ' ' + (b.description || '')).toLowerCase();
-        if (
-          rawSnippetOrCourseA.includes(cleanTitleB) ||
-          rawSnippetOrCourseB.includes(cleanTitleA) ||
-          (resA.courseName && rawSnippetOrCourseB.includes(resA.courseName.toLowerCase())) ||
-          (resB.courseName && rawSnippetOrCourseA.includes(resB.courseName.toLowerCase()))
-        ) {
-          return true;
-        }
-      }
-
-      if (cleanTitleA && cleanTitleB && (cleanTitleA === cleanTitleB || cleanTitleA.includes(cleanTitleB) || cleanTitleB.includes(cleanTitleA))) {
-        return true;
-      }
-    }
-
-    // Case 2: Same calendar date with matching course and title
-    if (dateStrA === dateStrB && sameCourse) {
-      if (cleanTitleA === cleanTitleB) return true;
-      const shorter = cleanTitleA.length < cleanTitleB.length ? cleanTitleA : cleanTitleB;
-      const longer = cleanTitleA.length >= cleanTitleB.length ? cleanTitleA : cleanTitleB;
-      if (shorter.length >= 4 && longer.includes(shorter)) return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Merges two duplicate tasks cleanly, preserving user edits and most specific details.
- */
-function mergeDuplicatePair(existing, incoming) {
-  const isUserEdited = Boolean(existing.userEdited || incoming.userEdited);
-
-  const isExistingGeneric = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(existing.title.trim());
-  const isIncomingGeneric = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(incoming.title.trim());
-  let title = existing.title;
-  if (isExistingGeneric && !isIncomingGeneric) {
-    title = incoming.title;
-  } else if (!isExistingGeneric && !isIncomingGeneric) {
-    title = existing.title.length >= incoming.title.length ? existing.title : incoming.title;
-  }
-
-  let dueDate = existing.dueDate;
-  let hasSpecificTime = existing.hasSpecificTime;
-  if (!existing.hasSpecificTime && incoming.hasSpecificTime) {
-    dueDate = incoming.dueDate;
-    hasSpecificTime = true;
-  }
-
-  const status = (existing.status === 'completed' || incoming.status === 'completed')
-    ? 'completed'
-    : (existing.status === 'dismissed' ? 'dismissed' : incoming.status);
-
-  const desc = (existing.description || '').length >= (incoming.description || '').length
-    ? existing.description
-    : incoming.description;
-  const snippet = (existing.sourceSnippet || '').length >= (incoming.sourceSnippet || '').length
-    ? existing.sourceSnippet
-    : incoming.sourceSnippet;
-
-  const notes = existing.notes || incoming.notes || '';
-  const room = existing.room || incoming.room;
-  const weight = existing.weight !== undefined ? existing.weight : incoming.weight;
-  const weightDisplay = existing.weightDisplay || incoming.weightDisplay;
-  const syllabusNote = existing.syllabusNote || incoming.syllabusNote;
-
-  let id = existing.id;
-  if (existing.id.startsWith('stream_UOS_Assignment_') && !incoming.id.startsWith('stream_UOS_Assignment_')) {
-    id = incoming.id;
-  }
-
-  return {
-    ...existing,
-    ...incoming,
-    id,
-    title,
-    dueDate,
-    hasSpecificTime,
-    status,
-    description: desc,
-    sourceSnippet: snippet,
-    notes,
-    room,
-    weight,
-    weightDisplay,
-    syllabusNote,
-    userEdited: isUserEdited,
-    updatedAt: new Date(Math.max(
-      new Date(existing.updatedAt || existing.createdAt || 0).getTime(),
-      new Date(incoming.updatedAt || incoming.createdAt || 0).getTime(),
-      Date.now()
-    )).toISOString()
-  };
-}
-
-/**
- * Deduplicates a list of tasks, merging duplicates and preserving chronological order.
- */
-function deduplicateTaskList(tasks) {
-  if (!tasks || tasks.length <= 1) return tasks || [];
-
-  const result = [];
-
-  for (const incoming of tasks) {
-    if (!incoming || !incoming.title) continue;
-
-    const existingIndex = result.findIndex(existing => areTasksDuplicates(existing, incoming));
-    if (existingIndex === -1) {
-      result.push({ ...incoming });
-    } else {
-      result[existingIndex] = mergeDuplicatePair(result[existingIndex], incoming);
-    }
-  }
-
-  return result.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 }
 
 // Academic Quick Links Defaults
@@ -2960,250 +983,154 @@ async function refreshDataInBackground() {
   await fetchTasksFromServer(false);
 }
 
-// Bump together with CACHE_NAME in sw.js on every release
-const APP_VERSION = '19';
-const APP_BUILD_COMMIT = '9cbd694';
-const APP_BUILD_TIMESTAMP = '2026-10-21T07:19:31.264Z';
-const GITHUB_REPO_API = 'https://api.github.com/repos/yvs1n/blackboarder/commits/main';
-const GITHUB_RAW_VERSION = 'https://raw.githubusercontent.com/yvs1n/blackboarder/main/version.json';
+// Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
+const APP_BUILD = {"build":"3911958c8f68","version":"1.0.0","shortCommit":"43862fb","timestamp":"2026-10-21T17:24:36.459Z"};
 
-async function checkGitHubVersion() {
-  let remoteSha = null;
-  let remoteParentSha = null;
-  let remoteMsg = null;
-  let remoteDate = null;
+const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
+/** Reads version.json from the server, skipping every cache. */
+async function fetchDeployedVersion() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(GITHUB_REPO_API, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Blackboarder-Web'
-      },
-      cache: 'no-store',
-      signal: controller.signal
-    });
+    const res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store', signal: controller.signal });
     clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.sha) {
-        remoteSha = String(data.sha);
-        if (Array.isArray(data.parents) && data.parents.length > 0 && data.parents[0]?.sha) {
-          remoteParentSha = String(data.parents[0].sha);
-        }
-        remoteMsg = String(data.commit?.message || 'New update').split('\n')[0].trim();
-        remoteDate = data.commit?.committer?.date || data.commit?.author?.date;
-      }
-    }
-  } catch (err) {}
-
-  if (!remoteSha) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(GITHUB_RAW_VERSION, {
-        cache: 'no-store',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && (data.commit || data.shortCommit)) {
-          remoteSha = String(data.commit || data.shortCommit);
-          remoteMsg = data.message;
-          remoteDate = data.timestamp;
-        }
-      }
-    } catch (err) {}
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && typeof data.build === 'string' && data.build ? data : null;
+  } catch (e) {
+    return null;
   }
-
-  // Fallback: check local ./version.json
-  if (!remoteSha) {
-    try {
-      const res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && (data.commit || data.shortCommit)) {
-          remoteSha = String(data.commit || data.shortCommit);
-          remoteMsg = data.message;
-          remoteDate = data.timestamp;
-        }
-      }
-    } catch (err) {}
-  }
-
-  if (remoteSha) {
-    const shortSha = remoteSha.slice(0, 7).toLowerCase();
-    const localShort = APP_BUILD_COMMIT.slice(0, 7).toLowerCase();
-    const parentShort = remoteParentSha ? remoteParentSha.slice(0, 7).toLowerCase() : '';
-    const ackCommit = (localStorage.getItem('bbs_webapp_ack_commit') || '').slice(0, 7).toLowerCase();
-
-    const remoteTime = remoteDate ? new Date(remoteDate).getTime() : 0;
-    const localTime = APP_BUILD_TIMESTAMP ? new Date(APP_BUILD_TIMESTAMP).getTime() : 0;
-
-    // 1. Direct match or user already acknowledged this commit
-    let isSameOrOlder = shortSha === localShort ||
-                        remoteSha.toLowerCase().startsWith(localShort) ||
-                        (ackCommit && shortSha === ackCommit);
-
-    // 2. Pre-commit build match: when built right before git commit, APP_BUILD_COMMIT is the parent of the pushed commit
-    if (!isSameOrOlder && parentShort && parentShort === localShort) {
-      if (!remoteTime || !localTime || Math.abs(remoteTime - localTime) <= 15 * 60 * 1000) {
-        isSameOrOlder = true;
-      }
-    }
-
-    // 3. Do not treat older commits as updates
-    if (!isSameOrOlder && remoteTime > 0 && localTime > 0 && remoteTime < localTime - 60 * 1000) {
-      isSameOrOlder = true;
-    }
-
-    return {
-      available: !isSameOrOlder,
-      commit: remoteSha,
-      shortCommit: remoteSha.slice(0, 7),
-      message: remoteMsg || 'New improvements available',
-      date: remoteDate
-    };
-  }
-
-  return { available: false };
 }
 
-// Register Service Worker & App Update Manager
-function initServiceWorker() {
-  let userRequestedUpdate = false;
-  let swReg = null;
-  let latestUpdateInfo = null;
+/** True when the deployed build differs from the running one and is not older (a stale cache can serve old files). */
+function isDeployedBuildNewer(remote, local = APP_BUILD) {
+  if (!remote || !remote.build || !local || !local.build) return false;
+  if (remote.build === local.build) return false;
+  const remoteTime = Date.parse(remote.timestamp || '') || 0;
+  const localTime = Date.parse(local.timestamp || '') || 0;
+  return !(remoteTime && localTime && remoteTime < localTime);
+}
 
-  // Clean up ?upd= query parameter after a completed update reload
+/** True while the user is typing or has a dialog open, so a reload would lose what they are doing. */
+function isUserBusy() {
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable)) {
+    return true;
+  }
+  if (document.querySelector('.modal-backdrop:not(.hidden)')) return true;
+  return Array.from(document.querySelectorAll('textarea')).some(t => t.value.trim() !== '');
+}
+
+/*
+ * The web app updates itself, like a store-installed extension: GitHub pushes deploy to Cloudflare
+ * Pages, and the app compares its build with the deployed version.json. A newer build is loaded
+ * right away when the app opens or comes back to the foreground (unless the user is busy), or
+ * when the tab is hidden. While the user is working it only shows the update banner.
+ */
+function initServiceWorker() {
+  let swReg = null;
+  let pendingBuild = null;
+  let applying = false;
+
   try {
     const currentUrl = new URL(window.location.href);
-    const hadUpdParam = currentUrl.searchParams.has('upd');
-    const justUpdated = sessionStorage.getItem('bbs_just_updated') === 'true';
-    if (hadUpdParam) {
+    if (currentUrl.searchParams.has('upd')) {
       currentUrl.searchParams.delete('upd');
       window.history.replaceState({}, document.title, currentUrl.pathname + currentUrl.search + currentUrl.hash);
     }
-    if (hadUpdParam || justUpdated) {
+    if (sessionStorage.getItem('bbs_just_updated') === 'true') {
       sessionStorage.removeItem('bbs_just_updated');
-      setTimeout(() => showToast('Updated to latest version! Your data is intact.'), 500);
+      setTimeout(() => showToast('Blackboarder updated to the latest version. Your data is intact.'), 500);
     }
   } catch (e) {}
 
-  const setUpdateUi = (available, customMsg) => {
+  const buildLabel = APP_BUILD.build
+    ? `build ${APP_BUILD.build}${APP_BUILD.shortCommit ? ' · ' + APP_BUILD.shortCommit : ''}`
+    : 'development build';
+  const verEl = document.getElementById('app-version-label');
+  if (verEl) verEl.textContent = `(${buildLabel})`;
+
+  const setStatus = text => {
+    const status = document.getElementById('app-update-status');
+    if (status) status.textContent = text;
+  };
+
+  const showUpdateUi = available => {
     const banner = document.getElementById('app-update-banner');
     if (banner) banner.hidden = !available;
-
-    const bannerText = document.getElementById('app-update-banner-text') || banner?.querySelector('span');
-    if (bannerText && customMsg) bannerText.textContent = customMsg;
-
-    const status = document.getElementById('app-update-status');
-    if (status) {
-      if (available) {
-        status.textContent = customMsg || 'A new version is ready to install. Your data stays intact.';
-      } else {
-        status.textContent = `You are on the latest version (v${APP_VERSION} - ${APP_BUILD_COMMIT}). Tasks & courses stay synced.`;
-      }
-    }
-
     const applyBtn = document.getElementById('btn-apply-update');
     if (applyBtn) applyBtn.hidden = !available;
+    setStatus(available
+      ? 'A new version is ready. It installs by itself next time you leave or reopen the app, or tap Update Now.'
+      : `Updates install automatically. You are on the latest version (${buildLabel}).`);
   };
+
+  // Let a new service worker take over before reloading, so it serves the new files
+  const waitForNewWorker = () => new Promise(resolve => {
+    if (!swReg || !navigator.serviceWorker?.controller || !(swReg.installing || swReg.waiting)) {
+      resolve();
+      return;
+    }
+    const timeoutId = setTimeout(resolve, 5000);
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      clearTimeout(timeoutId);
+      resolve();
+    }, { once: true });
+    swReg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+  });
 
   const applyUpdate = async () => {
-    userRequestedUpdate = true;
-    if (latestUpdateInfo?.commit) {
-      try {
-        localStorage.setItem('bbs_webapp_ack_commit', latestUpdateInfo.commit);
-      } catch (e) {}
-    }
+    if (applying) return;
+    applying = true;
     try {
+      // Remembered so a reload that still gets old files does not loop
+      sessionStorage.setItem('bbs_update_tried', pendingBuild?.build || '');
       sessionStorage.setItem('bbs_just_updated', 'true');
     } catch (e) {}
+    setStatus('Updating... Your data stays intact.');
+    if (swReg) {
+      try { await swReg.update(); } catch (e) {}
+    }
+    await waitForNewWorker();
+    const url = new URL(window.location.href);
+    url.searchParams.set('upd', Date.now().toString());
+    window.location.replace(url.toString());
+  };
 
-    const status = document.getElementById('app-update-status');
-    if (status) status.textContent = 'Applying update... Your data stays intact.';
-    showToast('Updating Blackboarder to latest code...');
-
-    // 1. Clear static app caches so freshest assets are fetched, strictly preserving notif store
+  const alreadyTried = build => {
     try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        for (const k of keys) {
-          if (k !== 'sidekick-notif-store') {
-            await caches.delete(k);
-          }
-        }
-      }
-    } catch (e) {}
-
-    // 2. Activate waiting service worker if present
-    const waiting = swReg && swReg.waiting;
-    if (waiting) {
-      waiting.postMessage({ type: 'SKIP_WAITING' });
-      // controllerchange listener will reload
-    } else {
-      if (swReg?.update) {
-        try { await swReg.update(); } catch (e) {}
-      }
-      setTimeout(() => {
-        // Hard reload with timestamp to bypass any browser HTTP cache
-        const url = new URL(window.location.href);
-        url.searchParams.set('upd', Date.now().toString());
-        window.location.replace(url.toString());
-      }, 200);
+      return sessionStorage.getItem('bbs_update_tried') === build;
+    } catch (e) {
+      return false;
     }
   };
 
-  const checkForUpdate = async (manual) => {
-    const status = document.getElementById('app-update-status');
-    if (manual && status) status.textContent = 'Checking for updates...';
-
-    let updateAvailable = false;
-    latestUpdateInfo = null;
-
-    // 1. Check GitHub repository first
-    try {
-      const gh = await checkGitHubVersion();
-      if (gh && gh.available) {
-        const dismissedCommit = (localStorage.getItem('bbs_webapp_dismissed_commit') || '').slice(0, 7).toLowerCase();
-        const ghShort = (gh.shortCommit || '').toLowerCase();
-        if (manual || !dismissedCommit || ghShort !== dismissedCommit) {
-          updateAvailable = true;
-        }
-        latestUpdateInfo = gh;
+  // mode: 'manual' (button), 'quiet' (app opened or brought back) or 'background' (timer)
+  const checkForUpdate = async mode => {
+    if (applying) return;
+    if (mode === 'manual') setStatus('Checking for updates...');
+    const remote = await fetchDeployedVersion();
+    if (!isDeployedBuildNewer(remote)) {
+      pendingBuild = null;
+      showUpdateUi(false);
+      if (mode === 'manual') {
+        if (!remote) setStatus('Could not reach the server. Updates will install once you are online.');
+        showToast(remote ? 'You are on the latest version of Blackboarder!' : 'Could not check for updates right now.');
       }
-    } catch (e) {}
-
-    // 2. Check Service Worker
-    if (swReg) {
-      try {
-        await swReg.update();
-        if (swReg.waiting && navigator.serviceWorker?.controller) {
-          updateAvailable = true;
-        }
-      } catch (e) {}
+      return;
     }
-
-    if (updateAvailable) {
-      const msg = latestUpdateInfo
-        ? `A new update is available on GitHub (${latestUpdateInfo.shortCommit}: ${latestUpdateInfo.message}). Tap Update to install.`
-        : 'A new version of Blackboarder is ready. Your data stays intact.';
-      setUpdateUi(true, msg);
-      if (manual) showToast('Update available! Tap Update Now to apply.');
+    pendingBuild = remote;
+    if (mode === 'manual') {
+      applyUpdate();
+      return;
+    }
+    const canApplyNow = !alreadyTried(remote.build) &&
+      (document.visibilityState === 'hidden' || (mode === 'quiet' && !isUserBusy()));
+    if (canApplyNow) {
+      applyUpdate();
     } else {
-      if (manual) {
-        setUpdateUi(false);
-        showToast('You are on the latest version of Blackboarder!');
-      } else if (latestUpdateInfo && latestUpdateInfo.available) {
-        // Dismissed banner for this commit, still show Apply button in Settings card
-        const applyBtn = document.getElementById('btn-apply-update');
-        if (applyBtn) applyBtn.hidden = false;
-      }
+      showUpdateUi(true);
     }
   };
 
@@ -3212,57 +1139,26 @@ function initServiceWorker() {
   document.getElementById('btn-update-banner-dismiss')?.addEventListener('click', () => {
     const banner = document.getElementById('app-update-banner');
     if (banner) banner.hidden = true;
-    if (latestUpdateInfo?.shortCommit) {
-      try {
-        localStorage.setItem('bbs_webapp_dismissed_commit', latestUpdateInfo.shortCommit);
-      } catch (e) {}
-    }
   });
-  document.getElementById('btn-check-update')?.addEventListener('click', () => checkForUpdate(true));
-  const verEl = document.getElementById('app-version-label');
-  if (verEl) verEl.textContent = 'v' + APP_VERSION + ' (' + APP_BUILD_COMMIT + ')';
+  document.getElementById('btn-check-update')?.addEventListener('click', () => checkForUpdate('manual'));
+  showUpdateUi(false);
 
-  // Schedule GitHub update checks regardless of Service Worker support
-  setTimeout(() => checkForUpdate(false), 800);
-  setInterval(() => checkForUpdate(false), 15 * 60 * 1000);
+  setTimeout(() => checkForUpdate('quiet'), 800);
+  setInterval(() => checkForUpdate('background'), UPDATE_CHECK_INTERVAL_MS);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForUpdate(false);
+    if (document.visibilityState === 'visible') {
+      checkForUpdate('quiet');
+    } else if (pendingBuild && !alreadyTried(pendingBuild.build)) {
+      applyUpdate();
+    }
   });
 
   if ('serviceWorker' in navigator) {
-    // Reload only after the user accepted the update (data in localStorage is preserved)
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (userRequestedUpdate) {
-        userRequestedUpdate = false;
-        window.location.reload();
-      }
-    });
-
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('[SW] Registered successfully:', reg.scope);
         swReg = reg;
-
-        // A new version may already be waiting from a previous visit
-        if (reg.waiting && navigator.serviceWorker.controller) {
-          setUpdateUi(true);
-        }
         reg.update?.().catch(() => {});
-
-        // Detect new worker installed and offer the update to the user
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[SW] New version detected and installed.');
-                setUpdateUi(true);
-                showToast('A new version is available. Tap Update to install.');
-              }
-            });
-          }
-        });
-
         registerPeriodicSync();
         syncTasksToServiceWorker();
       })
@@ -3381,51 +1277,6 @@ async function registerPeriodicSync() {
     }
   }
 }
-
-function isValidTask(task) {
-  if (!task || !task.title || !task.title.trim()) return false;
-  if (task.userEdited || task.extractedBy === 'manual') return true;
-  const titleLower = task.title.trim().toLowerCase();
-  const desc = (task.description || '').trim();
-  const snippet = (task.sourceSnippet || '').trim();
-
-  // 1. Explicitly drop stream submission receipts or confirmation cards
-  if (/(?:you\s+submitted|submission\s+(?:receipt|confirmed)|attempt\s+submitted|تم\s+التسليم|تم\s+إرسال|confirmation\s*number)/i.test(titleLower)) {
-    return false;
-  }
-
-  // 2. Drop grade notifications and score postings
-  if (/(?:grade\s+posted|score\s+posted|graded|new\s+grade|grades\s+available|grades\s+released|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة|درجة\s+جديدة|تم\s+تقييم)/i.test(titleLower)) {
-    return false;
-  }
-
-  // 3. Drop tasks whose description or snippet is purely a grade fraction (e.g. ".25 / 10", "8.5 / 10")
-  const isFractionOnly = (text) => /^["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?$/.test(text);
-  if (isFractionOnly(desc) || isFractionOnly(snippet)) {
-    return false;
-  }
-
-  // 4. Drop announcements reporting grades/marks without future deadlines
-  // e.g. "درجة الكويز الأول", "درجات الاختبار", "Results of Midterm"
-  const isGradeReportTitle = /(?:^|[^\p{L}\p{N}])(?:درجات|درجة|علامات|علامة|نتائج|النتائج|العلامات|الدرجات|grades?|marks?|scores?|results?|feedback)(?:$|[^\p{L}\p{N}])/iu.test(titleLower);
-  if (isGradeReportTitle) {
-    const combinedContext = `${titleLower} ${desc} ${snippet}`;
-    const hasFutureAction = /(?:submit\s+by|due\s+on|due\s+date|submission\s+deadline|makeup\s+exam|make-up\s+exam|تسليم\s+في|آخر\s+موعد|امتحان\s+تعويضي|اختبار\s+تعويضي)/iu.test(combinedContext);
-    if (!hasFutureAction) {
-      return false;
-    }
-  }
-
-  // 5. Generic placeholders
-  const isGenericTitle = /^(?:assignment|untitled|due(?:\s+in.*)?|reminder|activity|announcement)$/i.test(titleLower);
-  const isGenericCourse = !task.courseName || task.courseName === 'General Course' || task.courseName.toLowerCase() === 'uos';
-  const isGenericCode = !task.courseCode || task.courseCode === 'UOS';
-  if (isGenericTitle && isGenericCourse && isGenericCode) {
-    return false;
-  }
-  return true;
-}
-
 
 function formatNotificationPayload(task, windowType, timeRemaining) {
   const resolved = resolveCourseInfo(task);
@@ -3635,7 +1486,12 @@ function updateCourseDatalist() {
 
 function recalculateAllTaskWeightsAndRooms() {
   if (!Array.isArray(state.tasks) || state.tasks.length === 0) return;
-  state.tasks.forEach(t => {
+  recalculateTaskList(state.tasks);
+}
+
+/** Fills in course names, rooms, cleaned text and syllabus weights for every task in the list (in place). */
+function recalculateTaskList(tasks) {
+  tasks.forEach(t => {
     if (t.courseCode === 'UOS') t.courseCode = '';
     const resolved = resolveCourseInfo(t);
     if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
@@ -3658,7 +1514,7 @@ function recalculateAllTaskWeightsAndRooms() {
     if (t.sourceSnippet) {
       t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
     }
-    const seriesInfo = getTaskSeriesInfo(t, state.tasks);
+    const seriesInfo = getTaskSeriesInfo(t, tasks);
     const wInfo = resolveTaskWeight(
       t.courseName || t.courseCode,
       t.title,
@@ -3914,43 +1770,7 @@ async function fetchTasksFromServer(isManual = false) {
       validatedTasks.sort(compareTasksByTime);
 
       // Auto-backfill rooms, sanitize quotes, and syllabus weights if missing
-      validatedTasks.forEach(t => {
-        if (t.courseCode === 'UOS') t.courseCode = '';
-        const resolved = resolveCourseInfo(t);
-        if (resolved.courseName !== 'General Course' && (!t.courseName || t.courseName === 'General Course' || t.courseName.toLowerCase() === 'uos')) {
-          t.courseName = resolved.courseName;
-        }
-        if (resolved.courseCode && !t.courseCode) {
-          t.courseCode = resolved.courseCode;
-        }
-        const cleanT = (t.type || '').toLowerCase();
-        const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
-        if (isHwOrProj) {
-          t.room = undefined;
-        } else if (!t.room) {
-          const r = resolveTaskRoom(t);
-          if (r) t.room = r;
-        }
-        if (t.description) {
-          t.description = sanitizeDoctorAnnouncementText(t.description, t.courseName, t.courseCode, t.title);
-        }
-        if (t.sourceSnippet) {
-          t.sourceSnippet = sanitizeDoctorAnnouncementText(t.sourceSnippet, t.courseName, t.courseCode, t.title);
-        }
-        const seriesInfo = getTaskSeriesInfo(t, validatedTasks);
-        const wInfo = resolveTaskWeight(
-          t.courseName || t.courseCode,
-          t.title,
-          t.type,
-          t.sourceSnippet || t.description || t.notes || '',
-          seriesInfo?.index
-        );
-        if (wInfo.weight !== undefined && !t.userEdited && t.extractedBy !== 'manual') {
-          t.weight = wInfo.weight;
-          t.weightDisplay = wInfo.weightDisplay;
-          t.syllabusNote = wInfo.syllabusNote;
-        }
-      });
+      recalculateTaskList(validatedTasks);
 
       validatedTasks = deduplicateTaskList(validatedTasks);
       validatedTasks.sort(compareTasksByTime);
@@ -4331,27 +2151,6 @@ function initCalendarSwipe() {
       }
     }
   }, { passive: true });
-}
-
-function matchesSelectedCourseFilter(task, filter) {
-  if (!filter) return true;
-  const { courseName, courseCode } = resolveCourseInfo(task);
-  if (
-    task.courseName === filter ||
-    task.courseCode === filter ||
-    courseName === filter ||
-    courseCode === filter
-  ) {
-    return true;
-  }
-  const legendItem = PERMANENT_COURSE_LEGEND.find(c => c.name === filter || c.code === filter);
-  if (legendItem) {
-    const combined = `${task.courseName || ''} ${task.courseCode || ''} ${courseName || ''} ${courseCode || ''} ${task.title || ''}`;
-    if (legendItem.pattern.test(combined)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function initLegend() {
@@ -5887,27 +3686,28 @@ function initSettings() {
     }
   });
 
-  // iOS Scriptable Widget Code & Copy Handler
-  const SCRIPTABLE_WIDGET_CODE = "// ============================================================================\n// Blackboarder iOS Widget (Lock Screen, Small & Medium Home Screen)\n// Offline-Ready with Native Disk Caching\n// ============================================================================\n\nconst BASE_URL = \"https://blackboarder.pages.dev/api/tasks\";\n\n// Enter your personal pairing key if paired (e.g. \"BBS-ABC123\"), or pass it\n// via the widget parameter in iOS:\nlet SYNC_KEY = \"\"; \nif (typeof args !== \"undefined\" && args.widgetParameter && args.widgetParameter.trim()) {\n  SYNC_KEY = args.widgetParameter.trim();\n}\n\n// ----------------------------------------------------------------------------\n// Offline Cache Setup (Scriptable FileManager)\n// ----------------------------------------------------------------------------\nconst fm = FileManager.local();\nconst cacheDir = fm.joinPath(fm.documentsDirectory(), \"blackboarder_cache\");\nconst keySlug = SYNC_KEY ? SYNC_KEY.replace(/[^a-zA-Z0-9_-]/g, \"\") : \"default\";\nconst cachePath = fm.joinPath(cacheDir, `tasks_${keySlug}.json`);\n\nlet res = null;\nlet isOffline = false;\n\n// Attempt online fetch with quick timeout (4s) so poor signals don't hang iOS\nconst url = BASE_URL + (SYNC_KEY ? `?key=${encodeURIComponent(SYNC_KEY)}` : \"\");\ntry {\n  const req = new Request(url);\n  req.timeoutInterval = 4;\n  res = await req.loadJSON();\n\n  if (res && Array.isArray(res.tasks)) {\n    // Write successful response to offline cache\n    if (!fm.fileExists(cacheDir)) {\n      fm.createDirectory(cacheDir, true);\n    }\n    fm.writeString(cachePath, JSON.stringify(res));\n  } else {\n    throw new Error(\"Invalid response format\");\n  }\n} catch (netErr) {\n  // Network failed or offline: fall back to local disk cache\n  isOffline = true;\n  if (fm.fileExists(cachePath)) {\n    try {\n      const cachedRaw = fm.readString(cachePath);\n      res = JSON.parse(cachedRaw);\n    } catch (parseErr) {\n      res = null;\n    }\n  }\n}\n\n// ----------------------------------------------------------------------------\n// Data Processing & Sorting\n// ----------------------------------------------------------------------------\nconst allTasks = (res && Array.isArray(res.tasks) ? res.tasks : []).filter(\n  t => t.status !== \"completed\" && t.status !== \"dismissed\"\n);\nconst tasks = allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));\nconst nextTask = tasks[0];\n\n// ----------------------------------------------------------------------------\n// Helpers\n// ----------------------------------------------------------------------------\nfunction getCleanCourse(t) {\n  let name = (t.courseName || t.courseCode || \"Course\").trim();\n  name = name.replace(/\\s*\\(\\d+[\\s\\d]*\\)/g, \"\").trim();\n  if (/calculus|calc/i.test(name)) return \"Calculus 1\";\n  if (/intro.*comp|computer.*eng/i.test(name)) return \"Intro to Comp\";\n  if (/phys.*lab/i.test(name)) return \"Physics 1 Lab\";\n  if (/phys/i.test(name)) return \"Physics 1\";\n  if (/english|eap/i.test(name)) return \"English\";\n  if (/islamic/i.test(name)) return \"Islamic\";\n  return name.split(/[-–|]/)[0].trim() || name;\n}\n\nfunction formatDay(t) {\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"TBD\";\n  const now = new Date();\n  if (d.toDateString() === now.toDateString()) return \"Today\";\n  const tomorrow = new Date();\n  tomorrow.setDate(now.getDate() + 1);\n  if (d.toDateString() === tomorrow.toDateString()) return \"Tomorrow\";\n  return d.toLocaleDateString(\"en-US\", { weekday: \"short\", month: \"short\", day: \"numeric\" });\n}\n\nfunction formatTime(t) {\n  if (!t.hasSpecificTime) return \"\";\n  const d = new Date(t.dueDate);\n  if (isNaN(d.getTime())) return \"\";\n  return d.toLocaleTimeString(\"en-US\", { hour: \"numeric\", minute: \"2-digit\" });\n}\n\nfunction formatDayAndTime(t) {\n  const day = formatDay(t);\n  const time = formatTime(t);\n  return time ? `${day} • ${time}` : day;\n}\n\nfunction getLocation(t) {\n  const type = (t.type || \"\").toLowerCase();\n  // Only show room if NOT HW or Project\n  if (type === \"assignment\" || type === \"hw\" || type === \"project\") return \"\";\n  let r = (t.room || \"\").trim();\n  if (!r) return \"\";\n  r = r.replace(/^(?:room|rm)\\s+/i, \"\");\n  r = r.split(/\\s*[\\(\\[,\\-–—]\\s*(?:men|bldg|building|hall)/i)[0].trim();\n  return `📍 ${r}`;\n}\n\nfunction getPendingTypeSummary(taskList) {\n  const counts = {};\n  for (const t of taskList) {\n    const raw = (t.type || \"assignment\").toLowerCase();\n    const type = raw === \"hw\" ? \"assignment\" : raw;\n    counts[type] = (counts[type] || 0) + 1;\n  }\n  const parts = [];\n  if (counts.quiz) parts.push(`${counts.quiz} Quiz${counts.quiz > 1 ? \"zes\" : \"\"}`);\n  if (counts.exam) parts.push(`${counts.exam} Exam${counts.exam > 1 ? \"s\" : \"\"}`);\n  if (counts.assignment) parts.push(`${counts.assignment} HW`);\n  if (counts.lab) parts.push(`${counts.lab} Lab${counts.lab > 1 ? \"s\" : \"\"}`);\n  if (counts.project) parts.push(`${counts.project} Proj${counts.project > 1 ? \"s\" : \"\"}`);\n  if (counts.other) parts.push(`${counts.other} Other`);\n  return parts.join(\" • \");\n}\n\n// ----------------------------------------------------------------------------\n// Widget Construction\n// ----------------------------------------------------------------------------\nconst widget = new ListWidget();\nconst WEB_APP_BASE = \"https://blackboarder.pages.dev\";\nwidget.url = SYNC_KEY ? (WEB_APP_BASE + \"/?key=\" + encodeURIComponent(SYNC_KEY)) : WEB_APP_BASE;\nwidget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000); // 15-min auto refresh\n\nif (config.runsInAccessoryWidget) {\n  // ==========================================================================\n  // LOCK SCREEN WIDGET (Course Name, Title, Day & Time, Location)\n  // ==========================================================================\n  if (!nextTask) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache\" : \"No pending deadlines 🎉\");\n    empty.font = Font.systemFont(12);\n  } else {\n    const courseName = getCleanCourse(nextTask);\n    const loc = getLocation(nextTask);\n    const dayAndTime = formatDayAndTime(nextTask);\n\n    // Line 1: Course + Location (dynamic scaling prevents truncation)\n    const line1Text = loc ? `${courseName} • ${loc}` : courseName;\n    const line1 = widget.addText(line1Text);\n    line1.font = Font.boldSystemFont(10.5);\n    line1.lineLimit = 1;\n    line1.minimumScaleFactor = 0.65;\n\n    // Line 2: What the due date is (title)\n    const line2 = widget.addText(nextTask.title);\n    line2.font = Font.systemFont(12);\n    line2.lineLimit = 1;\n    line2.minimumScaleFactor = 0.75;\n\n    // Line 3: Day and time due\n    const line3 = widget.addText(dayAndTime);\n    line3.font = Font.caption2();\n    line3.lineLimit = 1;\n    line3.minimumScaleFactor = 0.75;\n  }\n} else {\n  // ==========================================================================\n  // HOME SCREEN WIDGET (Invisible Table Grid: 3 on Medium, 2 on Small)\n  // ==========================================================================\n  widget.backgroundColor = new Color(\"#0f172a\");\n\n  const isMedium = config.widgetFamily === \"medium\";\n  const isLarge = config.widgetFamily === \"large\";\n  \n  // Padding & spacing adjustments\n  widget.setPadding(10, 14, 10, 14);\n\n  // 1. Header: Blackboarder title (+ subtle offline indicator) + Pending summary\n  const header = widget.addStack();\n  header.centerAlignContent();\n  \n  const title = header.addText(\"Blackboarder\");\n  title.font = Font.boldSystemFont(11.5);\n  title.textColor = new Color(\"#94a3b8\");\n\n  if (isOffline) {\n    header.addSpacer(4);\n    const cachedBadge = header.addText(\"cached\");\n    cachedBadge.font = Font.systemFont(9);\n    cachedBadge.textColor = new Color(\"#64748b\");\n  }\n\n  header.addSpacer();\n\n  const typeSummary = getPendingTypeSummary(tasks);\n  if (typeSummary && (isMedium || isLarge)) {\n    // In Medium/Large: place pending summary directly on the top-right\n    const summaryText = header.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(10);\n    summaryText.textColor = new Color(\"#38bdf8\");\n  }\n\n  // In Small widget: put pending summary below the title\n  if (!isMedium && !isLarge && typeSummary) {\n    widget.addSpacer(2);\n    const summaryText = widget.addText(typeSummary);\n    summaryText.font = Font.semiboldSystemFont(9.5);\n    summaryText.textColor = new Color(\"#38bdf8\");\n    summaryText.lineLimit = 1;\n    summaryText.minimumScaleFactor = 0.75;\n  }\n\n  widget.addSpacer(isMedium ? 6 : 7);\n\n  // 2. Invisible Table Grid (3 items for Medium, 2 for Small, 5 for Large)\n  const maxItems = isLarge ? 5 : (isMedium ? 3 : 2);\n  const upcoming = tasks.slice(0, maxItems);\n\n  if (upcoming.length === 0) {\n    const empty = widget.addText(isOffline ? \"Offline • No cache yet\" : \"All caught up! 🎉\");\n    empty.font = Font.mediumSystemFont(12);\n    empty.textColor = new Color(\"#cbd5e1\");\n  } else {\n    for (let i = 0; i < upcoming.length; i++) {\n      const t = upcoming[i];\n      const loc = getLocation(t);\n      const dayStr = formatDay(t);\n      const timeStr = formatTime(t);\n\n      // Table Row Container\n      const tableRow = widget.addStack();\n      tableRow.layoutHorizontally();\n      tableRow.centerAlignContent();\n\n      // Column 1 (Left Column): Course on top, Title & Room on bottom\n      const colLeft = tableRow.addStack();\n      colLeft.layoutVertically();\n\n      const courseRow = colLeft.addStack();\n      courseRow.centerAlignContent();\n      const dot = courseRow.addText(\"● \");\n      dot.font = Font.boldSystemFont(9);\n      dot.textColor = new Color(t.courseColor || \"#60a5fa\");\n\n      const courseText = courseRow.addText(getCleanCourse(t));\n      courseText.font = Font.boldSystemFont(11);\n      courseText.textColor = new Color(\"#f1f5f9\");\n      courseText.lineLimit = 1;\n      courseText.minimumScaleFactor = 0.8;\n\n      const subStr = loc ? `${t.title} • ${loc}` : t.title;\n      const subText = colLeft.addText(subStr);\n      subText.font = Font.systemFont(10);\n      subText.textColor = new Color(\"#94a3b8\");\n      subText.lineLimit = 1;\n      subText.minimumScaleFactor = 0.7;\n\n      // Space between Column 1 and Column 2\n      tableRow.addSpacer();\n\n      // Column 2 (Right Column): Date on top, Time on bottom (Right-aligned)\n      const colRight = tableRow.addStack();\n      colRight.layoutVertically();\n\n      const dateText = colRight.addText(dayStr);\n      dateText.font = Font.semiboldSystemFont(10.5);\n      dateText.textColor = new Color(\"#e2e8f0\");\n      dateText.rightAlignText();\n      dateText.lineLimit = 1;\n      dateText.minimumScaleFactor = 0.8;\n\n      if (timeStr) {\n        const timeText = colRight.addText(timeStr);\n        timeText.font = Font.systemFont(10);\n        timeText.textColor = new Color(\"#38bdf8\");\n        timeText.rightAlignText();\n        timeText.lineLimit = 1;\n      }\n\n      if (i < upcoming.length - 1) {\n        widget.addSpacer(isMedium ? 5 : 7);\n      }\n    }\n  }\n}\n\nScript.setWidget(widget);\nScript.complete();\n";
+  // iOS Scriptable widget: widget.js is generated from widgets/blackboarder-widget.js
 
   const btnCopyWidget = document.getElementById('btn-copy-widget-code');
   btnCopyWidget?.addEventListener('click', async () => {
     try {
       let code = '';
       try {
-        const resp = await fetch('./widget.js');
+        const resp = await fetch('./widget.js', { cache: 'no-store' });
         if (resp.ok) {
           code = await resp.text();
         }
       } catch (err) {}
 
-      if (!code) {
-        code = SCRIPTABLE_WIDGET_CODE;
-      }
+      if (!code) throw new Error('widget.js unavailable');
 
       const activeSyncKey = getSyncKey() || '';
       if (activeSyncKey) {
-        code = code.replace('let SYNC_KEY = "";', `let SYNC_KEY = "${activeSyncKey}";`);
+        code = code.replace('let SYNC_KEY = "";', `let SYNC_KEY = ${JSON.stringify(activeSyncKey)};`);
+      }
+      // Point the widget at whichever server this app is running on
+      if (location.protocol === 'https:') {
+        code = code.replace(/https:\/\/blackboarder\.pages\.dev/g, location.origin);
       }
 
       await navigator.clipboard.writeText(code);
@@ -5921,7 +3721,7 @@ function initSettings() {
       }
       showToast('Widget script copied! Open Scriptable and paste to update your widget.');
     } catch (e) {
-      showToast('Could not copy automatically. Please copy from widgets/blackboarder-widget.js');
+      showToast('Could not copy the widget script. Check your connection and try again.');
     }
   });
 
@@ -6401,15 +4201,7 @@ function initModals() {
           addRoomInput.value = s.room;
         }
         if (addTimeInput && (!addTimeInput.value || addTimeInput.value === '23:59')) {
-          const parts = s.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-          if (parts) {
-            let h = parseInt(parts[1], 10);
-            const m = parts[2];
-            const isPm = parts[3].toUpperCase() === 'PM';
-            if (isPm && h < 12) h += 12;
-            if (!isPm && h === 12) h = 0;
-            addTimeInput.value = `${String(h).padStart(2, '0')}:${m}`;
-          }
+          addTimeInput.value = `${String(s.startHour).padStart(2, '0')}:${String(s.startMinute).padStart(2, '0')}`;
         }
         break;
       }
@@ -6581,20 +4373,10 @@ function initModals() {
       const defaultDate = new Date(`${dateVal}T23:59:00`);
       let appliedSched = false;
       const courseContext = `${course} ${task.courseCode || ''} ${title}`;
-      for (const s of STUDENT_CLASS_SCHEDULE) {
-        if (s.matcher && s.matcher.test(courseContext)) {
-          const parts = s.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-          if (parts) {
-            let h = parseInt(parts[1], 10);
-            const m = parseInt(parts[2], 10);
-            const isPm = parts[3].toUpperCase() === 'PM';
-            if (isPm && h < 12) h += 12;
-            if (!isPm && h === 12) h = 0;
-            defaultDate.setHours(h, m, 0, 0);
-            appliedSched = true;
-          }
-          break;
-        }
+      const sched = BB.findCourseSchedule(courseContext);
+      if (sched) {
+        defaultDate.setHours(sched.startHour, sched.startMinute, 0, 0);
+        appliedSched = true;
       }
       task.dueDate = defaultDate.toISOString();
       task.hasSpecificTime = appliedSched;
@@ -6701,20 +4483,10 @@ function initModals() {
       const defaultDate = new Date(`${dateVal}T23:59:00`);
       let appliedSched = false;
       const courseContext = `${course} ${title} ${notes}`;
-      for (const s of STUDENT_CLASS_SCHEDULE) {
-        if (s.matcher && s.matcher.test(courseContext)) {
-          const parts = s.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-          if (parts) {
-            let h = parseInt(parts[1], 10);
-            const m = parseInt(parts[2], 10);
-            const isPm = parts[3].toUpperCase() === 'PM';
-            if (isPm && h < 12) h += 12;
-            if (!isPm && h === 12) h = 0;
-            defaultDate.setHours(h, m, 0, 0);
-            appliedSched = true;
-          }
-          break;
-        }
+      const sched = BB.findCourseSchedule(courseContext);
+      if (sched) {
+        defaultDate.setHours(sched.startHour, sched.startMinute, 0, 0);
+        appliedSched = true;
       }
       dueDateIso = defaultDate.toISOString();
       hasSpecificTime = appliedSched;

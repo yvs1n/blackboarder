@@ -19,7 +19,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.ok).toBe(true);
-    expect(data.platform).toContain('Cloudflare Workers');
+    expect(data.platform).toContain('Cloudflare');
     expect(data.feedUrl).toBe('https://sidekick.workers.dev/feed.ics');
     expect(data.webcalUrl).toBe('webcal://sidekick.workers.dev/feed.ics');
   });

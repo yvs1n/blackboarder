@@ -15,6 +15,15 @@ function normalizeTaskKey(task: DeadlineTask): string {
   return `${task.courseCode}_${task.type}_${dateStr}_${cleanTitle}`;
 }
 
+export interface HybridExtractionResult {
+  tasks: DeadlineTask[];
+  /** Which stage produced the result, shown to the user in the web app */
+  tier: string;
+  /** True when the classifier decided the text is not about an assessment */
+  rejected?: boolean;
+  reason?: string;
+}
+
 /**
  * Hybrid extraction pipeline: runs local parser first, Jev fast triage gatekeeper,
  * and Generative AI for deep date timestamp synthesis when needed.
@@ -23,8 +32,19 @@ export async function extractDeadlinesHybrid(
   announcement: Announcement,
   settings: UserSettings
 ): Promise<DeadlineTask[]> {
+  return (await extractDeadlinesHybridDetailed(announcement, settings)).tasks;
+}
+
+/**
+ * Same pipeline as extractDeadlinesHybrid, but also reports which stage produced the tasks.
+ */
+export async function extractDeadlinesHybridDetailed(
+  announcement: Announcement,
+  settings: Pick<UserSettings, 'useAiExtraction' | 'openRouterApiKey' | 'openRouterModel' | 'useJevClassification' | 'jevApiKey'>
+): Promise<HybridExtractionResult> {
   // Step 1: Run local parser (instant, offline)
   const localTasks = extractDeadlinesLocally(announcement);
+  const localTier = 'Tier 1: Local Regex';
 
   // If local found deadlines and has generic 'other' category, refine category with Jev
   if (localTasks.length > 0) {
@@ -46,12 +66,12 @@ export async function extractDeadlinesHybrid(
         console.warn('[HybridExtractor] Jev category refinement failed:', err);
       }
     }
-    return localTasks;
+    return { tasks: localTasks, tier: localTier };
   }
 
   // If AI is disabled or no API key, return local results
   if (!settings.useAiExtraction || !settings.openRouterApiKey) {
-    return localTasks;
+    return { tasks: localTasks, tier: localTier };
   }
 
   // Check if announcement text contains academic assessment triggers
@@ -60,7 +80,7 @@ export async function extractDeadlinesHybrid(
   );
 
   if (!hasAcademicKeywords) {
-    return localTasks;
+    return { tasks: localTasks, tier: 'No academic keywords detected' };
   }
 
   // Step 2: Jev Fast Classification Gatekeeper (~100ms)
@@ -78,7 +98,12 @@ export async function extractDeadlinesHybrid(
         console.log(
           `[Blackboarder] Jev filtered out non-deadline announcement: "${announcement.title}" (${jevResult.category}, prob=${jevResult.deadlineProbability}). Skipping Generative AI.`
         );
-        return [];
+        return {
+          tasks: [],
+          tier: 'Tier 2: Jev Fast Gatekeeper',
+          rejected: true,
+          reason: `Filtered out as non-deadline (${jevResult.category}, prob=${jevResult.deadlineProbability}) without calling Generative AI!`
+        };
       }
 
       console.log(
@@ -105,10 +130,13 @@ export async function extractDeadlinesHybrid(
   );
 
   if (aiTasks.length > 0) {
-    return aiTasks;
+    return {
+      tasks: aiTasks,
+      tier: jevCategoryHint ? 'Tier 3: Generative AI (with Jev Gatekeeper Hint)' : 'Tier 3: Generative AI'
+    };
   }
 
-  return localTasks;
+  return { tasks: localTasks, tier: 'Tier 1 Fallback (AI found nothing)' };
 }
 
 /**

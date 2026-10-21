@@ -1,14 +1,14 @@
-const CACHE_NAME = 'sidekick-mobile-v19';
+// Filled in by scripts/build.js; a new build changes this file, so browsers install the new worker
+const BUILD_ID = '3911958c8f68';
+const CACHE_NAME = 'blackboarder-web-' + BUILD_ID;
 // Notification schedule lives in its own cache so app updates never wipe it
 const NOTIF_STORE_NAME = 'sidekick-notif-store';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=19',
+  './core.js',
   './app.js',
-  './app.js?v=19',
-  './version.json',
   './widget.js',
   './manifest.json',
   './icon-192.png',
@@ -35,7 +35,8 @@ function cleanResponse(response) {
 
 // Install: Cache core app shell with clean uncompressed, unredirected responses
 self.addEventListener('install', event => {
-  // No skipWaiting here: the page shows an Update button and sends SKIP_WAITING on user confirm
+  // Take over as soon as installed: the app checks version.json and reloads into the new build
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
       for (const asset of STATIC_ASSETS) {
@@ -127,6 +128,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Build info must always come from the network, or the app could never see a new build
+  if (url.origin === self.location.origin && url.pathname.endsWith('/version.json')) {
+    return;
+  }
+
   // 2. Tasks API: Network-first with cache fallback (same origin only)
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/tasks')) {
     event.respondWith(
@@ -151,8 +157,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Application Code (app.js, styles.css): Network-first with fast 2s timeout & offline cache fallback
-  if (url.origin === self.location.origin && (url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css'))) {
+  // 3. Application Code (app.js, core.js, styles.css): Network-first with fast 2s timeout & offline cache fallback
+  if (url.origin === self.location.origin && /\/(app|core)\.js$|\/styles\.css$/.test(url.pathname)) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE_NAME);

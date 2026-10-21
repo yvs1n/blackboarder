@@ -37,8 +37,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Release zip binaries (built via npm run package)
-release/*.zip
+# Release folder and zips (built via npm run package)
+release/
 
 # Personal schedule documents
 schedule.pdf

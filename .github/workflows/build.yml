@@ -1,0 +1,46 @@
+# Rebuilds the generated files on every push to main and commits them back, so the extension
+# (dist/), the web app (mobile-web/) and the standalone worker always match the source. The
+# extension and the web app check these files to update themselves.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-main
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx tsc --noEmit -p .
+      - run: npm test
+
+      # Pushes made with the workflow token do not start this workflow again.
+      # No "[skip ci]" in the message: Cloudflare Pages would then skip deploying it.
+      - name: Commit generated files
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Generated files are up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "build: update generated files for ${GITHUB_SHA::7}"
+          git push
