@@ -4976,3 +4976,16 @@ input, select, textarea, .pill, .filter-chip, .tab-btn, .quick-link-item,
   border-radius: 0 !important;
 }
 
+
+/* Bigger tap area for the small header and calendar buttons without changing how they look */
+.btn-icon::after,
+.btn-today::after,
+.btn-xs-manage-links::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.btn-today,
+.btn-xs-manage-links {
+  position: relative;
+}

@@ -1,10 +1,10 @@
 {
   "version": "1.0.0",
-  "build": "f9d71795d230",
-  "commit": "dc464e887c0bc00a2742631def90078c1cf516cb",
-  "shortCommit": "dc464e8",
-  "timestamp": "2026-10-21T17:56:57.494Z",
-  "message": "Share one copy of the app logic and make every part update itself from GitHub",
+  "build": "bb6c696410fd",
+  "commit": "4bb7583ca972680755651575428a5185a370c988",
+  "shortCommit": "4bb7583",
+  "timestamp": "2026-10-21T17:59:40.805Z",
+  "message": "fix: calendar showed every deadline on every day",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }
