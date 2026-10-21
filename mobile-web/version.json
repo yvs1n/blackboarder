@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0",
-  "build": "bb6c696410fd",
-  "commit": "4bb7583ca972680755651575428a5185a370c988",
-  "shortCommit": "4bb7583",
-  "timestamp": "2026-10-21T17:59:40.805Z",
-  "message": "fix: calendar showed every deadline on every day",
+  "version": "1.1.0",
+  "build": "8b695d1cb439",
+  "commit": "be14d2d66c82ebae9bde320104ddc73b42b5e6e4",
+  "shortCommit": "be14d2d",
+  "timestamp": "2026-10-21T19:40:52.310Z",
+  "message": "chore: reorganize folders so the project is easier to navigate",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

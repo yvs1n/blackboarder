@@ -277,6 +277,21 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 60;
+
+function checkRateLimit(key) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { windowStart: now, count: 1 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -331,6 +346,12 @@ export default {
     // 4. POST /api/sync (Receives deadlines from Chrome Extension)
     if (request.method === 'POST' && pathname === '/api/sync') {
       const body = await request.json().catch(() => ({}));
+      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const activeKey = syncKey || (body && body.syncKey) || '';
+
+      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+        return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      }
       if (!Array.isArray(body.tasks)) {
         return jsonResponse({ ok: false, error: 'Expected tasks array in payload' }, 400);
       }
@@ -339,7 +360,7 @@ export default {
         return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
       }
 
-      const activeKey = syncKey || (body && body.syncKey) || '';
+
       const syncTimestamp = new Date().toISOString();
       const existing = await getStoredTasks(env, activeKey);
       const payload = {
@@ -370,6 +391,12 @@ export default {
     // 5. POST /api/task-status
     if (request.method === 'POST' && pathname === '/api/task-status') {
       const body = await request.json().catch(() => ({}));
+      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const activeKey = syncKey || (body && body.syncKey) || '';
+
+      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+        return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      }
       const { taskId, status } = body;
       if (!taskId || !status) {
         return jsonResponse({ ok: false, error: 'Missing taskId or status' }, 400);
@@ -378,7 +405,7 @@ export default {
         return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
       }
 
-      const activeKey = syncKey || (body && body.syncKey) || '';
+
       const taskData = await getStoredTasks(env, activeKey);
       const tasks = taskData.tasks || [];
       const target = tasks.find(t => t.id === taskId);
@@ -396,6 +423,12 @@ export default {
     // 5b. POST /api/ai/classify - Edge Proxy for Jev System One
     if (request.method === 'POST' && pathname === '/api/ai/classify') {
       const body = await request.json().catch(() => ({}));
+      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const activeKey = syncKey || (body && body.syncKey) || '';
+
+      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+        return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      }
       const text = body.text || body.input || '';
       const apiKey = (env && env.JEV_API_KEY) || body.apiKey || '';
       if (!apiKey) return jsonResponse({ ok: false, error: 'Missing JEV_API_KEY' }, 401);
@@ -429,6 +462,12 @@ export default {
     // 5c. POST /api/ai/extract - Edge Proxy for OpenRouter Generative AI
     if (request.method === 'POST' && pathname === '/api/ai/extract') {
       const body = await request.json().catch(() => ({}));
+      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const activeKey = syncKey || (body && body.syncKey) || '';
+
+      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+        return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      }
       const { text, context, model } = body;
       const apiKey = (env && env.OPENROUTER_API_KEY) || body.apiKey || '';
       if (!apiKey) return jsonResponse({ ok: false, error: 'Missing OPENROUTER_API_KEY' }, 401);

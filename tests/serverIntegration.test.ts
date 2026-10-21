@@ -26,7 +26,7 @@ describe('Live HTTP Server & Sync Bridge Integration', () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);
-    expect(data.version).toBe('1.0.0');
+    expect(data.version).toBe('1.1.0');
     expect(data.feedUrl).toContain('/feed.ics');
     expect(data.webcalUrl).toContain('webcal://');
     expect(data.mobileUrl).toContain('http://');

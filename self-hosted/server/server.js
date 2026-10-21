@@ -106,6 +106,21 @@ function sendJson(res, statusCode, data) {
 /**
  * When SYNC_SECRET is set, write endpoints require a matching x-sync-secret header.
  */
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 60;
+
+function checkRateLimit(identifier) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(identifier);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(identifier, { windowStart: now, count: 1 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
 function isAuthorizedWrite(req) {
   const secret = process.env.SYNC_SECRET;
   if (!secret) return true;
@@ -157,7 +172,7 @@ const server = http.createServer(async (req, res) => {
       const localIp = getLocalIpAddress();
       return sendJson(res, 200, {
         ok: true,
-        version: '1.0.0',
+        version: '1.1.0',
         totalTasks: (data.tasks || []).length,
         lastSync: data.lastSync,
         localIp,
@@ -183,6 +198,10 @@ const server = http.createServer(async (req, res) => {
 
     // 3. POST /api/sync - Upload tasks from Chrome extension
     if (req.method === 'POST' && pathname === '/api/sync') {
+      const clientIp = req.socket.remoteAddress || 'localhost';
+      if (!checkRateLimit(`ip_${clientIp}`)) {
+        return sendJson(res, 429, { ok: false, error: 'Too many requests. Please slow down.' });
+      }
       if (!isAuthorizedWrite(req)) {
         return sendJson(res, 401, { ok: false, error: 'Invalid sync secret' });
       }
@@ -219,6 +238,10 @@ const server = http.createServer(async (req, res) => {
 
     // 4. POST /api/task-status - Mark task completed/pending from mobile web
     if (req.method === 'POST' && pathname === '/api/task-status') {
+      const clientIp = req.socket.remoteAddress || 'localhost';
+      if (!checkRateLimit(`ip_${clientIp}`)) {
+        return sendJson(res, 429, { ok: false, error: 'Too many requests. Please slow down.' });
+      }
       if (!isAuthorizedWrite(req)) {
         return sendJson(res, 401, { ok: false, error: 'Invalid sync secret' });
       }

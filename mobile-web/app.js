@@ -512,7 +512,7 @@ function initTheme() {
 function getQuickLinkCategoryMeta(category) {
   switch (category) {
     case 'attendance':
-      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: '#059669', bg: '#ecfdf5' };
+      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: '#0284c7', bg: '#e0f2fe' };
     case 'study_plan':
       return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: '#2563eb', bg: '#eff6ff' };
     case 'marks':
@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"bb6c696410fd","version":"1.0.0","shortCommit":"4bb7583","timestamp":"2026-10-21T17:59:40.805Z"};
+const APP_BUILD = {"build":"8b695d1cb439","version":"1.1.0","shortCommit":"be14d2d","timestamp":"2026-10-21T19:40:52.310Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3439,13 +3439,13 @@ function renderGradeTracker() {
       <div class="grade-course-stat-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
           <div style="display: flex; align-items: center; gap: 7px;">
-            <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${hex};"></span>
+            <span style="display: inline-block; width: 9px; height: 9px; border-radius: 0; background: ${hex};"></span>
             <span style="font-size: 12.5px; font-weight: 700; color: var(--text-main);">${escapeHtml(course.courseName)}</span>
           </div>
-          <span style="font-size: 11.5px; font-weight: 600; color: ${pct > 0 ? '#10b981' : 'var(--text-muted)'};">${stat.completedWeight}% / ${course.totalWeight}% (${pct}%)</span>
+          <span style="font-size: 11.5px; font-weight: 600; color: var(--text-main);">${stat.completedWeight}% / ${course.totalWeight}% (${pct}%)</span>
         </div>
         <div class="grade-progress-bar-bg">
-          <div style="width: ${pct}%; height: 100%; background: #10b981; transition: width 0.3s ease;"></div>
+          <div style="width: ${pct}%; height: 100%; background: var(--text-main); transition: width 0.3s ease;"></div>
           <div style="width: ${Math.min(100 - pct, Math.round((stat.pendingWeight / course.totalWeight) * 100))}%; height: 100%; background: #93c5fd; transition: width 0.3s ease;"></div>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 6px;">
@@ -3552,7 +3552,7 @@ function initSettings() {
     }
     if (activeKey) {
       if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
-      if (statusIndicator) statusIndicator.style.background = '#10b981';
+      if (statusIndicator) statusIndicator.style.background = 'var(--text-main)';
       if (instructionText) instructionText.textContent = `This device is linked to your personal cloud bucket (${activeKey}). Deadlines and calendar feeds are active.`;
       if (btnDisconnectDevice) btnDisconnectDevice.style.display = 'inline-block';
       if (btnCopySyncKey) btnCopySyncKey.style.display = 'inline-flex';
@@ -4105,6 +4105,7 @@ function initModals() {
   // Escape key closes modals
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      closeDaySheet();
       closeEditModal();
       closeAddModal();
       closeReadingSheet();
@@ -4313,7 +4314,7 @@ function initModals() {
 
             addBtn.disabled = true;
             addBtn.innerHTML = `${getSvgIcon('check', 'mr-1')} <span>Added</span>`;
-            addBtn.style.background = '#059669';
+            addBtn.style.background = 'var(--text-main)';
             addBtn.style.color = '#ffffff';
 
             showToast(`Added "${taskToAdd.title}" to deadlines!`);
@@ -4943,8 +4944,8 @@ function setOnboardingStep(step) {
     const statusDiv = document.getElementById('onboarding-pairing-status');
     if (statusDiv) {
       if (currentKey) {
-        statusDiv.innerHTML = `<span style="color: #10b981; display: inline-flex; align-items: center; gap: 6px;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+        statusDiv.innerHTML = `<span style="color: var(--text-main); display: inline-flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 0; background: var(--text-main);"></span>
           <span>✓ <strong>Device Paired:</strong> Connected to sync code <strong>${escapeHtml(currentKey)}</strong>. Your private cloud deadlines and calendar feed are live!</span>
         </span>`;
       } else {

@@ -1560,16 +1560,16 @@ function renderGradeTracker(tasks: DeadlineTask[]) {
     const pct = Math.min(100, Math.round((stat.completedWeight / (course.totalWeight || 100)) * 100));
 
     return `
-      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 6px; padding: 7px 10px;">
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 0; padding: 7px 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${hex};"></span>
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 0; background: ${hex};"></span>
             <span style="font-size: 11.5px; font-weight: 600; color: #f8fafc;">${escapeHtml(course.courseName)}</span>
           </div>
-          <span style="font-size: 10.5px; font-weight: 600; color: ${pct > 0 ? '#34d399' : '#94a3b8'};">${stat.completedWeight}% / ${course.totalWeight}% (${pct}%)</span>
+          <span style="font-size: 10.5px; font-weight: 600; color: #f8fafc;">${stat.completedWeight}% / ${course.totalWeight}% (${pct}%)</span>
         </div>
-        <div style="width: 100%; height: 5px; background: rgba(51, 65, 85, 0.7); border-radius: 9999px; overflow: hidden; display: flex;">
-          <div style="width: ${pct}%; height: 100%; background: #34d399; transition: width 0.3s ease;"></div>
+        <div style="width: 100%; height: 5px; background: rgba(51, 65, 85, 0.7); border-radius: 0; overflow: hidden; display: flex;">
+          <div style="width: ${pct}%; height: 100%; background: #f8fafc; transition: width 0.3s ease;"></div>
           <div style="width: ${Math.min(100 - pct, Math.round((stat.pendingWeight / course.totalWeight) * 100))}%; height: 100%; background: #38bdf8; transition: width 0.3s ease;"></div>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: #94a3b8; margin-top: 3px;">
@@ -2751,7 +2751,7 @@ async function scanActiveTab(fullRescan: boolean = false) {
       switchView('calendar');
     } else {
       btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Synced</span>`;
-      btnScanTab.style.background = '#059669';
+      btnScanTab.style.background = 'var(--text-main)';
       showScanBanner(`Up to date. Scanned ${announcements.length + directTasks.length} items with no new deadlines.`, 'info', 4500);
     }
 
@@ -3028,7 +3028,7 @@ function setupEvents() {
     if (resolved.weight !== undefined) {
       addWeightInput.value = String(resolved.weight);
       addWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay || '')}</b>: ${escapeHtml(resolved.syllabusNote || '')}`;
-      addWeightHint.style.color = '#166534';
+      addWeightHint.style.color = 'var(--text-main)';
     } else {
       addWeightHint.innerHTML = `${getSvgIcon('info', 'mr-1')} <span>Course or weight not found in syllabus database.</span>`;
       addWeightHint.style.color = '#718096';
@@ -3146,7 +3146,7 @@ function setupEvents() {
     if (resolved.weight !== undefined) {
       editWeightInput.value = String(resolved.weight);
       editWeightHint.innerHTML = `${getSvgIcon('scale', 'mr-1')} <b>${escapeHtml(resolved.weightDisplay || '')}</b>: ${escapeHtml(resolved.syllabusNote || '')}`;
-      editWeightHint.style.color = '#166534';
+      editWeightHint.style.color = 'var(--text-main)';
     } else {
       editWeightHint.innerHTML = `${getSvgIcon('info', 'mr-1')} <span>Course or weight not found in syllabus database.</span>`;
       editWeightHint.style.color = '#718096';
@@ -3199,7 +3199,7 @@ function setupEvents() {
           type: 'TOGGLE_BLACKBOARD_DARK_MODE',
           enabled
         }).catch(() => {
-          if (enabled && chrome.scripting && tab.url && /(?:sharjah\.ac\.ae|blackboard\.com|^file:\/\/)/i.test(tab.url)) {
+          if (enabled && chrome.scripting && tab.url && /(?:sharjah\.ac\.ae|blackboard\.com)/i.test(tab.url)) {
             chrome.scripting.insertCSS({
               target: { tabId, allFrames: true },
               files: ['blackboard-dark.css']
@@ -3550,7 +3550,7 @@ function getQuickLinkCategoryMeta(category: QuickLinkCategory): { label: string;
     case 'attendance':
       return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: '#0284c7', bg: '#e0f2fe' };
     case 'study_plan':
-      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: '#059669', bg: '#d1fae5' };
+      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'marks':
       return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: '#7c3aed', bg: '#ede9fe' };
     case 'portal':
@@ -4090,6 +4090,35 @@ function setupStorageAndSyncListeners() {
   } catch {}
 
   // Listen for window focus to pull latest updates if user edited on mobile
+  // Global Escape key listener to close active dialogs, drawers, and sheets
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      const editModal = document.getElementById('modal-edit-task');
+      if (editModal && editModal.style.display !== 'none') {
+        editModal.style.display = 'none';
+      }
+      const readingSheet = document.getElementById('modal-reading-sheet');
+      if (readingSheet && !readingSheet.classList.contains('hidden') && readingSheet.style.display !== 'none') {
+        readingSheet.style.display = 'none';
+        readingSheet.classList.add('hidden');
+      }
+      const quickLinks = document.getElementById('modal-quick-links');
+      if (quickLinks && !quickLinks.classList.contains('hidden') && quickLinks.style.display !== 'none') {
+        quickLinks.style.display = 'none';
+        quickLinks.classList.add('hidden');
+      }
+      const roomPicker = document.getElementById('modal-room-picker');
+      if (roomPicker && !roomPicker.classList.contains('hidden') && roomPicker.style.display !== 'none') {
+        roomPicker.style.display = 'none';
+        roomPicker.classList.add('hidden');
+      }
+      const drawer = document.getElementById('day-expanded-drawer');
+      if (drawer && !drawer.classList.contains('hidden')) {
+        drawer.classList.add('hidden');
+      }
+    }
+  });
+
   window.addEventListener('focus', () => {
     pullTasksFromFirebaseIfNewer();
   });
@@ -4513,15 +4542,6 @@ function initExtensionUpdateSystem() {
   };
 
   const downloadUpdatePackage = () => {
-    try {
-      if (chrome.downloads?.download) {
-        chrome.downloads.download({ url: GITHUB_ZIP_URL, filename: 'blackboarder-main.zip', conflictAction: 'overwrite', saveAs: false }, () => {
-          if (chrome.runtime?.lastError) openUrl(GITHUB_ZIP_URL);
-          else showToast('Downloaded. Easier: ' + ENABLE_HINT + ' and updates install by themselves.');
-        });
-        return;
-      }
-    } catch {}
     openUrl(GITHUB_ZIP_URL);
   };
 
@@ -4586,9 +4606,9 @@ function initExtensionUpdateSystem() {
         if (manual) showToast('A new version is available.');
         break;
       case 'dev-checkout':
-        setPill('Git checkout', 'gray');
+        setPill('Dev Build', 'gray');
         hideBanner();
-        if (statusDesc) statusDesc.textContent = `Loaded from a git clone (${installed}). Update with git pull, then npm run build.`;
+        if (statusDesc) statusDesc.textContent = `Development checkout: Auto-updates paused. Update with git pull && npm run build.`;
         if (manual) showToast('Git checkout: use git pull and npm run build.');
         break;
       case 'offline':

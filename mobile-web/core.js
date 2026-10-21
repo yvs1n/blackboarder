@@ -227,8 +227,8 @@ var BBCoreBundle = (function() {
 				startTime: "11:00",
 				endTime: "12:15",
 				room: "A8-103",
-				location: "UOS Men's Campus, A8, 103",
-				instructor: "Arain, Bilal"
+				location: "Room A8-103",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{
@@ -298,8 +298,8 @@ var BBCoreBundle = (function() {
 				startTime: "12:30",
 				endTime: "13:45",
 				room: "A12-110",
-				location: "UOS Men's Campus, A12, 110",
-				instructor: "Al-Teraifi, Randa"
+				location: "Room A12-110",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{
@@ -386,8 +386,8 @@ var BBCoreBundle = (function() {
 				startTime: "14:00",
 				endTime: "15:15",
 				room: "A3-184",
-				location: "UOS Men's Campus, A3, 184",
-				instructor: "Manzol, Mutwakil"
+				location: "Room A3-184",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{
@@ -484,8 +484,8 @@ var BBCoreBundle = (function() {
 				startTime: "14:00",
 				endTime: "16:45",
 				room: "Central Lab Men - 105",
-				location: "UOS Men's Campus, Central Laboratories (Men), 105",
-				instructor: "Khudada Mohamed, Abdulraheem"
+				location: "Central Lab 105",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{
@@ -553,8 +553,8 @@ var BBCoreBundle = (function() {
 				startTime: "11:00",
 				endTime: "12:15",
 				room: "A8-110",
-				location: "UOS Men's Campus, A8, 110",
-				instructor: "Ahriche, Amine"
+				location: "Room A8-110",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{
@@ -637,8 +637,8 @@ var BBCoreBundle = (function() {
 				startTime: "17:00",
 				endTime: "18:15",
 				room: "A8-TH005",
-				location: "UOS Men's Campus, A8, TH005",
-				instructor: "Haq, Zia Ul"
+				location: "Room A8-TH005",
+				instructor: "Course Faculty"
 			}],
 			syllabus: [
 				{

@@ -22,9 +22,9 @@
   --warning: #f59e0b;
   --warning-light: #fffbeb;
 
-  --success: #10b981;
-  --success-light: #ecfdf5;
-  --success-border: #a7f3d0;
+  --success: #18181b;
+  --success-light: #f4f4f5;
+  --success-border: #e4e4e7;
 
   /* Permanent Course Colors */
   --course-intro-eng: #7c7c7c;
@@ -71,9 +71,9 @@
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.15);
 
-  --success: #34d399;
-  --success-light: rgba(16, 185, 129, 0.15);
-  --success-border: rgba(16, 185, 129, 0.3);
+  --success: #f4f4f6;
+  --success-light: rgba(255, 255, 255, 0.08);
+  --success-border: rgba(255, 255, 255, 0.16);
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.55), 0 2px 4px -2px rgba(0, 0, 0, 0.45);
@@ -252,9 +252,9 @@
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
 [data-theme="dark"] .type-lab {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 [data-theme="dark"] .type-meeting {
   background: rgba(255, 255, 255, 0.08);
@@ -294,9 +294,9 @@
   border: 1px solid #3f3f4c;
 }
 [data-theme="dark"] .urgency-badge.completed {
-  background: rgba(16, 185, 129, 0.2);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border-strong);
 }
 
 /* Weight & Meta Pills in Dark Mode */
@@ -321,9 +321,9 @@
   border: 1px solid var(--surface-border);
 }
 [data-theme="dark"] .meta-pill.time-class {
-  background: rgba(16, 185, 129, 0.18);
-  color: #6ee7b7;
-  border-color: rgba(16, 185, 129, 0.35);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 /* Day Sheet Drawer in Dark Mode */
@@ -450,9 +450,9 @@
   color: var(--text-main);
 }
 [data-theme="dark"] .extract-status-pill.success {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #6ee7b7;
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-main);
 }
 [data-theme="dark"] .extract-status-pill.rejected {
   background: rgba(245, 158, 11, 0.18);
@@ -469,8 +469,16 @@
   color: var(--text-main);
 }
 [data-theme="dark"] .badge-weight-tag {
-  background: rgba(16, 185, 129, 0.2);
-  color: #6ee7b7;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 0;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 [data-theme="dark"] .badge-room-tag {
   background: var(--surface-hover);
@@ -833,7 +841,7 @@ body {
   padding: 3px 8px;
   border-radius: var(--radius-full);
   background: var(--success-light);
-  color: #059669;
+  color: var(--text-main);
   border: 1px solid var(--success-border);
   min-height: 28px;
 }
@@ -1402,8 +1410,8 @@ body {
 .cal-event-chip.is-completed .chip-icon,
 .cal-event-chip.is-completed .chip-svg-icon,
 .cal-event-chip.is-completed .ui-icon {
-  stroke: #10b981 !important;
-  color: #10b981 !important;
+  stroke: var(--text-muted) !important;
+  color: var(--text-muted) !important;
 }
 
 .cal-event-chip.is-completed .chip-text {
@@ -1421,8 +1429,8 @@ body {
 [data-theme="dark"] .cal-event-chip.is-completed .chip-icon,
 [data-theme="dark"] .cal-event-chip.is-completed .chip-svg-icon,
 [data-theme="dark"] .cal-event-chip.is-completed .ui-icon {
-  stroke: #34d399 !important;
-  color: #34d399 !important;
+  stroke: var(--text-muted) !important;
+  color: var(--text-muted) !important;
 }
 
 [data-theme="dark"] .cal-event-chip.is-completed .chip-text {
@@ -1782,10 +1790,10 @@ body {
   font-size: 9.5px;
   font-weight: 700;
   padding: 1px 5px;
-  border-radius: 4px;
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  border-radius: 0;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 .selected-day-actions {
@@ -2557,9 +2565,9 @@ body {
 }
 
 .meta-pill.time-class {
-  background: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 /* Submission & Graded Badges */
@@ -2589,16 +2597,16 @@ body {
   font-size: 10.5px;
   font-weight: 700;
   padding: 2.5px 7px;
-  border-radius: 4px;
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 0;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 [data-theme="dark"] .task-submitted-pill {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.4);
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border-color: var(--surface-border);
 }
 
 /* Doctor's announcement quote (expandable, antislop craft) */
@@ -2812,8 +2820,9 @@ body {
 }
 
 .info-badge.green {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 .info-badge.blue {
@@ -4081,9 +4090,9 @@ input:checked + .slider:before {
 }
 
 .extract-status-pill.success {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-main);
 }
 
 .extract-status-pill.rejected {
@@ -4159,9 +4168,10 @@ input:checked + .slider:before {
   font-size: 11px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: var(--radius-full);
-  background: #d1fae5;
-  color: #065f46;
+  border-radius: 0;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--surface-border);
 }
 
 .badge-room-tag {
@@ -4371,7 +4381,7 @@ input:checked + .slider:before {
 
 /* Category tokens */
 .ql-cat-attendance { --cat-color: #0284c7; --cat-bg: #e0f2fe; }
-.ql-cat-study_plan { --cat-color: #059669; --cat-bg: #d1fae5; }
+.ql-cat-study_plan { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
 .ql-cat-marks { --cat-color: #7c3aed; --cat-bg: #ede9fe; }
 .ql-cat-portal { --cat-color: #d97706; --cat-bg: #fef3c7; }
 .ql-cat-other { --cat-color: #475569; --cat-bg: #f1f5f9; }
@@ -4703,7 +4713,7 @@ input:checked + .slider:before {
 }
 
 .step-indicator.completed {
-  color: #10b981;
+  color: var(--text-main);
 }
 
 .step-num {
@@ -4727,9 +4737,9 @@ input:checked + .slider:before {
 }
 
 .step-indicator.completed .step-num {
-  background: #10b981;
+  background: var(--text-muted);
   color: #ffffff;
-  border-color: #10b981;
+  border-color: var(--text-muted);
 }
 
 .step-divider {
@@ -4969,10 +4979,7 @@ input:checked + .slider:before {
 .app-update-banner button#btn-update-banner-dismiss { background: transparent; color: #fff; }
 
 /* Swiss Grid Design System - Geometric 0px Borders & Flat Structure */
-.btn, .btn-primary, .btn-secondary, .btn-icon, .nav-item, .task-card,
-.cal-day-cell, .chip, .badge, .modal-content, .day-sheet-drawer,
-input, select, textarea, .pill, .filter-chip, .tab-btn, .quick-link-item,
-.card, .status-badge, .schedule-card, .bottom-sheet, .drawer-header {
+*, *::before, *::after {
   border-radius: 0 !important;
 }
 

@@ -191,7 +191,23 @@ export async function getSettings(): Promise<UserSettings> {
                     } catch {}
                   }
                 } else {
-                  resolved.syncKey = DEFAULT_SETTINGS.syncKey || '';
+                  resolved.syncKey = generateUniqueSyncKey();
+                  safeSetLocalStorage('bbs_persistent_sync_key', resolved.syncKey);
+                  safeSetLocalStorage(STORAGE_KEYS.SETTINGS, JSON.stringify(resolved));
+                  try {
+                    chrome.storage.local.set({
+                      [STORAGE_KEYS.SETTINGS]: resolved,
+                      bbs_persistent_sync_key: resolved.syncKey
+                    }, () => {});
+                  } catch {}
+                  if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
+                    try {
+                      chrome.storage.sync.set({
+                        bbs_sync_key: resolved.syncKey,
+                        bbs_settings_backup: resolved
+                      }, () => {});
+                    } catch {}
+                  }
                 }
 
                 resolve(resolved);
@@ -263,7 +279,7 @@ export async function getSettings(): Promise<UserSettings> {
   const persistentKey = normalizeRestoredSyncKey(
     resolved.syncKey || safeGetLocalStorage('bbs_persistent_sync_key')
   );
-  resolved.syncKey = persistentKey || DEFAULT_SETTINGS.syncKey || '';
+  resolved.syncKey = persistentKey || generateUniqueSyncKey();
   if (resolved.syncKey) {
     safeSetLocalStorage('bbs_persistent_sync_key', resolved.syncKey);
   }

@@ -114,7 +114,7 @@ The mobile web application (`mobile-web/`) is tailored for viewports `<= 640px` 
   - **Touch-Safe Animated Checkboxes**:
     - The checkbox displays an empty circular ring when uncompleted (`opacity: 0` on the SVG icon).
     - Tapping immediately applies the `.is-checked` class (turning the circle green with a crisp white checkmark) and adds a smooth fade/scale transition.
-    - 160ms later, the task is marked completed and synced. The list re-renders, and the next deadline moves into position with a clean, empty ring—completely preventing mobile touchscreen sticky hover checkmarks.
+    - 160ms later, the task is marked completed and synced. The list re-renders, and the next deadline moves into position with a clean, empty ring - completely preventing mobile touchscreen sticky hover checkmarks.
 
 ### C. 2-Column Campus Quick Links Grid
 - Quick links (Banner SSB Attendance, Study Plan & Degree Audit, Final Marks & Transcript, Blackboard Ultra Portal) display in a clean 2-column mobile grid.

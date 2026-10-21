@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-cQnsFlwy.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-DE4XArZk.css">
+  <title>Blackboarder</title>
+  <script type="module" crossorigin src="../../assets/popup-Bf29ZVsR.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-BKEH8Or3.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -232,17 +232,17 @@
         <div class="brand-title">Blackboarder <span class="brand-badge">UOS</span></div>
       </div>
       <div class="header-actions">
-        <button class="btn-scan-main" id="btn-scan-tab" title="Scan Current Blackboard Page (Shortcut: Alt+B)">
+        <button class="btn-scan-main" id="btn-scan-tab" title="Scan Current Blackboard Page (Shortcut: Alt+B)" aria-label="Scan Current Blackboard Page">
           <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
           <span>Scan</span>
         </button>
-        <button class="icon-btn" id="btn-quick-sync-mobile" title="Sync Deadlines to Mobile Phone">
+        <button class="icon-btn" id="btn-quick-sync-mobile" title="Sync Deadlines to Mobile Phone" aria-label="Sync Deadlines to Mobile Phone">
           <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
         </button>
-        <button class="icon-btn" id="btn-add-modal" title="Add Deadline Manually">
+        <button class="icon-btn" id="btn-add-modal" title="Add Deadline Manually" aria-label="Add Deadline Manually">
           <svg class="ui-icon"><use href="#icon-plus"></use></svg>
         </button>
-        <button class="icon-btn" id="btn-export-all-ics" title="Export All to .ICS Calendar">
+        <button class="icon-btn" id="btn-export-all-ics" title="Export All to .ICS Calendar" aria-label="Export All to .ICS Calendar">
           <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
         </button>
         <button class="icon-btn" id="btn-quick-links-toggle" title="Academic Quick Links (Attendance, Study Plan, Marks)" aria-label="Academic Quick Links">
@@ -251,7 +251,7 @@
         <button class="icon-btn" id="btn-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Dark or Light Mode">
           <svg class="ui-icon"><use href="#icon-moon"></use></svg>
         </button>
-        <button class="icon-btn" id="btn-settings-toggle" title="Settings">
+        <button class="icon-btn" id="btn-settings-toggle" title="Settings" aria-label="Settings">
           <svg class="ui-icon"><use href="#icon-settings"></use></svg>
         </button>
       </div>
@@ -324,15 +324,15 @@
     <!-- Month Navigation -->
     <div class="calendar-controls">
       <div class="calendar-title-group">
-        <button class="calendar-nav-btn" id="btn-cal-prev" title="Previous Month">
+        <button class="calendar-nav-btn" id="btn-cal-prev" title="Previous Month" aria-label="Previous Month">
           <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
         </button>
         <h2 class="calendar-month-title" id="cal-month-title">Month Year</h2>
-        <button class="calendar-nav-btn" id="btn-cal-next" title="Next Month">
+        <button class="calendar-nav-btn" id="btn-cal-next" title="Next Month" aria-label="Next Month">
           <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
         </button>
       </div>
-      <button class="calendar-today-btn" id="btn-cal-today">Today</button>
+      <button class="calendar-today-btn" id="btn-cal-today" aria-label="Jump to Today">Today</button>
     </div>
 
     <!-- Weekday headers (Monday first) -->
@@ -966,14 +966,14 @@
   </section>
 
   <!-- MODAL: Edit Task -->
-  <div id="modal-edit-task" class="modal-backdrop" style="display: none;">
+  <div id="modal-edit-task" class="modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-edit-task-title">
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 6px;">
           <svg class="ui-icon"><use href="#icon-pencil"></use></svg>
           <span>Edit Deadline</span>
         </h3>
-        <button type="button" class="modal-close-btn" id="btn-close-edit-modal">✕</button>
+        <button type="button" class="modal-close-btn" id="btn-close-edit-modal" aria-label="Close edit task dialog">✕</button>
       </div>
       <form id="form-edit-task">
         <input type="hidden" id="edit-task-id">
@@ -1598,6 +1598,6 @@
 
   <!-- Floating Action Toast Container -->
   <div id="toast-container" class="toast-container"></div>
-
+
 </body>
 </html>

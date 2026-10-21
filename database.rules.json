@@ -1,0 +1,17 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$syncKey": {
+        ".read": "$syncKey.length >= 6 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        ".write": "$syncKey.length >= 6 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        ".validate": "newData.hasChildren(['tasks']) && newData.child('tasks').isString() == false"
+      }
+    },
+    "data": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

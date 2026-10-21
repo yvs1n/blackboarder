@@ -30,7 +30,10 @@ function scrapeUltraStreamDueItems(knownDirectTaskIds?: Set<string>): DeadlineTa
   let consecutiveKnown = 0;
 
   // Find all elements containing "Due Date:" or "تاريخ الاستحقاق:"
-  const allElements = document.querySelectorAll('*');
+  const candidateScope = document.querySelectorAll(
+    '[role="feed"] *, .stream-item-container *, .stream-entry *, article *, .element-card *, [class*="activity-card"] *, [class*="stream-item"] *'
+  );
+  const allElements = candidateScope.length > 0 ? candidateScope : document.querySelectorAll('body *');
   const leafDateElements: Element[] = [];
 
   for (let i = 0; i < allElements.length; i++) {
@@ -483,7 +486,9 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
 
   // Strategy 3: Generic Announcement/Post container heuristic fallback
   if (results.length === 0) {
-    const genericPosts = document.querySelectorAll('[class*="announcement"], [class*="post"], [class*="notice"]');
+    const genericPosts = document.querySelectorAll(
+      '[class*="announcement"], [class*="post"], [class*="notice"], [role="feed"] > article, [role="feed"] > li, [role="region"] article, main article, [class*="stream-container"] > *'
+    );
     genericPosts.forEach((post, index) => {
       let text = post.textContent?.trim() || '';
       if (text.length > 30 && text.length < 5000) {
@@ -990,8 +995,13 @@ function teardownOrphanedContentScript() {
   }
   const floatingRoot = document.getElementById('bbs-floating-root');
   if (floatingRoot) {
-    floatingRoot.style.opacity = '0.5';
-    floatingRoot.style.cursor = 'not-allowed';
+    floatingRoot.style.opacity = '0.7';
+    floatingRoot.style.cursor = 'pointer';
+    const span = floatingRoot.querySelector('.bbs-pill-btn span');
+    if (span) {
+      span.textContent = 'Extension updated - reload tab (F5)';
+    }
+
     floatingRoot.title = 'Extension reloaded. Please refresh the page (F5) to reconnect.';
   }
 }
@@ -1287,6 +1297,9 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       return;
     }
     console.error('Error during Blackboard scan:', error);
+    if (interactive) {
+      showSidekickToast('Scan Notice', 'Blackboard scan encountered an issue. If page layout changed, try refreshing the tab.', 0);
+    }
   }
 }
 

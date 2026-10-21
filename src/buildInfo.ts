@@ -12,12 +12,12 @@ export interface BuildInfo {
 }
 
 export const BUILD_INFO: BuildInfo = {
-  "version": "1.0.0",
-  "build": "eabfdb8f90ff",
-  "commit": "d4e9c5b2d51c8454b1771f0ff08b0583381f7c01",
-  "shortCommit": "d4e9c5b",
-  "timestamp": "2026-10-21T18:15:03.624Z",
-  "message": "fix: popup fills the side panel and tabs, larger phone tap targets",
+  "version": "1.1.0",
+  "build": "25a8c8076d45",
+  "commit": "be14d2d66c82ebae9bde320104ddc73b42b5e6e4",
+  "shortCommit": "be14d2d",
+  "timestamp": "2026-10-21T19:40:52.085Z",
+  "message": "chore: reorganize folders so the project is easier to navigate",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
