@@ -187,12 +187,12 @@ describe('Pages worker isolation', () => {
   it('requires the secret for writes when SYNC_SECRET is configured', async () => {
     const guarded = { SKIP_FIREBASE: true, SYNC_SECRET: 's3cret' };
     const denied = await worker.fetch(
-      new Request('https://x.test/api/sync?key=BBS-SEC', { method: 'POST', body: JSON.stringify({ tasks: [] }) }),
+      new Request('https://x.test/api/sync?key=BBS-SECRET', { method: 'POST', body: JSON.stringify({ tasks: [] }) }),
       guarded
     );
     expect(denied.status).toBe(401);
     const allowed = await worker.fetch(
-      new Request('https://x.test/api/sync?key=BBS-SEC', {
+      new Request('https://x.test/api/sync?key=BBS-SECRET', {
         method: 'POST',
         body: JSON.stringify({ tasks: [] }),
         headers: { 'x-sync-secret': 's3cret' }
@@ -206,7 +206,7 @@ describe('Pages worker isolation', () => {
 describe('misc helpers', () => {
   it('generates well-formed sync keys', () => {
     for (let i = 0; i < 50; i++) {
-      expect(generateUniqueSyncKey()).toMatch(/^BBS-[A-HJ-NP-Z2-9]{6}$/);
+      expect(generateUniqueSyncKey()).toMatch(/^BBS-[A-HJ-NP-Z2-9]{10}$/);
     }
   });
 

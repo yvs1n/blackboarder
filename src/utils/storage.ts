@@ -130,7 +130,7 @@ export function getCachedQuickLinksSync(): QuickLink[] {
 
 export function generateUniqueSyncKey(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 symbols, so a random byte maps without bias
-  const bytes = new Uint8Array(6);
+  const bytes = new Uint8Array(10);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(bytes);
   } else {

@@ -986,6 +986,10 @@ function showExtensionReloadToast() {
 
 let activeStreamObserver: MutationObserver | null = null;
 
+// Marks the floating button this copy of the script made, so a copy left behind by an
+// extension update never relabels the button of the fresh copy that replaced it
+const CONTENT_INSTANCE_ID = Math.random().toString(36).slice(2);
+
 function teardownOrphanedContentScript() {
   if (activeStreamObserver) {
     try {
@@ -994,7 +998,7 @@ function teardownOrphanedContentScript() {
     activeStreamObserver = null;
   }
   const floatingRoot = document.getElementById('bbs-floating-root');
-  if (floatingRoot) {
+  if (floatingRoot && floatingRoot.dataset.instance === CONTENT_INSTANCE_ID) {
     floatingRoot.style.opacity = '0.7';
     floatingRoot.style.cursor = 'pointer';
     const span = floatingRoot.querySelector('.bbs-pill-btn span');
@@ -1065,10 +1069,14 @@ function showSidekickToast(title: string, message: string, taskCount: number = 0
  * Injects the floating quick-scan pill onto Blackboard pages.
  */
 function injectFloatingButton(onScanClick: () => void) {
-  if (document.getElementById('bbs-floating-root')) return;
+  const existing = document.getElementById('bbs-floating-root');
+  if (existing?.dataset.instance === CONTENT_INSTANCE_ID) return;
+  // A button from before an extension update no longer works; replace it
+  existing?.remove();
 
   const root = document.createElement('div');
   root.id = 'bbs-floating-root';
+  root.dataset.instance = CONTENT_INSTANCE_ID;
 
   const btn = document.createElement('div');
   btn.className = 'bbs-pill-btn';

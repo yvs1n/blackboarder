@@ -4686,7 +4686,7 @@ function initExtensionUpdateSystem() {
 
 function initApp() {
   // Synchronously initialize theme to eliminate light/dark flashes
-  if (window.innerWidth > 520 || window.location.search.includes('standalone=1')) {
+  if (window.innerWidth > 520 || window.location.search.includes('standalone=1') || window.location.search.includes('view=panel')) {
     document.documentElement.classList.add('is-standalone');
     document.body.classList.add('is-standalone');
   }

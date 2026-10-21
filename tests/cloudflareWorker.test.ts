@@ -47,7 +47,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
       }
     ];
 
-    const request = new Request('https://sidekick.workers.dev/api/sync', {
+    const request = new Request('https://sidekick.workers.dev/api/sync?key=BBS-TESTKEY1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tasks: testTasks, device: 'Laptop Extension' })
@@ -60,11 +60,11 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(data.count).toBe(1);
 
     // Verify stored in mock KV
-    expect(mockKvStore.has('bbs_tasks')).toBe(true);
+    expect(mockKvStore.has('bbs_tasks_BBS-TESTKEY1')).toBe(true);
   });
 
   it('GET /api/tasks retrieves synchronized tasks from Cloudflare KV', async () => {
-    const request = new Request('https://sidekick.workers.dev/api/tasks', { method: 'GET' });
+    const request = new Request('https://sidekick.workers.dev/api/tasks?key=BBS-TESTKEY1', { method: 'GET' });
     const response = await worker.fetch(request, mockEnv, {} as any);
 
     expect(response.status).toBe(200);
@@ -75,7 +75,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
   });
 
   it('GET /feed.ics serves RFC 5545 calendar feed dynamically from Cloudflare KV', async () => {
-    const request = new Request('https://sidekick.workers.dev/feed.ics', { method: 'GET' });
+    const request = new Request('https://sidekick.workers.dev/feed.ics?key=BBS-TESTKEY1', { method: 'GET' });
     const response = await worker.fetch(request, mockEnv, {} as any);
 
     expect(response.status).toBe(200);
@@ -106,7 +106,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
   });
 
   it('POST /api/task-status marks task as completed in Cloudflare KV', async () => {
-    const req = new Request('https://sidekick.workers.dev/api/task-status', {
+    const req = new Request('https://sidekick.workers.dev/api/task-status?key=BBS-TESTKEY1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId: 'cf-task-1', status: 'completed' })
@@ -120,7 +120,7 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
   });
 
   it('GET /feed.ics reflects completed task with checkmark, Done suffix, and alarm suppression', async () => {
-    const feedReq = new Request('https://sidekick.workers.dev/feed.ics', { method: 'GET' });
+    const feedReq = new Request('https://sidekick.workers.dev/feed.ics?key=BBS-TESTKEY1', { method: 'GET' });
     const feedRes = await worker.fetch(feedReq, mockEnv, {} as any);
 
     expect(feedRes.status).toBe(200);

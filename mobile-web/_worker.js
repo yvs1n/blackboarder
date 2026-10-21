@@ -281,16 +281,39 @@ const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 60;
 
-function checkRateLimit(key) {
+function checkRateLimit(key, max = RATE_LIMIT_MAX) {
   const now = Date.now();
+  if (rateLimitMap.size > 10000) rateLimitMap.clear();
   const entry = rateLimitMap.get(key);
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(key, { windowStart: now, count: 1 });
     return true;
   }
   entry.count++;
-  return entry.count <= RATE_LIMIT_MAX;
+  return entry.count <= max;
 }
+
+/** A usable sync key (the same rule as database.rules.json), or '' when missing or malformed. */
+function cleanSyncKey(raw) {
+  const key = String(raw || '').trim();
+  return /^[A-Za-z0-9_-]{8,64}$/.test(key) ? key : '';
+}
+
+function clientIpOf(request) {
+  return request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+}
+
+/*
+ * Limits each IP, and each sync key, separately: counting only per key would let someone guessing
+ * keys try a new key on every request. This map lives in one worker instance, so it slows abuse
+ * down rather than stopping it; add a Cloudflare rate limiting rule for hard limits.
+ */
+function isRateLimited(request, key, maxPerIp = RATE_LIMIT_MAX) {
+  if (!checkRateLimit(`ip_${clientIpOf(request)}`, maxPerIp)) return true;
+  return Boolean(key) && !checkRateLimit(`key_${key}`);
+}
+
+const KEY_REQUIRED_MESSAGE = 'A sync key is required. Pair this device from Settings in the Blackboarder extension.';
 
 export default {
   async fetch(request, env, ctx) {
@@ -310,18 +333,18 @@ export default {
       });
     }
 
-    const syncKey = url.searchParams.get('key') || request.headers.get('x-sync-key') || '';
+    const syncKey = cleanSyncKey(url.searchParams.get('key') || request.headers.get('x-sync-key') || '');
 
     // 2. GET /api/status
     if (request.method === 'GET' && pathname === '/api/status') {
-      const taskData = await getStoredTasks(env, syncKey);
+      if (isRateLimited(request, syncKey)) return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      const taskData = syncKey ? await getStoredTasks(env, syncKey) : emptyTasks();
       return jsonResponse({
         ok: true,
         platform: 'Cloudflare Pages Functions + Firebase',
-        firebaseDb: FIREBASE_DB_URL,
+        paired: Boolean(syncKey),
         totalTasks: (taskData.tasks || []).length,
         lastSync: taskData.lastSync,
-        syncKey: syncKey || 'default',
         mobileUrl: url.origin + (syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''),
         feedUrl: `${url.origin}/feed.ics${syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''}`,
         webcalUrl: `webcal://${url.host}/feed.ics${syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''}`
@@ -330,6 +353,8 @@ export default {
 
     // 3. GET /api/tasks
     if (request.method === 'GET' && pathname === '/api/tasks') {
+      if (!syncKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
+      if (isRateLimited(request, syncKey, 120)) return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       const taskData = await getStoredTasks(env, syncKey);
       return jsonResponse({
         ok: true,
@@ -339,17 +364,16 @@ export default {
         quickLinks: taskData.quickLinks || undefined,
         lastSync: taskData.lastSync,
         count: (taskData.tasks || []).length,
-        syncKey: syncKey || 'default'
+        syncKey
       });
     }
 
     // 4. POST /api/sync (Receives deadlines from Chrome Extension)
     if (request.method === 'POST' && pathname === '/api/sync') {
       const body = await request.json().catch(() => ({}));
-      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const activeKey = syncKey || (body && body.syncKey) || '';
-
-      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+      const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (!activeKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
+      if (isRateLimited(request, activeKey)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
       if (!Array.isArray(body.tasks)) {
@@ -368,7 +392,7 @@ export default {
         lastSync: syncTimestamp,
         device: body.device || 'Chrome Extension',
         count: body.tasks.length,
-        syncKey: activeKey || undefined,
+        syncKey: activeKey,
         // Keep quick links and deletion tombstones; dropping them here made deleted tasks reappear
         // Fields the caller did not send are kept from the stored copy instead of being wiped
         quickLinks: Array.isArray(body.quickLinks) ? body.quickLinks : existing.quickLinks,
@@ -383,7 +407,7 @@ export default {
         ok: true,
         count: body.tasks.length,
         lastSync: syncTimestamp,
-        syncKey: activeKey || 'default',
+        syncKey: activeKey,
         message: 'Synchronized successfully to Firebase Realtime Database'
       });
     }
@@ -391,10 +415,9 @@ export default {
     // 5. POST /api/task-status
     if (request.method === 'POST' && pathname === '/api/task-status') {
       const body = await request.json().catch(() => ({}));
-      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const activeKey = syncKey || (body && body.syncKey) || '';
-
-      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+      const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (!activeKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
+      if (isRateLimited(request, activeKey)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
       const { taskId, status } = body;
@@ -423,14 +446,12 @@ export default {
     // 5b. POST /api/ai/classify - Edge Proxy for Jev System One
     if (request.method === 'POST' && pathname === '/api/ai/classify') {
       const body = await request.json().catch(() => ({}));
-      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const activeKey = syncKey || (body && body.syncKey) || '';
-
-      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+      const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (isRateLimited(request, activeKey, 20)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
       const text = body.text || body.input || '';
-      const apiKey = (env && env.JEV_API_KEY) || body.apiKey || '';
+      const apiKey = body.apiKey || (activeKey && env && env.JEV_API_KEY) || '';
       if (!apiKey) return jsonResponse({ ok: false, error: 'Missing JEV_API_KEY' }, 401);
       if (!text) return jsonResponse({ ok: false, error: 'Missing announcement text' }, 400);
 
@@ -462,14 +483,12 @@ export default {
     // 5c. POST /api/ai/extract - Edge Proxy for OpenRouter Generative AI
     if (request.method === 'POST' && pathname === '/api/ai/extract') {
       const body = await request.json().catch(() => ({}));
-      const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const activeKey = syncKey || (body && body.syncKey) || '';
-
-      if (!checkRateLimit(activeKey ? `key_${activeKey}` : `ip_${clientIp}`)) {
+      const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (isRateLimited(request, activeKey, 20)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
       const { text, context, model } = body;
-      const apiKey = (env && env.OPENROUTER_API_KEY) || body.apiKey || '';
+      const apiKey = body.apiKey || (activeKey && env && env.OPENROUTER_API_KEY) || '';
       if (!apiKey) return jsonResponse({ ok: false, error: 'Missing OPENROUTER_API_KEY' }, 401);
       if (!text) return jsonResponse({ ok: false, error: 'Missing announcement text' }, 400);
 
@@ -506,10 +525,18 @@ export default {
 
     // 6. GET /feed.ics or /cal.ics (RFC 5545 WebCal feed for Apple Calendar & Google Calendar)
     if (request.method === 'GET' && (pathname === '/feed.ics' || pathname === '/cal.ics')) {
+      if (!syncKey) {
+        return new Response(KEY_REQUIRED_MESSAGE + ' Then copy the calendar link from the app.', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+      // Calendar services fetch from shared IPs, so the feed is limited per key only
+      if (!checkRateLimit(`feed_${syncKey}`)) return new Response('Too many requests', { status: 429 });
       const taskData = await getStoredTasks(env, syncKey);
 
       const icsString = generateIcsFeed(taskData.tasks || [], {
-        calendarName: syncKey ? `Blackboard Deadlines (${syncKey})` : 'Blackboard Deadlines (UOS)',
+        calendarName: `Blackboard Deadlines (${syncKey})`,
         description: 'Live academic deadlines feed from Blackboarder Cloud'
       });
 

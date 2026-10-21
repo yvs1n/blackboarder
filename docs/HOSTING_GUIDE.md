@@ -38,9 +38,19 @@ Every push to `main` now deploys by itself. The repository's GitHub Actions work
    npx vercel
    ```
 2. When prompted:
-   - Set the root directory to `./mobile-web` (or deploy from inside `release/website`).
+   - Deploy from the **repository root** (not `mobile-web`), so Vercel picks up `vercel.json` and the `api/` folder.
    - Accept the default deployment settings.
 3. Your web dashboard is live at `https://<project-name>.vercel.app`.
+
+On Vercel, `api/[...path].js` runs the same backend as Cloudflare (`mobile-web/_worker.js`), so sync, the calendar feed and the security checks behave the same on both hosts. Optional environment variables: `FIREBASE_DB_URL`, `SYNC_SECRET`, `JEV_API_KEY`, `OPENROUTER_API_KEY`.
+
+---
+
+## Securing Firebase and the API (do this once)
+
+1. **Publish the database rules.** Open the Firebase console > Realtime Database > **Rules**, paste the contents of `database.rules.json`, and click **Publish**. The file in the repository does nothing until it is published. These rules close the old shared bucket at the root and only allow each student's own `users/<sync key>` folder.
+2. **Every request needs a sync key.** The API and calendar feed answer `400` when the link has no `?key=`. If you subscribed to the calendar before this change with a link that had no key, copy the link again from Settings and re-subscribe.
+3. **Optional hard rate limits.** The built-in limit (60 requests per minute per IP and per key) lives in each worker instance, so it slows abuse rather than stopping it. For a strict limit, add a rate limiting rule for `/api/*` in the Cloudflare dashboard (Security > WAF > Rate limiting rules).
 
 ---
 

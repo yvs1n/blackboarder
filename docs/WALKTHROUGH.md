@@ -172,7 +172,7 @@ blackboarder/
 |-- scripts/              Build, packaging and icon scripts
 |-- tests/                Automated tests
 |
-|-- api/                  Vercel serverless functions (only used when hosting on Vercel)
+|-- api/                  Vercel entry point; runs the same backend as mobile-web/_worker.js
 |-- self-hosted/          Other ways to run the backend
 |   |-- cloudflare-worker/   Single-file Cloudflare Worker (generated)
 |   `-- server/              Node server for your own computer or Wi-Fi

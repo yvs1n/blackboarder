@@ -199,8 +199,8 @@ describe('Multi-User Sync Key Isolation Suite', () => {
       const key1 = generateUniqueSyncKey();
       const key2 = generateUniqueSyncKey();
 
-      expect(key1).toMatch(/^BBS-[A-Z0-9]{6}$/);
-      expect(key2).toMatch(/^BBS-[A-Z0-9]{6}$/);
+      expect(key1).toMatch(/^BBS-[A-Z0-9]{10}$/);
+      expect(key2).toMatch(/^BBS-[A-Z0-9]{10}$/);
       expect(key1).not.toBe(key2);
     });
 

@@ -20,7 +20,7 @@
     }
   },
   "side_panel": {
-    "default_path": "src/popup/index.html"
+    "default_path": "src/popup/index.html?view=panel"
   },
   "background": {
     "service_worker": "background.js"
@@ -59,7 +59,6 @@
     "alarms",
     "notifications",
     "sidePanel",
-
     "tabs",
     "nativeMessaging"
   ],

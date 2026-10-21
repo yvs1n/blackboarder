@@ -45,7 +45,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
       }
     ];
 
-    const req = new Request('https://blackboarder.pages.dev/api/sync', {
+    const req = new Request('https://blackboarder.pages.dev/api/sync?key=BBS-TESTKEY1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tasks: testTasks })
@@ -59,7 +59,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
   });
 
   it('GET /api/tasks retrieves saved tasks', async () => {
-    const req = new Request('https://blackboarder.pages.dev/api/tasks', { method: 'GET' });
+    const req = new Request('https://blackboarder.pages.dev/api/tasks?key=BBS-TESTKEY1', { method: 'GET' });
     const res = await pagesWorker.fetch(req, mockEnv, {} as any);
 
     expect(res.status).toBe(200);
@@ -70,7 +70,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
   });
 
   it('GET /feed.ics serves RFC 5545 feed from Cloudflare Pages', async () => {
-    const req = new Request('https://blackboarder.pages.dev/feed.ics', { method: 'GET' });
+    const req = new Request('https://blackboarder.pages.dev/feed.ics?key=BBS-TESTKEY1', { method: 'GET' });
     const res = await pagesWorker.fetch(req, mockEnv, {} as any);
 
     expect(res.status).toBe(200);
@@ -84,7 +84,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
 
   it('GET /feed.ics reflects completed task with checkmark, Done suffix, and alarm suppression', async () => {
     // Update task to completed
-    const statusReq = new Request('https://blackboarder.pages.dev/api/task-status', {
+    const statusReq = new Request('https://blackboarder.pages.dev/api/task-status?key=BBS-TESTKEY1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId: 'pages-task-1', status: 'completed' })
@@ -92,7 +92,7 @@ describe('Cloudflare Pages _worker.js Handler', () => {
     const statusRes = await pagesWorker.fetch(statusReq, mockEnv, {} as any);
     expect(statusRes.status).toBe(200);
 
-    const req = new Request('https://blackboarder.pages.dev/feed.ics', { method: 'GET' });
+    const req = new Request('https://blackboarder.pages.dev/feed.ics?key=BBS-TESTKEY1', { method: 'GET' });
     const res = await pagesWorker.fetch(req, mockEnv, {} as any);
 
     expect(res.status).toBe(200);

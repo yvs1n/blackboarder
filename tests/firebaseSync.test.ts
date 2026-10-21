@@ -108,7 +108,7 @@ describe('Firebase Realtime Database Sync Bridge', () => {
       new Response(JSON.stringify(fbPayload), { status: 200 })
     );
 
-    const req = new Request('https://blackboarder.pages.dev/api/tasks', { method: 'GET' });
+    const req = new Request('https://blackboarder.pages.dev/api/tasks?key=BBS-TESTKEY1', { method: 'GET' });
     const res = await pagesWorker.fetch(req, {} as any, {} as any);
 
     expect(res.status).toBe(200);
@@ -131,7 +131,7 @@ describe('Firebase Realtime Database Sync Bridge', () => {
       new Response(JSON.stringify(fbPayload), { status: 200 })
     );
 
-    const req = new Request('https://blackboarder.pages.dev/feed.ics', { method: 'GET' });
+    const req = new Request('https://blackboarder.pages.dev/feed.ics?key=BBS-TESTKEY1', { method: 'GET' });
     const res = await pagesWorker.fetch(req, {} as any, {} as any);
 
     expect(res.status).toBe(200);

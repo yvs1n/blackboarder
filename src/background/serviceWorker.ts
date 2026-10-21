@@ -217,6 +217,26 @@ async function reinjectDarkModeIntoOpenBlackboardTabs() {
   } catch {}
 }
 
+/*
+ * After an update or reload, Chrome cuts already-open tabs off from the extension. Their old
+ * scraper stops working (its button says "reload tab"), so load a fresh copy into those tabs.
+ */
+async function reinjectScraperIntoOpenBlackboardTabs() {
+  try {
+    if (!chrome.tabs?.query || !chrome.scripting) return;
+    const entry = chrome.runtime.getManifest().content_scripts?.find(cs => cs.js?.includes('content.js'));
+    if (!entry?.matches || !entry.js) return;
+    const tabs = await chrome.tabs.query({ url: entry.matches });
+    for (const tab of tabs) {
+      if (!tab.id || tab.discarded) continue;
+      try {
+        if (entry.css?.length) await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: entry.css });
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: entry.js });
+      } catch {}
+    }
+  } catch {}
+}
+
 // Run immediately when service worker wakes/reloads
 reinjectDarkModeIntoOpenBlackboardTabs();
 
@@ -224,11 +244,13 @@ reinjectDarkModeIntoOpenBlackboardTabs();
 initAutoUpdate();
 
 // Listeners
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 30 });
   scheduleMidnightAlarm();
   getUserCourses().catch(() => {});
   reinjectDarkModeIntoOpenBlackboardTabs();
+  // A Chrome update keeps content scripts alive, so reload them only after our own install or update
+  if (details?.reason === 'install' || details?.reason === 'update') reinjectScraperIntoOpenBlackboardTabs();
   pullTasksFromFirebaseToLocal().then(() => updateExtensionBadge());
 });
 

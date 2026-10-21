@@ -4,14 +4,15 @@
     ".write": false,
     "users": {
       "$syncKey": {
-        ".read": "$syncKey.length >= 6 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
-        ".write": "$syncKey.length >= 6 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
-        ".validate": "newData.hasChildren(['tasks']) && newData.child('tasks').isString() == false"
+        ".read": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        ".write": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        "data": {
+          ".validate": "newData.hasChild('tasks')"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
-    },
-    "data": {
-      ".read": false,
-      ".write": false
     }
   }
 }

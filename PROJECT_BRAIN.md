@@ -3,6 +3,8 @@
 > **The Architectural Master Document, Evolutionary Memory, and Engineering Blueprint for Blackboarder.**  
 > *Target Platform: University of Sharjah (UOS) & Standard Blackboard Learn / Ultra Portals.*  
 > *Current Release: v1.1.0 (Milestone Release) · Repository: [yvs1n/blackboarder](https://github.com/yvs1n/blackboarder)*
+>
+> **This is a living document.** Read it regularly: at the start of every session, before each new task, and before changing an area it covers. Update it in the same commit as any change that makes a section stale. Log each chunk of work in [section 11](#11-progress-log). *Last updated: 2026-10-22.*
 
 ---
 
@@ -17,6 +19,7 @@
 8. [Comprehensive Testing & Quality Assurance](#8-comprehensive-testing--quality-assurance)
 9. [Complete Codebase Directory & File Blueprint](#9-complete-codebase-directory--file-blueprint)
 10. [Developer Runbook & Future Maintenance Guide](#10-developer-runbook--future-maintenance-guide)
+11. [Progress Log](#11-progress-log)
 
 ---
 
@@ -32,7 +35,7 @@ University course portals (specifically **Blackboard Learn** and **Blackboard Ul
 **Blackboarder** is a full-stack, offline-first academic companion suite engineered specifically for students:
 1. **Manifest V3 Chromium Extension**: Injects into Blackboard Ultra streams and course announcements, parses deadlines using hybrid local regex + AI triage, and manages tasks within a razor-sharp popup interface.
 2. **Offline-First Companion PWA**: A mobile web application running locally via Service Workers, providing full calendar grids, task drawers, quick links, and grade tracking without requiring Blackboard login.
-3. **Multi-Tenant Cloud Sync Engine**: Synchronizes tasks and settings seamlessly between the extension and mobile web app using isolated student sync keys (`BBS-XXXXXX`) across Firebase Realtime Database, a self-hosted Node.js server, and Cloudflare Pages/Workers.
+3. **Multi-Tenant Cloud Sync Engine**: Synchronizes tasks and settings seamlessly between the extension and mobile web app using isolated student sync keys (`BBS-` plus 10 random characters) across Firebase Realtime Database, a self-hosted Node.js server, and Cloudflare Pages/Workers.
 4. **Live RFC 5545 WebCal Feed (`.ics`)**: Generates dynamic HTTP/HTTPS calendar subscription links compatible with Apple Calendar (iOS/macOS), Google Calendar, and Microsoft Outlook.
 
 ---
@@ -62,8 +65,8 @@ The user requested a thorough audit to make the repository ready as a production
 | Audit Category | Identified Vulnerability / Defect | Remediation Implemented |
 | :--- | :--- | :--- |
 | **Sync Security** | Firebase Realtime Database permitted global root reads/writes. Anyone with the database URL could read/overwrite all student data. | Implemented `database.rules.json` enforcing strict multi-tenant path isolation (`/users/{syncKey}`). Disallowed root dumps (`.read: false`, `.write: false`). |
-| **Sync Keys** | All installs defaulted to empty string or global shared key. | Added cryptographically random sync key auto-generation (`BBS-XXXXXX`), isolating every student into a private namespace. |
-| **Rate Limiting** | Public sync endpoints had no rate limits, allowing DoS or credential enumeration. | Implemented in-memory sliding-window rate limiters (60 req/min per IP) across `api/sync.js`, `mobile-web/_worker.js`, and `self-hosted/server/server.js`. |
+| **Sync Keys** | All installs defaulted to empty string or global shared key. | Added cryptographically random sync key auto-generation (`BBS-` plus random characters, 10 since 2026-10-22), isolating every student into a private namespace. |
+| **Rate Limiting** | Public sync endpoints had no rate limits, allowing DoS or credential enumeration. | Implemented in-memory rate limiters (60 req/min) in `mobile-web/_worker.js` and `self-hosted/server/server.js`. Since 2026-10-22 the worker limits per IP and per key, and Vercel runs the same worker (see 4.3). |
 | **Personal Privacy** | Real faculty names and proprietary syllabus PDFs were stored in the repository. | Anonymized schedules to generic `Course Faculty`, purged proprietary PDFs, and created `docs/syllabus/README.md`. |
 | **Permissions** | Extension manifest requested overly broad `file:///*` matches and unnecessary `downloads` API. | Removed `file:///*` and `downloads` permissions. Replaced with standard in-tab browser downloads. |
 | **Scraper Resilience** | Scraper used heavy `querySelectorAll('*')` traversals and broke on Blackboard DOM shifts. | Scoped DOM queries to `[role="feed"] *`, added Strategy 3 fallback selectors, and hardened against `Extension context invalidated` on reload. |
@@ -80,7 +83,8 @@ The user requested a thorough audit to make the repository ready as a production
 - **Root Cause**: `@media (min-height: 660px), (max-width: 470px), (min-width: 500px)` in `popup.css` triggered on high-DPI displays, stripping fixed dimensions and enabling dynamic shrink-to-fit sizing.
 - **Fix**:
   - Hardcoded fixed dimensions in `src/popup/popup.css`: `width: 480px; min-width: 480px; max-width: 480px; height: 600px; min-height: 600px; max-height: 600px;`.
-  - Added standalone browser tab detection in `src/popup/popup.ts` that applies `.is-standalone` only when explicitly opened in full tabs or side panels.
+  - Added standalone browser tab detection in `src/popup/popup.ts` that applies `.is-standalone` when the window is wider than 520px or the URL has `standalone=1` or `view=panel`.
+  - The side panel opens `src/popup/index.html?view=panel` (set in `public/manifest.json`). Side panels can be narrower than 520px, so without this flag the fixed 480px layout clipped the course chips and calendar.
 
 ### 2.5 Companion "Last Updated" Truncation Fix
 - **User Directive**: Ensure the companion header text indicating when the app was last updated is never cut off with an ellipsis.
@@ -161,7 +165,7 @@ graph TB
 ## 4. Security, Privacy & Multi-Tenant Data Isolation
 
 ### 4.1 Multi-Tenant Firebase Realtime Database Rules
-In `database.rules.json`, public root access is forbidden. Every student's data is isolated beneath their unique `syncKey`:
+In `database.rules.json`, public root access is forbidden. Every student's data lives at `users/{syncKey}/data`, the path all clients write:
 
 ```json
 {
@@ -170,33 +174,31 @@ In `database.rules.json`, public root access is forbidden. Every student's data 
     ".write": false,
     "users": {
       "$syncKey": {
-        ".read": "$syncKey.length >= 8 && $syncKey.length <= 128",
-        ".write": "$syncKey.length >= 8 && $syncKey.length <= 128",
-        ".validate": "newData.hasChildren(['tasks']) || newData.hasChildren(['settings']) || newData.hasChildren(['lastSync'])"
+        ".read": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        ".write": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
+        "data": { ".validate": "newData.hasChild('tasks')" },
+        "$other": { ".validate": false }
       }
     }
   }
 }
 ```
+- An earlier version put `.validate` on `users/{syncKey}` itself and asked for a `tasks` child there. Clients write one level deeper (`.../data`), so that rule would have rejected every sync.
+- **The file only takes effect once it is published** in the Firebase console (Realtime Database > Rules). Check the live rules match this file after any change.
+- The legacy shared bucket at the root (`/data.json`) is now closed to clients by these rules.
 
 ### 4.2 Automatic Sync Key Provisioning
-On first run, the extension evaluates:
-```typescript
-if (!settings.syncKey || settings.syncKey.trim() === '') {
-  const bytes = new Uint8Array(4);
-  crypto.getRandomValues(bytes);
-  const randomHex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-  settings.syncKey = `BBS-${randomHex}`;
-  await saveSettings(settings);
-}
-```
-Students pair devices by scanning a QR code or entering their personal `BBS-XXXXXX` key into the Companion PWA settings.
+`generateUniqueSyncKey()` in `src/utils/storage.ts` makes `BBS-` plus 10 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. The alphabet has 32 symbols, so each random byte maps without bias, giving 50 bits of randomness. Keys from older builds (6 characters, e.g. `BBS-AB12CD`) stay valid because the rules and the worker accept any key of 8 to 64 characters from `A-Z a-z 0-9 _ -`.
 
-### 4.3 In-Memory Sliding-Window Rate Limiting
-To defend against brute-force attacks and denial-of-service, all sync and feed endpoints implement strict rate limiting:
-- **Threshold**: 60 requests per minute per IP address.
-- **Algorithm**: In-memory sliding window that tracks timestamps and evicts entries older than 60 seconds.
-- **Response**: Standard HTTP `429 Too Many Requests` with `Retry-After: 60` headers.
+Students pair devices by scanning a QR code or entering their personal key into the Companion PWA settings.
+
+### 4.3 Backend Request Rules (`mobile-web/_worker.js`)
+`mobile-web/_worker.js` is the single backend for Cloudflare Pages, the standalone Cloudflare Worker, and Vercel (through `api/[...path].js`).
+- **A sync key is required.** `/api/tasks`, `/api/sync`, `/api/task-status` and `/feed.ics` return `400` without a valid key (`cleanSyncKey()`, same pattern as the Firebase rules). Nothing falls back to a shared default bucket.
+- `/api/status` reports `paired: true/false` and only reads data when a key is given.
+- **Rate limiting:** an in-memory fixed one-minute window per worker instance. It limits each IP and each key separately (`isRateLimited()`), so guessing many keys from one IP does not help. Defaults are 60 requests per minute, 120 for `/api/tasks` and 20 for the AI routes. The calendar feed is limited per key only, because calendar services fetch from shared IPs. Over the limit returns `429`. Because the limit lives in one instance it slows abuse but does not stop it; add a Cloudflare rate limiting rule for hard limits.
+- **AI keys:** the server's own `JEV_API_KEY` / `OPENROUTER_API_KEY` are only used for requests that carry a sync key; otherwise the caller must supply their own `apiKey`.
+- The self-hosted LAN server (`self-hosted/server/server.js`) still accepts requests without a key. That is acceptable for single-user local use only.
 
 ---
 
@@ -270,7 +272,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (322 tests across 34 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (329 tests across 35 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates `landing/index.html` mockup header: `<span>Blackboarder v${version}</span>`.
@@ -291,10 +293,11 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **34 test files comprising 322 automated tests** running on Vitest:
+Blackboarder is covered by **35 test files comprising 329 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
+| `tests/syncSecurity.test.ts` | 7 | Key-required API routes (400), per-IP rate limiting, AI key lending, Firebase rules shape, and the Vercel adapter. |
 | `tests/syncKeyIsolation.test.ts` | 11 | Multi-tenant Firebase namespace isolation and unauthorized path rejection. |
 | `tests/serverIntegration.test.ts` | 6 | Live HTTP sync bridge, rate limiter sliding window, and 429 status codes. |
 | `tests/pagesWorker.test.ts` | 6 | Cloudflare Pages edge worker, rate limiting, and ICS feed routes. |
@@ -309,7 +312,7 @@ Blackboarder is covered by **34 test files comprising 322 automated tests** runn
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
 | *Other 21 Test Suites* | 188 | Regex extraction, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **322** | **100% Passing** |
+| **Total** | **329** | **100% Passing** |
 
 ---
 
@@ -320,8 +323,7 @@ blackboard_sidekick/
 ├── .github/
 │   └── workflows/build.yml           # CI/CD: Automated build, test, and sync verification
 ├── api/
-│   ├── sync.js                       # Vercel serverless sync endpoint with rate limiter
-│   └── task-status.js                # Task completion status bridge
+│   └── [...path].js                  # Vercel adapter: runs mobile-web/_worker.js for /api/* and the feed
 ├── assets/                           # Branding assets and logo
 ├── dist/                             # Compiled Chrome Extension MV3 (Load Unpacked)
 │   ├── background.js                 # Service worker bundle
@@ -370,11 +372,12 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 34 Vitest test suites (322 tests)
+├── tests/                            # 35 Vitest test suites (329 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
 ├── package.json                      # Project dependencies, scripts, and version (v1.1.0)
+├── CLAUDE.md                         # Loads this file into every Claude Code session
 ├── PROJECT_BRAIN.md                  # This master knowledge-base document
 └── README.md                         # Public GitHub README with live badges
 ```
@@ -394,7 +397,7 @@ npm run build
 # Lint & Hygiene: Validates TypeScript, Swiss 0px, Two-Tone colors, typography, and version sync
 npm run lint
 
-# Testing: Runs all 34 Vitest test suites
+# Testing: Runs all Vitest test suites
 npm test
 
 # Release Packaging: Builds extension, runs tests, and packages release zips
@@ -425,7 +428,32 @@ For any human or AI assistant continuing work on Blackboarder:
 2. **Never Reintroduce Prohibited Neon Greens**: Stick to clean monochrome neutral tokens.
 3. **Never Use Em-Dashes (`—`)**: Always use standard hyphens (`-`).
 4. **Never Break Multi-Tenant Isolation**: Never write to root `/` in Firebase; always scope reads and writes to `/users/{syncKey}`.
-5. **Always Run `npm run lint` and `npm test` Before Committing**: Ensure all 34 test suites pass 100%.
+5. **Always Run `npm run lint` and `npm test` Before Committing**: Ensure every test suite passes 100%.
+6. **Read and Keep This File Current**: Read it at the start of every session and before each task. Any change that makes a section here stale updates that section in the same commit, and each chunk of work gets an entry in section 11.
+
+---
+
+## 11. Progress Log
+
+Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Sync security hardening and v1.1.0 follow-up (uncommitted)
+Reviewed the v1.1.0 commits against the seven audit areas (sync security, personal data, permissions, scraper robustness, popup logic and a11y, project hygiene, test gaps). Most were covered; these gaps were fixed:
+- **Firebase rules** rewritten so they match the real data path `users/{key}/data` (see 4.1).
+- **Worker** requires a valid sync key on every data route, limits per IP and per key, and only lends server AI keys to paired devices (see 4.3).
+- **Vercel**: the old `api/feed.js`, `api/status.js`, `api/sync.js` and `api/tasks.js` were removed. They read without a key, used a broken `server/data` path, fell back to sample data, and wiped quick links and tombstones. `api/[...path].js` now runs the shared worker.
+- **Side panel** opens with `?view=panel` so it gets the full-width layout instead of clipping.
+- **Sync keys** are now 10 random characters; old keys keep working.
+- **Tests**: existing worker tests now send a key; new `tests/syncSecurity.test.ts` (7 tests).
+
+Still open:
+- Re-inject `content.js` / `content.css` into open Blackboard tabs after an extension update, and give the floating button an instance id so a stale copy cannot relabel the fresh one (`src/background/serviceWorker.ts`, `src/content/scraper.ts`).
+- CHANGELOG, HOSTING_GUIDE and README updates; full build, lint, test; commit and push.
+
+Owner actions:
+- Publish `database.rules.json` in the Firebase console.
+- Calendar links without `?key=` stop working; re-copy the calendar link from the app.
+- Optionally delete the old shared `/data.json` bucket in Firebase.
 
 ---
 
