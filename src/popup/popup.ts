@@ -3410,7 +3410,7 @@ function setupEvents() {
       alert(`Successfully synchronized ${currentTasks.length} deadlines with Firebase Realtime Database!\n\nBoth laptop and mobile devices are now up to date.`);
     } else {
       if (statusEl) {
-        statusEl.innerHTML = `<span style="color: #dc2626; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>${escapeHtml(fbRes.message || serverRes.message || 'Sync error')}</span></span>`;
+        statusEl.innerHTML = `<span style="color: var(--text-main); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>${escapeHtml(fbRes.message || serverRes.message || 'Sync error')}</span></span>`;
       }
       alert(`Mobile sync failed: ${fbRes.message || serverRes.message}`);
     }

@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"959afe15d329","version":"1.1.0","shortCommit":"f422954","timestamp":"2026-10-22T05:51:08.661Z"};
+const APP_BUILD = {"build":"e6d2848d2945","version":"1.1.0","shortCommit":"c2886ed","timestamp":"2026-10-22T05:54:43.174Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -2982,7 +2982,7 @@ function renderTaskCardHtml(task, isCompact = false) {
             ${getSvgIcon('check', 'mr-1')} <span>Submitted</span>
           </span>
         ` : ''}
-        ${task.priority === 'high' ? '<span class="meta-pill" style="color:#ef4444; font-weight:700;">HIGH PRIORITY</span>' : ''}
+        ${task.priority === 'high' ? '<span class="meta-pill" style="color:var(--text-main); font-weight:800;">HIGH PRIORITY</span>' : ''}
       </div>
 
       ${doctorQuoteHtml}
@@ -3218,7 +3218,7 @@ function renderReadingPane(task) {
           </span>
         ` : ''}
         ${!task.hasSpecificTime ? `<span class="meta-pill time-class">${getSvgIcon('clock', 'mr-1')} Class Time</span>` : ''}
-        ${task.priority === 'high' ? '<span class="meta-pill" style="color:#ef4444; font-weight:700;">HIGH PRIORITY</span>' : ''}
+        ${task.priority === 'high' ? '<span class="meta-pill" style="color:var(--text-main); font-weight:800;">HIGH PRIORITY</span>' : ''}
       </div>
 
       <!-- Syllabus Context if available -->

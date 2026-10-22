@@ -26,7 +26,8 @@ components:
 
 ## Rules
 
-- **Two colours, many shades.** Near-black and near-white, plus any grey shade between them where it helps (borders, muted text, hover and selected states). No blue, green, purple or amber in the interface. Red appears only for errors, overdue deadlines and delete actions. Course colours that a student picks are their data and stay as chosen.
+- **Two colours, many shades.** Near-black and near-white, plus any grey shade between them where it helps (borders, muted text, hover and selected states). Nothing else in the interface: no red, blue, green, purple or amber, including for errors, overdue deadlines and delete actions. Status is shown with weight, borders and inversion (an overdue badge is a solid block of the primary tone).
+- **Course colours are the one exception.** They are what tells courses apart, so they keep their colours everywhere they appear.
 - **One primary action per screen.** The main action (Scan, Save, Install, Download) is the solid primary colour: near-black in light mode, near-white in dark mode. Everything else is outlined or quiet.
 - **Flat.** No gradients, no decorative shadows. Separation comes from 1px borders and the page against the cards.
 - **Square.** Every corner is 0px.

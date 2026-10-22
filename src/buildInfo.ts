@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "b123c3bdbc7b",
-  "commit": "f422954fe2fedb28d5bb8b813b16c93872a649a3",
-  "shortCommit": "f422954",
-  "timestamp": "2026-10-22T05:51:08.494Z",
-  "message": "Apply Swiss Grid design system everywhere; landing at /, app at /companion/",
+  "build": "f86456512030",
+  "commit": "c2886ed72a585fe8654bb802329cefaa0f44ed52",
+  "shortCommit": "c2886ed",
+  "timestamp": "2026-10-22T05:54:43.015Z",
+  "message": "Bring back two-tone colours, keep the rest of the design system",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

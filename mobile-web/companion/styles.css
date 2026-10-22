@@ -15,9 +15,9 @@
   --text-muted: #64748b;
   --text-subtle: #94a3b8;
 
-  --danger: #ef4444;
-  --danger-light: #fef2f2;
-  --danger-border: #fecaca;
+  --danger: #18181b;
+  --danger-light: #f4f4f5;
+  --danger-border: #e4e4e7;
 
   --warning: #71717a;
   --warning-light: #f4f4f5;
@@ -71,9 +71,9 @@
   --text-muted: #a1a1aa;
   --text-subtle: #71717a;
 
-  --danger: #f87171;
-  --danger-light: rgba(239, 68, 68, 0.15);
-  --danger-border: rgba(239, 68, 68, 0.3);
+  --danger: #f4f4f6;
+  --danger-light: rgba(113, 113, 122, 0.15);
+  --danger-border: rgba(113, 113, 122, 0.3);
 
   --warning: #a1a1aa;
   --warning-light: rgba(113, 113, 122, 0.15);
@@ -252,9 +252,9 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 [data-theme="dark"] .type-exam {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(113, 113, 122, 0.2);
+  color: #f4f4f6;
+  border: 1px solid rgba(113, 113, 122, 0.35);
 }
 [data-theme="dark"] .type-project {
   background: rgba(168, 85, 247, 0.2);
@@ -279,14 +279,14 @@
 
 /* Urgency Badges in Dark Mode */
 [data-theme="dark"] .urgency-badge.overdue {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(113, 113, 122, 0.2);
+  color: #d4d4d8;
+  border: 1px solid rgba(113, 113, 122, 0.4);
 }
 [data-theme="dark"] .urgency-badge.today {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(113, 113, 122, 0.2);
+  color: #d4d4d8;
+  border: 1px solid rgba(113, 113, 122, 0.4);
 }
 [data-theme="dark"] .urgency-badge.tomorrow {
   background: rgba(113, 113, 122, 0.2);
@@ -316,9 +316,9 @@
   border-color: var(--surface-border-strong);
 }
 [data-theme="dark"] .task-weight-pill.weight-major {
-  background: rgba(239, 68, 68, 0.18);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(113, 113, 122, 0.18);
+  color: #d4d4d8;
+  border-color: rgba(113, 113, 122, 0.35);
 }
 [data-theme="dark"] .task-weight-pill.weight-medium {
   background: rgba(113, 113, 122, 0.18);
@@ -470,9 +470,9 @@
   color: #d4d4d8;
 }
 [data-theme="dark"] .extract-status-pill.error {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  background: rgba(113, 113, 122, 0.18);
+  border-color: rgba(113, 113, 122, 0.35);
+  color: #d4d4d8;
 }
 [data-theme="dark"] .badge-jev-tag {
   background: var(--surface-hover);
@@ -2024,9 +2024,9 @@ body {
 }
 
 .up-next-badge.badge-today {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: #f4f4f5;
+  color: #18181b;
+  border: 1px solid rgba(113, 113, 122, 0.2);
 }
 
 .up-next-badge.badge-tomorrow {
@@ -2042,9 +2042,9 @@ body {
 }
 
 .up-next-badge.badge-overdue {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #f87171;
+  background: #f4f4f5;
+  color: #18181b;
+  border: 1px solid #f4f4f6;
 }
 
 .up-next-item-title {
@@ -2117,9 +2117,9 @@ body {
 }
 
 [data-theme="dark"] .up-next-badge.badge-today {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(113, 113, 122, 0.15);
+  color: #f4f4f6;
+  border-color: rgba(113, 113, 122, 0.3);
 }
 
 [data-theme="dark"] .up-next-badge.badge-tomorrow {
@@ -2456,7 +2456,7 @@ body {
 
 .type-quiz { background: #f4f4f5; color: #52525b; }
 .type-assignment { background: var(--surface-hover); color: var(--text-main); border: 1px solid var(--surface-border-strong); }
-.type-exam { background: #fee2e2; color: #b91c1c; }
+.type-exam { background: #f4f4f5; color: #18181b; }
 .type-project { background: #f4f4f5; color: #18181b; }
 .type-lab { background: #f4f4f5; color: #18181b; }
 .type-meeting { background: var(--surface-hover); color: var(--text-main); border: 1px solid var(--surface-border-strong); }
@@ -2559,9 +2559,9 @@ body {
 }
 
 .task-weight-pill.weight-major {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-color: #fecaca;
+  background: #f4f4f5;
+  color: #18181b;
+  border-color: #e4e4e7;
   font-weight: 700;
 }
 
@@ -3785,9 +3785,9 @@ input:checked + .slider:before {
 .btn-danger-action {
   min-height: 38px;
   padding: 0 12px;
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: #f4f4f5;
+  color: #18181b;
+  border: 1px solid #e4e4e7;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
@@ -3796,7 +3796,7 @@ input:checked + .slider:before {
 }
 
 .btn-danger-action:hover {
-  background: #fecaca;
+  background: #e4e4e7;
 }
 
 /* ==========================================================================
@@ -4118,9 +4118,9 @@ input:checked + .slider:before {
 }
 
 .extract-status-pill.error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  color: #18181b;
 }
 
 .extract-result-item {
@@ -4564,8 +4564,8 @@ input:checked + .slider:before {
 
 .btn-ql-action.delete:hover {
   color: var(--danger);
-  border-color: #fca5a5;
-  background: #fef2f2;
+  border-color: #d4d4d8;
+  background: #f4f4f5;
 }
 
 /* Dark mode overrides */
@@ -4610,9 +4610,9 @@ input:checked + .slider:before {
   color: #ffffff;
 }
 [data-theme="dark"] .btn-ql-action.delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(113, 113, 122, 0.2);
+  color: #f4f4f6;
+  border-color: rgba(113, 113, 122, 0.4);
 }
 
 /* ==========================================================================
@@ -5070,4 +5070,12 @@ h1, h2, h3 {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Overdue stands out by inverting the two tones, since the interface has no red */
+.urgency-badge.overdue,
+[data-theme="dark"] .urgency-badge.overdue {
+  background: var(--primary);
+  color: var(--on-accent);
+  border-color: var(--primary);
 }

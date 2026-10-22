@@ -11,8 +11,8 @@
   --text-main: #0f172a;
   --text-muted: #64748b;
   --text-subtle: #94a3b8;
-  --danger: #ef4444;
-  --danger-light: #fef2f2;
+  --danger: #18181b;
+  --danger-light: #f4f4f5;
   --warning: #71717a;
   --warning-light: #f4f4f5;
   --success: #18181b;
@@ -51,9 +51,9 @@
   --text-muted: #a1a1aa;
   --text-subtle: #71717a;
 
-  --danger: #f87171;
-  --danger-light: rgba(239, 68, 68, 0.15);
-  --danger-border: rgba(239, 68, 68, 0.3);
+  --danger: #f4f4f6;
+  --danger-light: rgba(113, 113, 122, 0.15);
+  --danger-border: rgba(113, 113, 122, 0.3);
 
   --warning: #a1a1aa;
   --warning-light: rgba(113, 113, 122, 0.15);
@@ -286,12 +286,12 @@
 }
 [data-theme="dark"] .day-card-actions .btn-card-delete {
   background: var(--surface-hover);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  border-color: rgba(113, 113, 122, 0.4);
+  color: #f4f4f6;
 }
 [data-theme="dark"] .day-card-actions .btn-card-delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(113, 113, 122, 0.2);
+  border-color: rgba(113, 113, 122, 0.6);
 }
 [data-theme="dark"] .day-drawer-empty {
   color: var(--text-muted, #a1a1aa);
@@ -1640,7 +1640,7 @@ body.is-standalone .header {
 
 .type-quiz { background: #f4f4f5; color: #52525b; }
 .type-assignment { background: var(--surface-hover); color: var(--text-main); border: 1px solid var(--surface-border-strong); }
-.type-exam { background: #fee2e2; color: #b91c1c; }
+.type-exam { background: #f4f4f5; color: #18181b; }
 .type-project { background: #f4f4f5; color: #18181b; }
 .type-lab { background: #f4f4f5; color: #18181b; }
 .type-other { background: #f1f5f9; color: #475569; }
@@ -1730,7 +1730,7 @@ body.is-standalone .header {
 }
 
 .high-priority-tag {
-  color: #ef4444;
+  color: #18181b;
   font-weight: 800;
   font-size: 11px;
   letter-spacing: 0.03em;
@@ -1942,13 +1942,13 @@ body.is-standalone .header {
 }
 
 .btn-card-delete {
-  color: #ef4444 !important;
-  border-color: #fca5a5 !important;
+  color: #18181b !important;
+  border-color: #d4d4d8 !important;
   background: #fff !important;
 }
 
 .btn-card-delete:hover {
-  background: #fef2f2 !important;
+  background: #f4f4f5 !important;
 }
 
 /* btn-share-card / btn-edit-card - used in task-card-footer */
@@ -2176,7 +2176,7 @@ body.is-standalone .header {
 .btn-danger {
   background: var(--danger-light);
   color: var(--danger);
-  border: 1px solid #fecaca;
+  border: 1px solid #e4e4e7;
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -2278,9 +2278,9 @@ body.is-standalone .header {
 }
 
 .task-weight-pill.weight-major {
-  background: #fef2f2;
-  color: #991b1b;
-  border-color: #fecaca;
+  background: #f4f4f5;
+  color: #18181b;
+  border-color: #e4e4e7;
   font-weight: 800;
 }
 
@@ -2589,9 +2589,9 @@ body.is-standalone .header {
 
 .day-card-status-badge.overdue,
 .day-card-status-badge.today {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
+  background: #f4f4f5;
+  color: #18181b;
+  border: 1px solid #d4d4d8;
 }
 
 .day-card-status-badge.tomorrow {
@@ -2621,9 +2621,9 @@ body.is-standalone .header {
 
 [data-theme="dark"] .day-card-status-badge.overdue,
 [data-theme="dark"] .day-card-status-badge.today {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(113, 113, 122, 0.18);
+  color: #f4f4f6;
+  border: 1px solid rgba(113, 113, 122, 0.35);
 }
 
 [data-theme="dark"] .day-card-status-badge.tomorrow {
@@ -2735,13 +2735,13 @@ body.is-standalone .header {
 }
 
 .btn-card-delete {
-  color: #ef4444;
-  border-color: #fca5a5;
+  color: #18181b;
+  border-color: #d4d4d8;
   background: #ffffff;
 }
 
 .btn-card-delete:hover {
-  background: #fef2f2;
+  background: #f4f4f5;
 }
 
 .day-drawer-empty {
@@ -3076,7 +3076,7 @@ body.is-standalone .header {
 .extract-status-pill.loading { background: var(--surface-hover); border: 1px solid var(--surface-border-strong); color: var(--text-main); }
 .extract-status-pill.success { background: var(--surface-hover); border: 1px solid var(--surface-border-strong); color: var(--text-main); }
 .extract-status-pill.rejected { background: #f4f4f5; border: 1px solid #d4d4d8; color: #52525b; }
-.extract-status-pill.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.extract-status-pill.error { background: #f4f4f5; border: 1px solid #e4e4e7; color: #18181b; }
 
 .extract-result-item {
   background: #ffffff;
@@ -3346,8 +3346,8 @@ body.is-standalone .header {
 
 .btn-ql-action.delete:hover {
   color: var(--danger);
-  border-color: #fca5a5;
-  background: #fef2f2;
+  border-color: #d4d4d8;
+  background: #f4f4f5;
 }
 
 /* Dark mode overrides */
@@ -3392,9 +3392,9 @@ body.is-standalone .header {
   color: #ffffff;
 }
 [data-theme="dark"] .btn-ql-action.delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(113, 113, 122, 0.2);
+  color: #f4f4f6;
+  border-color: rgba(113, 113, 122, 0.4);
 }
 
 
@@ -4394,4 +4394,12 @@ h1, h2, h3 {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Overdue stands out by inverting the two tones, since the interface has no red */
+.urgency-badge.overdue,
+[data-theme="dark"] .urgency-badge.overdue {
+  background: var(--primary);
+  color: var(--on-accent);
+  border-color: var(--primary);
 }
