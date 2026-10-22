@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
+  <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
+  <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Release-Download_ZIP-black?logo=github&logoColor=white" alt="Download Release" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
   <a href="#-development"><img src="https://img.shields.io/badge/Tests-425_Passing-success?logo=vitest&logoColor=white" alt="Vitest 425 Passing" /></a>
@@ -57,16 +58,16 @@ Works in **Chrome, Edge, Brave, Opera and Vivaldi**.
 
 ### 1. Get the files
 
-- **No git:** on GitHub click **Code > Download ZIP** and unzip it somewhere permanent (for example `Documents\blackboarder`). Do not delete the folder afterwards; the browser loads the extension from it.
-- **With git:** `git clone https://github.com/yvs1n/blackboarder.git`
+- **GitHub Release (Recommended):** Download **[`blackboarder-extension.zip`](https://github.com/yvs1n/blackboarder/releases/latest)** from the latest release and unzip it somewhere permanent (for example `Documents\blackboarder`). Do not delete the folder afterwards; the browser loads the extension from it.
+- **With git:** `git clone https://github.com/yvs1n/blackboarder.git` (loads from `dist/`).
 
-The built extension is already in the `dist/` folder. You do not need to build anything.
+You do not need to build anything; everything is precompiled.
 
 ### 2. Load the extension
 
 1. Open your browser's extensions page: `chrome://extensions`, `edge://extensions` or `brave://extensions`.
 2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick the **`dist`** folder.
+3. Click **Load unpacked** and select the unzipped folder (or the **`dist`** folder if using git).
 4. Pin **Blackboarder** to the toolbar.
 
 ### 3. Turn on automatic updates (once)
