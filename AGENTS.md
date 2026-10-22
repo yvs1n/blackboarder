@@ -23,7 +23,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 - `src/background/`: service worker (alarms, badge, sync, update checks).
 - `src/popup/`: extension popup and side panel (plain TypeScript, no framework).
 - `src/mobile/core.ts`: bundled by the build into `mobile-web/companion/core.js` and exposed as `window.BBCore`, so the phone app runs the same logic as the extension.
-- `mobile-web/`: the website. `index.html` is the landing page, `companion/` is the phone app, `_worker.js` is the sync API and calendar feed (Cloudflare Pages and Vercel).
+- `mobile-web/`: the website. `index.html` is the landing page, `companion/` is the phone app, `robots.txt` and `sitemap.xml` for search engines, `_worker.js` is the sync API and calendar feed (Cloudflare Pages and Vercel).
 - `self-hosted/`: optional Node server and single-file Cloudflare worker (generated from `_worker.js`).
 - `database.rules.json`: Firebase rules. They only take effect once published in the Firebase console.
 - `docs/DESIGN_SYSTEM.md`: the visual spec.
@@ -38,6 +38,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 - **Popup**: opens on the calendar. Unfinished add, edit and settings work is restored (`src/popup/popupDraft.ts`). Course fields are pickers (`src/popup/coursePicker.ts`). Settings has one page per group.
 - **Sync**: tasks, quick links, courses and tombstones live at `users/{syncKey}/data` in Firebase. The newer `updatedAt` wins per task.
 - **Phone app** (`mobile-web/companion/`): phones use a bottom tab bar, 900px and wider is a two-column dashboard.
+- **Website and SEO**: the landing page at `/` has Schema.org JSON-LD (WebApplication, FAQPage), OpenGraph/Twitter cards, and canonical links. `robots.txt` and `sitemap.xml` are served at the root, and fonts and icons are cached long-term (immutable) by the worker.
 - **Updates**: the extension checks GitHub every 15 minutes; a git clone updates with `git pull --ff-only` through a small helper (`updater/`).
 
 ## Rules
