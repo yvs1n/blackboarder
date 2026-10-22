@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "1730069584e4",
-  "commit": "8385b6b96cabc25e3522f23dfe276107ae78fb10",
-  "shortCommit": "8385b6b",
-  "timestamp": "2026-10-22T20:32:46.155Z",
-  "message": "Replace PROJECT_BRAIN.md with a lean AGENTS.md; bring README and landing page up to date",
+  "build": "1bdf492de23c",
+  "commit": "eb2136dd96ab6526698eb9cc6bc7470f127cbe1a",
+  "shortCommit": "eb2136d",
+  "timestamp": "2026-10-22T21:07:16.130Z",
+  "message": "build: update generated files for 7fea3a1",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

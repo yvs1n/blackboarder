@@ -1,0 +1,10 @@
+# Robots.txt for Blackboarder
+# Academic companion and deadline intelligence for University of Sharjah students
+# https://blackboarder.pages.dev
+
+User-agent: *
+Allow: /
+Allow: /companion/
+Disallow: /api/
+
+Sitemap: https://blackboarder.pages.dev/sitemap.xml

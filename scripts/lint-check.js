@@ -163,6 +163,39 @@ if (fs.existsSync(webVersionPath)) {
   }
 }
 
+// 7. SEO & Discoverability Check
+console.log('\n--- Checking SEO & Discoverability ---');
+const robotsPath = path.join(ROOT, 'mobile-web/robots.txt');
+const sitemapPath = path.join(ROOT, 'mobile-web/sitemap.xml');
+
+if (!fs.existsSync(robotsPath)) {
+  fail('mobile-web/robots.txt is missing');
+} else {
+  const robotsTxt = fs.readFileSync(robotsPath, 'utf8');
+  if (robotsTxt.includes('Sitemap: https://blackboarder.pages.dev/sitemap.xml')) {
+    pass('mobile-web/robots.txt exists and references valid sitemap');
+  } else {
+    fail('mobile-web/robots.txt is missing sitemap reference');
+  }
+}
+
+if (!fs.existsSync(sitemapPath)) {
+  fail('mobile-web/sitemap.xml is missing');
+} else {
+  const sitemapXml = fs.readFileSync(sitemapPath, 'utf8');
+  if (sitemapXml.includes('<urlset') && sitemapXml.includes('https://blackboarder.pages.dev/')) {
+    pass('mobile-web/sitemap.xml exists and defines canonical URLs');
+  } else {
+    fail('mobile-web/sitemap.xml is missing valid urlset schema');
+  }
+}
+
+if (landingHtml.includes('rel="canonical"') && landingHtml.includes('application/ld+json')) {
+  pass('mobile-web/index.html includes canonical link and JSON-LD structured data');
+} else {
+  fail('mobile-web/index.html is missing canonical link or JSON-LD structured data');
+}
+
 console.log('\n----------------------------------------');
 if (hasError) {
   console.error('\x1b[31mLint & Hygiene Check Failed!\x1b[0m\n');

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Longer sync keys**: new keys have 10 random characters (50 bits) instead of 6 (30 bits). Existing keys keep working.
 
 ### Added
+- **SEO & web efficiency**: added robots.txt with sitemap directive, sitemap.xml with canonical landing and companion URLs, Schema.org JSON-LD structured data (WebApplication, WebSite, and FAQPage rich snippets), OpenGraph and Twitter card metadata, keyboard accessibility skip link, semantic <main> content wrapper, and long-term immutable caching for static fonts and media.
 - **Course picker**: when adding or editing a deadline, the course field lists your courses and narrows as you type.
 - **The popup remembers unfinished work**: closing it while adding or editing a deadline, or in Settings, reopens right there; otherwise it opens on the calendar.
 - **Scan reports marks**: the scan message says how many gradebook marks matched a deadline and names the ones that did not.

@@ -558,36 +558,66 @@ export default {
       });
     }
 
-    // 7. The landing page lives at /, the companion at /companion/. Pairing links made before the
+        // 7. SEO: robots.txt and sitemap.xml
+    if (request.method === 'GET' && pathname === '/robots.txt') {
+      const robotsTxt = '# Robots.txt for Blackboarder\nUser-agent: *\nAllow: /\nAllow: /companion/\nDisallow: /api/\n\nSitemap: https://blackboarder.pages.dev/sitemap.xml\n';
+      return new Response(robotsTxt, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      });
+    }
+
+    if (request.method === 'GET' && pathname === '/sitemap.xml') {
+      const sitemapXml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://blackboarder.pages.dev/</loc>\n    <lastmod>2026-10-23</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n  <url>\n    <loc>https://blackboarder.pages.dev/companion/</loc>\n    <lastmod>2026-10-23</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n</urlset>\n';
+      return new Response(sitemapXml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      });
+    }
+
+    // 8. The landing page lives at /, the companion at /companion/. Pairing links made before the
     //    move (/?key=...) and the old installed app's start page go to the companion.
     if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html') &&
         (url.searchParams.has('key') || url.searchParams.has('sync') || url.searchParams.has('code'))) {
       return Response.redirect(`${url.origin}/companion/${url.search}`, 302);
     }
 
-    // 8. Pass all other static requests (HTML, CSS, JS, icons) to Cloudflare Pages Assets
+    // 9. Pass all other static requests (HTML, CSS, JS, icons) to Cloudflare Pages Assets
     if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
       const assetRes = await env.ASSETS.fetch(request);
-      const isSw = pathname === '/sw.js' || pathname === '/companion/sw.js';
+            const isSw = pathname === '/sw.js' || pathname === '/companion/sw.js';
       const isHtml = pathname === '/' || pathname === '/index.html' || pathname === '/companion/' || pathname === '/companion/index.html';
       const isCode = pathname.endsWith('.js') || pathname.endsWith('.css');
+      const isFont = pathname.endsWith('.woff2');
+      const isMedia = pathname.endsWith('.png') || pathname.endsWith('.ico') || pathname.endsWith('.svg');
 
-      if (isSw || isHtml || isCode) {
-        const newHeaders = new Headers(assetRes.headers);
-        if (isSw) {
-          newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        } else if (isHtml) {
-          newHeaders.set('Cache-Control', 'no-cache, must-revalidate');
-        } else if (isCode) {
-          newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
-        }
-        return new Response(assetRes.body, {
-          status: assetRes.status,
-          statusText: assetRes.statusText,
-          headers: newHeaders
-        });
+      const newHeaders = new Headers(assetRes.headers);
+      newHeaders.set('X-Content-Type-Options', 'nosniff');
+      newHeaders.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+      if (isSw) {
+        newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else if (isHtml) {
+        newHeaders.set('Cache-Control', 'no-cache, must-revalidate');
+      } else if (isCode) {
+        newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
+      } else if (isFont || isMedia) {
+        newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
       }
-      return assetRes;
+
+      return new Response(assetRes.body, {
+        status: assetRes.status,
+        statusText: assetRes.statusText,
+        headers: newHeaders
+      });
     }
 
     return new Response('Not Found', { status: 404 });

@@ -111,4 +111,25 @@ describe('Cloudflare Pages _worker.js Handler', () => {
     const text = await res.text();
     expect(text).toBe('Mock Static Asset Content');
   });
+
+  it('serves robots.txt with sitemap reference', async () => {
+    const req = new Request('https://blackboarder.pages.dev/robots.txt', { method: 'GET' });
+    const res = await pagesWorker.fetch(req, mockEnv, {} as any);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    const text = await res.text();
+    expect(text).toContain('User-agent: *');
+    expect(text).toContain('Sitemap: https://blackboarder.pages.dev/sitemap.xml');
+  });
+
+  it('serves sitemap.xml with landing and companion URLs', async () => {
+    const req = new Request('https://blackboarder.pages.dev/sitemap.xml', { method: 'GET' });
+    const res = await pagesWorker.fetch(req, mockEnv, {} as any);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/xml');
+    const text = await res.text();
+    expect(text).toContain('<urlset');
+    expect(text).toContain('https://blackboarder.pages.dev/');
+    expect(text).toContain('https://blackboarder.pages.dev/companion/');
+  });
 });

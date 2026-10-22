@@ -6,11 +6,134 @@
   <title>Blackboarder - Never miss a Blackboard deadline</title>
   <meta name="description" content="Blackboarder finds quizzes, assignments and exams in your Blackboard announcements (English and Arabic) and puts them on one calendar in your browser, on your phone and in your calendar app. Free, no account.">
   <meta name="theme-color" content="#121215">
+  <link rel="canonical" href="https://blackboarder.pages.dev/">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="keywords" content="Blackboard, University of Sharjah, UOS, Blackboard Learn, Blackboard Ultra, deadline tracker, academic calendar, syllabus weights, student companion, exam schedule, quiz reminders, WebCal, ics calendar feed, بلاك بورد, جامعة الشارقة">
+  <meta name="author" content="Yassin Ragab">
+  <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">
+  <link rel="dns-prefetch" href="https://github.com">
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://blackboarder.pages.dev/">
+  <meta property="og:site_name" content="Blackboarder">
   <meta property="og:title" content="Blackboarder - Never miss a Blackboard deadline">
   <meta property="og:description" content="Finds deadlines in Blackboard announcements and syncs them to your browser, phone and calendar. Free and open source.">
   <meta property="og:image" content="https://raw.githubusercontent.com/yvs1n/blackboarder/main/assets/logo.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="Blackboarder - Smart Academic Companion for Blackboard Learn">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ar_AE">
   <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Blackboarder - Never miss a Blackboard deadline">
+  <meta name="twitter:description" content="Finds deadlines in Blackboard announcements and syncs them to your browser, phone and calendar. Free and open source.">
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/yvs1n/blackboarder/main/assets/logo.png">
+  <meta name="twitter:image:alt" content="Blackboarder Logo">
+  <meta name="application-name" content="Blackboarder">
+  <meta name="apple-mobile-web-app-title" content="Blackboarder">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/companion/icon-192.png">
+  <link rel="manifest" href="/companion/manifest.json">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "@id": "https://blackboarder.pages.dev/#app",
+        "name": "Blackboarder",
+        "url": "https://blackboarder.pages.dev/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Chromium, Windows, macOS, Linux, iOS, Android, Web",
+        "description": "Finds quizzes, assignments and exams in Blackboard announcements and puts them on one calendar in your browser, on your phone and in your calendar app.",
+        "softwareVersion": "1.1.0",
+        "inLanguage": ["en", "ar"],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Yassin Ragab",
+          "url": "https://yassinr.me"
+        },
+        "codeRepository": "https://github.com/yvs1n/blackboarder"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://blackboarder.pages.dev/#website",
+        "url": "https://blackboarder.pages.dev/",
+        "name": "Blackboarder",
+        "description": "Smart Academic Companion and Deadline Intelligence for Blackboard Learn",
+        "inLanguage": "en-US"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://blackboarder.pages.dev/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is it free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Blackboarder is free and open source under the MIT License. No subscriptions, no accounts, no paid features."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does it only work at the University of Sharjah?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "It is tuned for UOS course codes, schedules and syllabus weights, but the deadline finder works on any Blackboard Learn or Ultra site."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What data leaves my computer?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Your tasks, courses and quick links are stored in Firebase under your sync key so your phone can read them. Your Blackboard password and cookies are never sent anywhere. Anyone who has your key or calendar link can see your deadlines, so keep them private."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an AI key?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. The built-in parser handles most announcements on its own. An OpenRouter or Jev key in Settings only helps with long or vague posts."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do updates work without the Chrome Web Store?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Running update.bat or update.sh once registers a small helper. The extension then checks GitHub every 15 minutes, the helper downloads the new version into your folder, and the extension restarts into it once its popup is closed. If the helper is not set up, Blackboarder shows a banner when an update is available."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I edit or add deadlines myself?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes, in both the extension and the phone app. Changes sync to your other devices and your calendar feed."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which browsers are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Chrome, Edge, Brave, Opera and Vivaldi on Windows, macOS and Linux. The phone app works in Safari on iPhone and Chrome on Android."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" type="image/png" href="/companion/icon-192.png">
   <link rel="preload" href="/companion/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/companion/fonts/inter-tight.woff2" as="font" type="font/woff2" crossorigin>
@@ -150,6 +273,25 @@
       border: none;
       background: none;
     }
+
+    /* Accessibility Skip Link */
+    .skip-link {
+      position: absolute;
+      top: -999px;
+      left: 16px;
+      background: var(--text-main);
+      color: var(--bg);
+      padding: 8px 16px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      z-index: 9999;
+      text-decoration: none;
+      transition: top 0.15s ease;
+    }
+    .skip-link:focus {
+      top: 16px;
+    }
+
 
     /* Container */
     .container {
@@ -1302,6 +1444,7 @@
     </div>
   </nav>
 
+  <main id="main-content">
   <!-- Hero -->
   <header class="hero-section" id="top">
     <div class="container">
@@ -1819,6 +1962,7 @@ Weight   25%</pre>
       </div>
     </div>
   </section>
+  </main>
 
   <!-- Footer -->
   <footer class="site-footer">
