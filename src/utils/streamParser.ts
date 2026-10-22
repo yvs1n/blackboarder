@@ -233,6 +233,7 @@ const cleanName = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\u060
 export function coreTitle(s?: string): string {
   return (s || '').toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b(?:graded|grades?|marks?|score|submission|submit)\b/g, ' ')
     .replace(/\b(\d+)(?:st|nd|rd|th)\s+(quiz|exam|test|assignment|homework|hw|lab)\b/g, '$2 $1')
     .replace(/\b(?:students?'?s?|student's|exp|experiment|lab|labs|report|the|of)\b\.?/g, ' ')
     .replace(/[^a-z0-9\u0600-\u06ff]/g, '');
@@ -243,36 +244,82 @@ export function coreTitle(s?: string): string {
  * sides know it, and an exact title wins over a partial one, so "Quiz 1" in Calculus never
  * takes the Quiz 1 mark of another course.
  */
-export function findTaskForUpdate(tasks: DeadlineTask[], update: import('../types').TaskSubmissionUpdate): DeadlineTask | undefined {
+/** Practice runs, mock exams and sample papers are separate items from the real one. */
+const PRACTICE_RE = /\b(?:practice|practise|mock|sample|trial|dry\s*run|rehearsal|review|revision|preparation|prep)\b|تجريبي|تدريبي|مراجعة/i;
+export function isPracticeTitle(s?: string): boolean {
+  return PRACTICE_RE.test(s || '');
+}
+
+/** A title's words sorted, so word order does not matter. */
+function wordsKey(s?: string): string {
+  return ((s || '').toLowerCase().match(/[a-z0-9؀-ۿ]+/g) || []).sort().join(' ');
+}
+
+/** The numbers in a title ("Quiz 1" -> ["1"]). */
+function titleNumbers(s?: string): string[] {
+  return ((s || '').match(/\d+/g) || []).map(n => String(Number(n)));
+}
+
+/** One side's numbers must all appear on the other ("HW1" fits "HW1_Phys.1_Fall26-27"; "Quiz 1" does not fit "Quiz 10"). */
+function numbersAgree(a: string[], b: string[]): boolean {
+  if (!a.length || !b.length) return true;
+  return a.every(n => b.includes(n)) || b.every(n => a.includes(n));
+}
+
+/** Codes match when one is the other with a section suffix ("1440133" and "144013301"). */
+function sameCode(a: string, b: string): boolean {
+  return a === b || (a.length >= 6 && b.length >= 6 && (a.startsWith(b) || b.startsWith(a)));
+}
+
+export function findTaskForUpdate(
+  tasks: DeadlineTask[],
+  update: import('../types').TaskSubmissionUpdate,
+  accept?: (t: DeadlineTask) => boolean
+): DeadlineTask | undefined {
   const want = cleanTitle(update.title);
   if (want.length < 3) return undefined;
   const upCode = cleanCode(update.courseCode === 'UOS' ? '' : update.courseCode);
   const upName = cleanName(update.courseName);
 
   const scored: { task: DeadlineTask; rank: number }[] = [];
+  const upPractice = isPracticeTitle(update.title);
+  const upNumbers = titleNumbers(update.title);
   for (const t of tasks) {
+    if (accept && !accept(t)) continue;
     const res = parseCourseDetails(`${t.courseCode || ''} ${t.courseName || ''}`);
     const tCode = cleanCode(res.code === 'UOS' ? '' : res.code);
     const tName = cleanName(res.name === 'General Course' ? '' : res.name);
+    const namesAgree = !!upName && !!tName && (tName.includes(upName) || upName.includes(tName));
     let courseKnown = false;
     let courseExact = false;
-    if (upCode && tCode) {
-      if (upCode !== tCode) continue;
+    if (upCode && tCode && sameCode(upCode, tCode)) {
       courseKnown = true;
       courseExact = true;
+    } else if (upCode && tCode && !namesAgree) {
+      // Different codes and no agreeing name: another course
+      continue;
     } else if (upName && tName) {
-      if (!tName.includes(upName) && !upName.includes(tName)) continue;
+      // Codes written differently (a task added by hand carries the code from the course list) fall back to the name
+      if (!namesAgree) continue;
       courseKnown = true;
       // "Physics 1" is inside "Physics 1 Lab": the exact course must win
       courseExact = tName === upName;
     }
+    // A practice mark never lands on the real item, and the other way round
+    if (isPracticeTitle(t.title) !== upPractice) continue;
+    // "Quiz 1" and "Quiz 10" share letters but not numbers
+    const tNumbers = titleNumbers(t.title);
+    if (!numbersAgree(tNumbers, upNumbers)) continue;
     const have = cleanTitle(t.title);
     if (have.length < 3) continue;
     const exact = have === want;
     if (!exact && !have.includes(want) && !want.includes(have)) {
       // Looser match on the identifying words, only inside a course known to be the same
       const core = coreTitle(t.title);
-      if (!courseKnown || core.length < 4 || core !== coreTitle(update.title)) continue;
+      const sameCore = core.length >= 4 && core === coreTitle(update.title);
+      // Same words in another order ("Practice Midterm" / "Midterm Practice")
+      const sameWords = wordsKey(t.title).length >= 4 && wordsKey(t.title) === wordsKey(update.title);
+      if (!courseKnown || (!sameCore && !sameWords)) continue;
     }
     scored.push({ task: t, rank: (courseExact ? 4 : 0) + (courseKnown ? 2 : 0) + (exact ? 1 : 0) });
   }

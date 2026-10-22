@@ -95,6 +95,8 @@ export interface DeadlineTask {
   maxScore?: number; // Total possible points (e.g. 10)
   scoreDisplay?: string; // Formatted badge text (e.g. "9.5 / 10" or "95%")
   gradeFeedback?: string; // Instructor feedback comments
+  gradeSourceId?: string; // Gradebook column the mark came from ("gb:_123_1"); only that column updates it
+  gradeSourcesBefore?: string[]; // Gradebook columns already graded before this task's date (a practice run), never applied to it
   calendarSynced?: boolean;
   userEdited?: boolean;
   createdAt: string;
@@ -112,6 +114,8 @@ export interface TaskSubmissionUpdate {
   maxScore?: number;
   scoreDisplay?: string;
   feedback?: string;
+  sourceId?: string; // Gradebook column id ("gb:_123_1")
+  gradedAt?: string; // When Blackboard recorded the grade, if it says
 }
 
 export interface UserSettings {

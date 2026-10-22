@@ -21,6 +21,10 @@ export interface GradebookGrade {
   effectiveScore?: number;
   displayGrade?: { score?: number; text?: string } | null;
   isExempt?: boolean;
+  gradedDate?: string;
+  lastGradedDate?: string;
+  modifiedDate?: string;
+  lastModified?: string;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -55,10 +59,13 @@ export function gradebookToUpdates(
     const title = decodeEntities(col.effectiveColumnName || col.columnName || '').trim();
     if (!title) continue;
 
+    const gradedAt = g.gradedDate || g.lastGradedDate || g.modifiedDate || g.lastModified;
     const base = {
       courseName: course.courseName || undefined,
       courseCode: course.courseCode && course.courseCode !== 'UOS' ? course.courseCode : undefined,
-      title
+      title,
+      sourceId: `gb:${col.id}`,
+      gradedAt: gradedAt && !isNaN(new Date(gradedAt).getTime()) ? gradedAt : undefined
     };
 
     const raw = typeof g.displayGrade?.score === 'number' ? g.displayGrade.score : g.effectiveScore;
@@ -85,19 +92,69 @@ export function gradebookToUpdates(
  * bumped, which triggers a sync) when something actually changed. Returns how many marks
  * were added or changed.
  */
-export function applySubmissionUpdates(tasks: DeadlineTask[], updates: TaskSubmissionUpdate[]): number {
+/** A mark cannot exist before its item happens; allow a day for time zones and early marking. */
+const MARK_SLACK_MS = 24 * 60 * 60 * 1000;
+
+function dueTime(t: DeadlineTask): number {
+  return new Date(t.dueDate).getTime();
+}
+
+/**
+ * Removes marks from tasks that have not happened yet: such a mark came from another item
+ * (a practice midterm's mark on the real midterm). Returns how many tasks were cleared.
+ */
+export function dropImpossibleMarks(tasks: DeadlineTask[], nowMs: number = Date.now()): number {
+  let cleared = 0;
+  for (const t of tasks) {
+    if (t.submissionStatus !== 'graded') continue;
+    const due = dueTime(t);
+    if (isNaN(due) || due <= nowMs + MARK_SLACK_MS) continue;
+    if (t.gradeSourceId) {
+      t.gradeSourcesBefore = Array.from(new Set([...(t.gradeSourcesBefore || []), t.gradeSourceId]));
+    }
+    delete t.score;
+    delete t.maxScore;
+    delete t.scoreDisplay;
+    delete t.gradeSourceId;
+    delete t.submissionStatus;
+    t.status = 'pending';
+    t.updatedAt = new Date(nowMs).toISOString();
+    cleared++;
+  }
+  return cleared;
+}
+
+export function applySubmissionUpdates(tasks: DeadlineTask[], updates: TaskSubmissionUpdate[], nowMs: number = Date.now()): number {
   let marksChanged = 0;
-  const now = new Date().toISOString();
+  const now = new Date(nowMs).toISOString();
+  dropImpossibleMarks(tasks, nowMs);
   for (const update of updates) {
-    const match = findTaskForUpdate(tasks, update);
+    const src = update.sourceId;
+    const match = findTaskForUpdate(tasks, update, t =>
+      // A task that already has its mark from one column is not taken by another one,
+      // and a column seen graded before this task's date (a practice run) never applies to it
+      !(src && t.gradeSourceId && t.gradeSourceId !== src) &&
+      !(src && (t.gradeSourcesBefore || []).includes(src))
+    );
     if (!match) continue;
     if (update.submissionStatus === 'graded') {
+      const due = dueTime(match);
+      const gradedMs = update.gradedAt ? new Date(update.gradedAt).getTime() : nowMs;
+      if (!isNaN(due) && gradedMs + MARK_SLACK_MS < due) {
+        // Graded before the item took place: a different (practice) item. Remember it so it never lands here.
+        if (src && !(match.gradeSourcesBefore || []).includes(src)) {
+          match.gradeSourcesBefore = [...(match.gradeSourcesBefore || []), src];
+          match.updatedAt = now;
+        }
+        continue;
+      }
       const changed = match.submissionStatus !== 'graded' ||
         (update.score !== undefined && match.score !== update.score) ||
         (update.maxScore !== undefined && match.maxScore !== update.maxScore) ||
         (!!update.scoreDisplay && match.scoreDisplay !== update.scoreDisplay);
       if (!changed) continue;
       match.submissionStatus = 'graded';
+      if (src) match.gradeSourceId = src;
       if (update.score !== undefined) match.score = update.score;
       if (update.maxScore !== undefined) match.maxScore = update.maxScore;
       if (update.scoreDisplay) match.scoreDisplay = update.scoreDisplay;

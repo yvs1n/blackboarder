@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (402 tests across 48 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (410 tests across 49 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **48 test files comprising 402 automated tests** running on Vitest:
+Blackboarder is covered by **49 test files comprising 410 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **48 test files comprising 402 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 34 Test Suites* | 260 | Regex extraction, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **402** | **100% Passing** |
+| *Other 35 Test Suites* | 268 | Regex extraction, mark safety, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **410** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 48 Vitest test suites (402 tests)
+├── tests/                            # 49 Vitest test suites (410 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Marks: practice runs kept apart, hand-added tasks matched
+- Owner: the English practice midterm's mark (gradebook "EAP Midterm Exam", 20/20) was put on the real midterm (Sunday Oct 25); and the Calculus "Assignment-1-Graded" mark did not reach "Assignment 1", which the owner added by hand.
+- Practice: `applySubmissionUpdates` (`src/utils/gradebook.ts`) never puts a mark on a task more than a day before its date (`gradedAt` from the grade when Blackboard gives one, otherwise now). The column is remembered on the task (`gradeSourcesBefore`, synced), so it stays off that task after the exam too. `dropImpossibleMarks` clears marks already sitting on future tasks (status back to pending). A task keeps the column its mark came from (`gradeSourceId`). Titles saying practice / mock / sample / review / تجريبي only match each other (`isPracticeTitle`).
+- Hand-added tasks carry the course code from the course list; a gradebook mark can carry another spelling (with a section). `findTaskForUpdate` now treats codes that start the same as one course and falls back to the course name when codes differ. Also: "Quiz 1" never matches "Quiz 10" (numbers must agree), "graded" / "marks" / "submission" are ignored when comparing titles, and word order does not matter.
+- Not checked live: the Blackboard session in the browser pane had expired, so the gradebook was not re-read; whether Ultra grades carry a graded date is unknown (the code reads `gradedDate`, `lastGradedDate`, `modifiedDate` or `lastModified` if present). Test: `tests/markSafety.test.ts`.
 
 ### 2026-10-22 - Syllabus Progress card back
 - Owner: keep the old syllabus tracker too, to see how much of each syllabus is done.

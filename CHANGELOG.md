@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Marks from the gradebook**: every scan now reads your marks straight from each course's Blackboard gradebook and shows them on the matching deadline (for example "4.5 / 5 (90%)"). Work waiting to be marked shows as submitted.
 
 ### Fixed
+- **Marks land on the right item**: a practice exam's mark is never put on the real exam (a mark cannot come before the exam date), and deadlines you add yourself now get their gradebook marks.
 - **Weights and rooms no longer change by themselves**: a percentage elsewhere in an announcement ("final exam out of 75%") is no longer taken as the weight, the phone no longer overwrites weights, edited tasks are left alone when courses sync, rooms written like "A10:006" are read, and junk rooms like "s" are replaced on the next scan.
 - **Fewer false errors**: normal situations (a course whose announcements cannot be read, a reloaded extension, the AI falling back) no longer show up on the extension's Errors page.
 - **Marks for every course**: Physics 1, Physics 1 Lab and Islamic Culture were mixed up inside the extension, so their marks could not be placed. Marks also now find deadlines whose names differ slightly from Blackboard's (for example "Free Fall Exp. Student's Lab Report" and "Free Fall Exp. - Lab Report", or "2nd Quiz" and "Quiz 2"), and names with "&" match.
