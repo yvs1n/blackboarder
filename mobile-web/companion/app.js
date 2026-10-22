@@ -990,7 +990,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"2e2423406346","version":"1.1.0","shortCommit":"eec94fd","timestamp":"2026-10-22T20:25:36.185Z"};
+const APP_BUILD = {"build":"1730069584e4","version":"1.1.0","shortCommit":"8385b6b","timestamp":"2026-10-22T20:32:46.155Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1531,7 +1531,8 @@ function recalculateTaskList(tasks) {
     const isHwOrProj = cleanT === 'assignment' || cleanT === 'hw' || cleanT === 'project';
     if (isHwOrProj) {
       t.room = undefined;
-    } else if (!t.room) {
+    } else if (!BB.isPlausibleRoom(t.room) && !t.userEdited && t.extractedBy !== 'manual' || !t.room) {
+      // A missing or junk room ("s", "Please") is looked up again
       const r = resolveTaskRoom(t);
       if (r) t.room = r;
     }
@@ -1658,7 +1659,7 @@ async function fetchTasksFromServer(isManual = false) {
               }
               if (fbData.tombstones && typeof fbData.tombstones === 'object') {
                 const tombs = getLocalTombstones();
-                for (const [tombId, tombTime] of Object.entries(fbData.tombstones)) {
+                for (const [tombId, tombTime] of Object.entries(BB.decodeCloudKeys(fbData.tombstones))) {
                   if (!tombs[tombId] || new Date(tombTime).getTime() > new Date(tombs[tombId]).getTime()) {
                     tombs[tombId] = tombTime;
                   }
@@ -5064,7 +5065,7 @@ async function pushStateToCloud() {
   let linksToPush = state.quickLinks;
   if (snap && typeof snap === 'object') {
     if (snap.tombstones && typeof snap.tombstones === 'object') {
-      for (const [tombId, tombTime] of Object.entries(snap.tombstones)) {
+      for (const [tombId, tombTime] of Object.entries(BB.decodeCloudKeys(snap.tombstones))) {
         if (!tombstones[tombId] || new Date(tombTime).getTime() > new Date(tombstones[tombId]).getTime()) {
           tombstones[tombId] = tombTime;
         }
@@ -5098,7 +5099,8 @@ async function pushStateToCloud() {
     device: 'Mobile Web App',
     count: tasksToPush.length,
     syncKey: getSyncKey() || undefined,
-    tombstones: Object.keys(tombstones).length > 0 ? tombstones : undefined
+    // Task ids can hold characters Firebase refuses as keys, so the keys are encoded for Firebase
+    tombstones: Object.keys(tombstones).length > 0 ? BB.encodeCloudKeys(tombstones) : undefined
   };
 
   let cloudOk = false;

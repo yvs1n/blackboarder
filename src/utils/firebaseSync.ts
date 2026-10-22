@@ -1,5 +1,5 @@
 import { DeadlineTask, TaskStatus, QuickLink, UserCourseConfig } from '../types';
-import { sanitizeCloudTasks, sanitizeCloudQuickLinks, sanitizeCloudCourses } from './cloudSanitize';
+import { sanitizeCloudTasks, encodeCloudKeys, decodeCloudKeys, sanitizeCloudQuickLinks, sanitizeCloudCourses } from './cloudSanitize';
 
 export const FIREBASE_CONFIG = {
   authDomain: 'blackboard-sidekick.firebaseapp.com',
@@ -64,7 +64,8 @@ export async function pushTasksToFirebase(
       quickLinks: quickLinks || undefined,
       courses: Array.isArray(courses) ? courses : undefined,
       coursesUpdatedAt: coursesUpdatedAt || undefined,
-      tombstones: tombstones || undefined
+      // Keys are task ids and may hold characters Firebase refuses, so they are encoded
+      tombstones: encodeCloudKeys(tombstones)
     };
 
     const targetUrl = getFirebaseDataUrl(syncKey);
@@ -130,7 +131,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
         quickLinks,
         courses,
         coursesUpdatedAt: data?.coursesUpdatedAt,
-        tombstones: data?.tombstones
+        tombstones: decodeCloudKeys(data?.tombstones)
       };
     }
 
@@ -142,7 +143,7 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
       quickLinks,
       courses,
       coursesUpdatedAt: data.coursesUpdatedAt,
-      tombstones: data.tombstones
+      tombstones: decodeCloudKeys(data.tombstones)
     };
   } catch (err: any) {
     return {

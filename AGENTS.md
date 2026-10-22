@@ -51,7 +51,8 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 7. **Two colours only** (near-black and near-white, plus greys), no gradients, `border-radius: 0 !important`, no em-dashes anywhere. Course colours and the red/amber stats numbers are the only exceptions. Checked by `tests/theme.test.ts` and lint.
 8. **Never break sync isolation**: every Firebase read and write is scoped to `users/{syncKey}`. Never write to the root. Sync keys are `BBS-` plus 10 characters.
 9. **No secrets in the repo.** Never commit the owner's backups, API keys, Jev key or sync key. Tests use made-up scores.
-10. **Course logic lives in `src/core`.** Do not copy it into `mobile-web/companion/app.js`; add it to `src/mobile/core.ts` and use `BBCore`.
+10. **Firebase object keys cannot contain `. $ # [ ] /`.** Maps keyed by task id (deletion records) go through `encodeCloudKeys` when written and `decodeCloudKeys` when read, in the extension, the phone app and the worker. Never use an id or title as a key without that.
+11. **Course logic lives in `src/core`.** Do not copy it into `mobile-web/companion/app.js`; add it to `src/mobile/core.ts` and use `BBCore`.
 
 ## Verifying changes
 

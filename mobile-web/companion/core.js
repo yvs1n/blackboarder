@@ -48,6 +48,31 @@ var BBCoreBundle = (function() {
 		const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
 		return Number.isFinite(n) ? n : void 0;
 	};
+	/**
+	* Firebase refuses object keys containing . $ # [ ] / (and a key cannot be empty). Deletion
+	* records are keyed by task id, and ids come from titles ("HW1_Phys.1"), so the keys are encoded
+	* on the way to Firebase and decoded on the way back. "%" is encoded too so it round-trips.
+	*/
+	function encodeCloudKey(key) {
+		const k = String(key).replace(/[%.$#\[\]/]/g, (ch) => "%" + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
+		return k === "" ? "%00" : k;
+	}
+	function decodeCloudKey(key) {
+		if (key === "%00") return "";
+		return String(key).replace(/%(25|2E|24|23|5B|5D|2F)/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+	}
+	function encodeCloudKeys(map) {
+		if (!map || typeof map !== "object") return void 0;
+		const out = {};
+		for (const [k, v] of Object.entries(map)) out[encodeCloudKey(k)] = v;
+		return out;
+	}
+	function decodeCloudKeys(map) {
+		if (!map || typeof map !== "object") return void 0;
+		const out = {};
+		for (const [k, v] of Object.entries(map)) out[decodeCloudKey(k)] = v;
+		return out;
+	}
 	function isSafeCloudId(id) {
 		return typeof id === "string" && SAFE_ID.test(id);
 	}
@@ -3815,6 +3840,8 @@ ${cleanBody}`;
 		sanitizeCloudCourses,
 		safeHexColor,
 		isSafeCloudId,
+		encodeCloudKeys,
+		decodeCloudKeys,
 		DEFAULT_USER_COURSES,
 		compileCoursePattern,
 		compileSyllabusComponentMatcher,
@@ -3833,6 +3860,7 @@ ${cleanBody}`;
 		findCourseSchedule,
 		resolveTaskTimeWithSchedule,
 		extractRoomFromText,
+		isPlausibleRoom,
 		resolveTaskRoom,
 		resolveTaskWeight,
 		buildMarksSummary,

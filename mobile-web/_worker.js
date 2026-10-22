@@ -181,6 +181,11 @@ function generateIcsFeed(tasks = [], options = {}) {
 
 const FIREBASE_DB_URL = 'https://blackboard-sidekick-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+// Firebase refuses keys with . $ # [ ] / ; deletion records are keyed by task id, so keys are encoded in Firebase
+const encodeKey = (k) => { const e = String(k).replace(/[%.$#\[\]/]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')); return e === '' ? '%00' : e; };
+const decodeKey = (k) => k === '%00' ? '' : String(k).replace(/%(25|2E|24|23|5B|5D|2F)/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+const mapKeys = (m, fn) => { if (!m || typeof m !== 'object') return m; const o = {}; for (const [k, v] of Object.entries(m)) o[fn(k)] = v; return o; };
+
 // In-memory fallback, kept per sync key so one user's data can never be served to another
 const memoryByKey = new Map();
 const memKey = (cleanKey) => cleanKey || '__default__';
@@ -206,6 +211,7 @@ async function getStoredTasks(env, syncKey = '') {
       if (fbRes.ok) {
         const fbData = await fbRes.json();
         if (fbData && Array.isArray(fbData.tasks)) {
+          if (fbData.tombstones) fbData.tombstones = mapKeys(fbData.tombstones, decodeKey);
           memoryByKey.set(memKey(cleanKey), fbData);
           return fbData;
         }
@@ -245,7 +251,7 @@ async function saveStoredTasks(payload, env, syncKey = '') {
       await fetch(targetUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload.tombstones ? { ...payload, tombstones: mapKeys(payload.tombstones, encodeKey) } : payload)
       });
     } catch (err) {
       console.warn('Worker: Firebase save error:', err);

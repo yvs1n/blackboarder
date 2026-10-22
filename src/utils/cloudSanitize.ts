@@ -22,6 +22,35 @@ const optNum = (v: unknown): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+/**
+ * Firebase refuses object keys containing . $ # [ ] / (and a key cannot be empty). Deletion
+ * records are keyed by task id, and ids come from titles ("HW1_Phys.1"), so the keys are encoded
+ * on the way to Firebase and decoded on the way back. "%" is encoded too so it round-trips.
+ */
+export function encodeCloudKey(key: string): string {
+  const k = String(key).replace(/[%.$#\[\]/]/g, ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+  return k === '' ? '%00' : k;
+}
+
+export function decodeCloudKey(key: string): string {
+  if (key === '%00') return '';
+  return String(key).replace(/%(25|2E|24|23|5B|5D|2F)/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+export function encodeCloudKeys<T>(map: Record<string, T> | undefined | null): Record<string, T> | undefined {
+  if (!map || typeof map !== 'object') return undefined;
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(map)) out[encodeCloudKey(k)] = v;
+  return out;
+}
+
+export function decodeCloudKeys<T>(map: Record<string, T> | undefined | null): Record<string, T> | undefined {
+  if (!map || typeof map !== 'object') return undefined;
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(map)) out[decodeCloudKey(k)] = v;
+  return out;
+}
+
 export function isSafeCloudId(id: unknown): id is string {
   return typeof id === 'string' && SAFE_ID.test(id);
 }

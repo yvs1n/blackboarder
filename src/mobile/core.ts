@@ -7,7 +7,7 @@
  * code instead of keeping copies that drift apart.
  */
 import type { Announcement, UserSettings } from '../types';
-import { sanitizeCloudTasks, sanitizeCloudQuickLinks, sanitizeCloudCourses, safeHexColor, isSafeCloudId } from '../utils/cloudSanitize';
+import { sanitizeCloudTasks, sanitizeCloudQuickLinks, sanitizeCloudCourses, safeHexColor, isSafeCloudId, encodeCloudKeys, decodeCloudKeys } from '../utils/cloudSanitize';
 import {
   compileCoursePattern,
   compileSyllabusComponentMatcher,
@@ -19,7 +19,7 @@ import {
   getActiveCourseLegend
 } from '../core/userCourses';
 import { filterCleanUserCourses } from '../core/courseFilter';
-import { extractRoomFromText, resolveTaskRoom, findCourseSchedule, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
+import { extractRoomFromText, isPlausibleRoom, resolveTaskRoom, findCourseSchedule, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
 import { resolveTaskWeight, extractExplicitPoints, extractAssessmentNumber } from '../core/syllabusWeights';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText, formatScore } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
@@ -84,6 +84,8 @@ const BBCore = {
   sanitizeCloudCourses,
   safeHexColor,
   isSafeCloudId,
+  encodeCloudKeys,
+  decodeCloudKeys,
 
   // Courses, schedule and syllabus
   DEFAULT_USER_COURSES,
@@ -106,6 +108,7 @@ const BBCore = {
 
   // Rooms, weights and text cleanup
   extractRoomFromText,
+  isPlausibleRoom,
   resolveTaskRoom,
   resolveTaskWeight,
   buildMarksSummary,
