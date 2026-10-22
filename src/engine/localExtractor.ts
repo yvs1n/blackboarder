@@ -67,7 +67,7 @@ const TASK_TYPE_PATTERNS: Array<{ type: TaskType; regex: RegExp; priority: TaskP
   },
   {
     type: 'meeting',
-    regex: /(?:\b(presentation|class\s*meeting|office\s*hours|review\s*session)\b|(?:مناقشة|عرض\s*تقديمي))/i,
+    regex: /(?:\b(presentations?|class\s*meeting|office\s*hours|review\s*session)\b|(?:مناقشة|عروض|عرض\s*تقديمي))/i,
     priority: 'low'
   },
   {

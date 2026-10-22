@@ -1921,7 +1921,7 @@ var BBCoreBundle = (function() {
 		},
 		{
 			type: "meeting",
-			regex: /(?:\b(presentation|class\s*meeting|office\s*hours|review\s*session)\b|(?:مناقشة|عرض\s*تقديمي))/i,
+			regex: /(?:\b(presentations?|class\s*meeting|office\s*hours|review\s*session)\b|(?:مناقشة|عروض|عرض\s*تقديمي))/i,
 			priority: "low"
 		},
 		{
@@ -3468,6 +3468,15 @@ ${cleanBody}`;
 		return classifyAnnouncementDirectly(text, apiKey, timeoutMs);
 	}
 	// src/engine/hybridExtractor.ts
+	var ENGLISH_ACADEMIC = /\b(quiz(?:zes)?|exams?|midterms?|finals?|tests?|assignments?|homework|hw|projects?|labs?|presentations?|reports?|essays?|submit|submission|due|deadline|postponed|rescheduled)\b/i;
+	var ARABIC_ACADEMIC = /(واجب|كويز|امتحان|اختبار|تسليم|تأجيل|عروض|عرض|مشروع|تقرير|بحث|مناقشة|موعد)/;
+	/**
+	* True when text mentions an assessment or deadline, in English or Arabic.
+	* Decides whether an announcement the local parser could not date is worth an AI call.
+	*/
+	function hasAcademicKeywords(text) {
+		return ENGLISH_ACADEMIC.test(text) || ARABIC_ACADEMIC.test(text);
+	}
 	/**
 	* Same pipeline as extractDeadlinesHybrid, but also reports which stage produced the tasks.
 	*/
@@ -3495,7 +3504,7 @@ ${cleanBody}`;
 			tasks: localTasks,
 			tier: localTier
 		};
-		if (!/\b(quiz|exam|midterm|final|assignment|homework|hw|project|lab|due|deadline|postponed|rescheduled|واجب|كويز|امتحان|تسليم|تأجيل)\b/i.test(`${announcement.title} ${announcement.contentText}`)) return {
+		if (!hasAcademicKeywords(`${announcement.title} ${announcement.contentText}`)) return {
 			tasks: localTasks,
 			tier: "No academic keywords detected"
 		};

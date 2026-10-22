@@ -275,7 +275,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (329 tests across 35 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (336 tests across 36 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -296,7 +296,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **35 test files comprising 329 automated tests** running on Vitest:
+Blackboarder is covered by **36 test files comprising 336 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -314,8 +314,8 @@ Blackboarder is covered by **35 test files comprising 329 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 21 Test Suites* | 188 | Regex extraction, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **329** | **100% Passing** |
+| *Other 22 Test Suites* | 195 | Regex extraction, Arabic AI gate, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **336** | **100% Passing** |
 
 ---
 
@@ -377,7 +377,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 35 Vitest test suites (329 tests)
+├── tests/                            # 36 Vitest test suites (336 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -435,12 +435,22 @@ For any human or AI assistant continuing work on Blackboarder:
 4. **Never Break Multi-Tenant Isolation**: Never write to root `/` in Firebase; always scope reads and writes to `/users/{syncKey}`.
 5. **Always Run `npm run lint` and `npm test` Before Committing**: Ensure every test suite passes 100%.
 6. **Read and Keep This File Current**: Read it at the start of every session and before each task. Any change that makes a section here stale updates that section in the same commit, and each chunk of work gets an entry in section 11.
+7. **Never Put `\b` Around Arabic Words in a Regex**: JavaScript's `\b` only sees ASCII letters, so `\bواجب\b` never matches. Keep Arabic alternatives outside the `\b` group.
 
 ---
 
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Arabic announcements reach the AI
+- Owner report: deep scans of `/ultra/stream` found no new deadlines. A console check on the live page showed the scanner does see the stream (80 card matches, top document, no frames, Scan pill injected), so the loss was in extraction.
+- Cause: the keyword gate in `extractDeadlinesHybridDetailed()` (`src/engine/hybridExtractor.ts`) wrapped Arabic words in `\b`, which in JavaScript only matches next to ASCII letters, so it never matched Arabic. Every Arabic-only announcement the local parser could not date was dropped before the AI call. It also missed presentations, tests, reports, essays and plurals.
+- Fix: exported `hasAcademicKeywords()` with separate English (`\b`) and Arabic (no `\b`) patterns, adding عروض, عرض, اختبار, مشروع, تقرير, بحث, مناقشة, موعد and the English words above. The local parser's meeting pattern now matches `presentations` and عروض.
+- Tests: `tests/arabicAiGate.test.ts` (5 tests, all failed before the fix).
+- Rule for future regexes: never put `\b` around Arabic text.
+- Owner action: after updating, Shift+Click Scan on the stream. AI needs the toggle on and an OpenRouter key; without them only announcements with a date the local parser can read become deadlines.
+- Still open: not checked against the live stream after the fix, since the extension runs only in the owner's browser.
 
 ### 2026-10-22 - AI settings save instantly
 - Owner report: "Enable AI Deep Extraction" kept showing off, so new assignments with conversational wording were missed. Cause: the toggle, OpenRouter key, model, Jev toggle and Jev key only saved through the Save Settings button at the bottom of the form. The toolbar popup closes on any outside click, the change was lost, and `loadSettingsForm()` showed the stored `false` next time.

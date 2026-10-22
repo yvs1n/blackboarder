@@ -15,6 +15,19 @@ function normalizeTaskKey(task: DeadlineTask): string {
   return `${task.courseCode}_${task.type}_${dateStr}_${cleanTitle}`;
 }
 
+// English words need \b so "lab" does not match "label". Arabic words must not use \b:
+// in JavaScript \b only sees ASCII letters, so \bواجب\b never matches anything.
+const ENGLISH_ACADEMIC = /\b(quiz(?:zes)?|exams?|midterms?|finals?|tests?|assignments?|homework|hw|projects?|labs?|presentations?|reports?|essays?|submit|submission|due|deadline|postponed|rescheduled)\b/i;
+const ARABIC_ACADEMIC = /(واجب|كويز|امتحان|اختبار|تسليم|تأجيل|عروض|عرض|مشروع|تقرير|بحث|مناقشة|موعد)/;
+
+/**
+ * True when text mentions an assessment or deadline, in English or Arabic.
+ * Decides whether an announcement the local parser could not date is worth an AI call.
+ */
+export function hasAcademicKeywords(text: string): boolean {
+  return ENGLISH_ACADEMIC.test(text) || ARABIC_ACADEMIC.test(text);
+}
+
 export interface HybridExtractionResult {
   tasks: DeadlineTask[];
   /** Which stage produced the result, shown to the user in the web app */
@@ -74,12 +87,7 @@ export async function extractDeadlinesHybridDetailed(
     return { tasks: localTasks, tier: localTier };
   }
 
-  // Check if announcement text contains academic assessment triggers
-  const hasAcademicKeywords = /\b(quiz|exam|midterm|final|assignment|homework|hw|project|lab|due|deadline|postponed|rescheduled|واجب|كويز|امتحان|تسليم|تأجيل)\b/i.test(
-    `${announcement.title} ${announcement.contentText}`
-  );
-
-  if (!hasAcademicKeywords) {
+  if (!hasAcademicKeywords(`${announcement.title} ${announcement.contentText}`)) {
     return { tasks: localTasks, tier: 'No academic keywords detected' };
   }
 
