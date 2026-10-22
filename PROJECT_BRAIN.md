@@ -442,6 +442,13 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - AI settings save instantly
+- Owner report: "Enable AI Deep Extraction" kept showing off, so new assignments with conversational wording were missed. Cause: the toggle, OpenRouter key, model, Jev toggle and Jev key only saved through the Save Settings button at the bottom of the form. The toolbar popup closes on any outside click, the change was lost, and `loadSettingsForm()` showed the stored `false` next time.
+- `src/popup/popup.ts` now saves each of those fields on `change` (same pattern as the Blackboard Dark Mode toggle) and shows a toast; turning AI on with no key shows a reminder. The Save button still saves everything.
+- Checked by loading the built popup with a stubbed `chrome.storage`: toggle on, reopen without saving, still on.
+- Owner action: after updating, turn the toggle on once. AI extraction also needs the OpenRouter key (`hybridExtractor.ts` skips AI when either is missing). Re-scan Blackboard (Shift+Click Scan for a full re-scan) to pick up the missed assignments.
+- Still open: the other settings (auto-scan, notifications, sync) still need the Save button.
+
 ### 2026-10-22 - Author credit
 - The owner is Yassin Ragab, a freshman at the University of Sharjah (https://yassinr.me). Credit added to the landing page footer (copyright line and an "About the author" link), the README, `LICENSE` (copyright holder, was "Blackboarder Team"), `package.json` author, and a one-line note under the update card in both Settings screens.
 

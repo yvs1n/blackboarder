@@ -3233,6 +3233,37 @@ function setupEvents() {
     showToast(`Blackboard Dark Mode ${isChecked ? 'Enabled' : 'Disabled'}`);
   });
 
+  // AI engine settings save as soon as they change. Before, they only saved
+  // with the Save button at the bottom, so closing the popup lost the change.
+  const settingUseAi = document.getElementById('setting-use-ai') as HTMLInputElement | null;
+  const settingApiKey = document.getElementById('setting-apikey') as HTMLInputElement | null;
+  settingUseAi?.addEventListener('change', async () => {
+    const enabled = settingUseAi.checked;
+    await saveSettings({ useAiExtraction: enabled });
+    if (enabled && !settingApiKey?.value.trim()) {
+      showToast('AI Deep Extraction on - add an OpenRouter API key to use it');
+    } else {
+      showToast(`AI Deep Extraction ${enabled ? 'Enabled' : 'Disabled'}`);
+    }
+  });
+  settingApiKey?.addEventListener('change', async () => {
+    await saveSettings({ openRouterApiKey: settingApiKey.value.trim() });
+    showToast('OpenRouter API key saved');
+  });
+  const settingModel = document.getElementById('setting-model') as HTMLSelectElement | null;
+  settingModel?.addEventListener('change', async () => {
+    await saveSettings({ openRouterModel: settingModel.value });
+    showToast('AI model saved');
+  });
+  const settingUseJevToggle = document.getElementById('setting-use-jev') as HTMLInputElement | null;
+  settingUseJevToggle?.addEventListener('change', async () => {
+    await saveSettings({ useJevClassification: settingUseJevToggle.checked });
+  });
+  const settingJevKeyInput = document.getElementById('setting-jev-key') as HTMLInputElement | null;
+  settingJevKeyInput?.addEventListener('change', async () => {
+    await saveSettings({ jevApiKey: settingJevKeyInput.value.trim() });
+  });
+
   // Settings Form Submit
   formSettings.addEventListener('submit', async e => {
     e.preventDefault();
