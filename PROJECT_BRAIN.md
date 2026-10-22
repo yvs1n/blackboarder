@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (386 tests across 44 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (389 tests across 45 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **44 test files comprising 386 automated tests** running on Vitest:
+Blackboarder is covered by **45 test files comprising 389 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **44 test files comprising 386 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 30 Test Suites* | 244 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **386** | **100% Passing** |
+| *Other 31 Test Suites* | 247 | Regex extraction, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **389** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 44 Vitest test suites (386 tests)
+├── tests/                            # 45 Vitest test suites (389 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Extension Errors page cleaned up
+- Owner: errors in the extension log (screenshot: many "[Scraper] Blackboard REST API fetch unavailable ... Failed to fetch" and one "Unchecked runtime.lastError: Could not establish connection").
+- The fetch warning came from a build before 5cef983, where a failed course request reached the outer catch; current code catches it per request. Brave keeps old entries until "Clear all".
+- Brave/Chrome list every `console.warn` on the Errors page, so expected situations now log with `console.info`: course announcements not readable, extension reloaded (context invalidated), OpenRouter / Jev fallbacks, missing OpenRouter key. Real faults keep `console.error`.
+- The Alt+B `OPEN_POPUP` message now has `.catch`. Every callback-style `sendMessage` in the built files reads `chrome.runtime.lastError`; the exact source of the owner's lastError entry was not identified (no stack in the screenshot). Test: `tests/quietLogs.test.ts`.
 
 ### 2026-10-22 - Gradebook marks: course ids, names and titles fixed
 - Owner: the grade tracker only showed Islamic Culture marks.

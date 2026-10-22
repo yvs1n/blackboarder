@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Marks from the gradebook**: every scan now reads your marks straight from each course's Blackboard gradebook and shows them on the matching deadline (for example "4.5 / 5 (90%)"). Work waiting to be marked shows as submitted.
 
 ### Fixed
+- **Fewer false errors**: normal situations (a course whose announcements cannot be read, a reloaded extension, the AI falling back) no longer show up on the extension's Errors page.
 - **Marks for every course**: Physics 1, Physics 1 Lab and Islamic Culture were mixed up inside the extension, so their marks could not be placed. Marks also now find deadlines whose names differ slightly from Blackboard's (for example "Free Fall Exp. Student's Lab Report" and "Free Fall Exp. - Lab Report", or "2nd Quiz" and "Quiz 2"), and names with "&" match.
 - **Stats row colours**: the Urgent count is red and the This Week count is amber again, in light and dark.
 - **Marks**: a "Grade posted" card now attaches its mark to the matching deadline (the "Grade posted:" words in the title stopped it from matching), and a mark never lands on a same-named task in another course.

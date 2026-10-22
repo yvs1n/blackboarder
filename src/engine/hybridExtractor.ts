@@ -119,7 +119,7 @@ export async function extractDeadlinesHybridDetailed(
           }
         }
       } catch (err) {
-        console.warn('[HybridExtractor] Jev category refinement failed:', err);
+        console.info('[HybridExtractor] Jev category refinement failed:', String(err));
       }
     }
     return { tasks: localTasks, tier: localTier };
@@ -167,7 +167,7 @@ export async function extractDeadlinesHybridDetailed(
         hasTime: jevResult.hasTime
       };
     } catch (jevErr) {
-      console.warn('[Blackboarder] Jev classifier error, falling back to Generative AI:', jevErr);
+      console.info('[Blackboarder] Jev classifier error, falling back to Generative AI:', String(jevErr));
     }
   }
 

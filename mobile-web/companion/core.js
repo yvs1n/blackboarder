@@ -2481,7 +2481,7 @@ var BBCoreBundle = (function() {
 	*/
 	async function extractDeadlinesWithAi(announcement, apiKey, model = "google/gemini-3.8-flash", jevHint) {
 		if (!apiKey || !apiKey.trim()) {
-			console.warn("OpenRouter API key not configured.");
+			console.info("OpenRouter API key not configured.");
 			return [];
 		}
 		const baseDate = announcement.postedAt ? new Date(announcement.postedAt) : /* @__PURE__ */ new Date();
@@ -2594,8 +2594,8 @@ ${cleanBody}`;
 				});
 				if (bgResp && bgResp.ok && bgResp.data) data = bgResp.data;
 			} catch (e) {
-				if (e?.message?.includes("Extension context invalidated")) console.warn("[OpenRouter AI] Extension context invalidated; falling back to direct fetch.");
-				else console.warn("[OpenRouter AI] Service worker proxy failed, falling back:", e);
+				if (e?.message?.includes("Extension context invalidated")) console.info("[OpenRouter AI] Extension context invalidated; falling back to direct fetch.");
+				else console.info("[OpenRouter AI] Service worker proxy failed, falling back:", String(e));
 			}
 			if (!data) {
 				response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -3454,7 +3454,7 @@ ${cleanBody}`;
 				hasTimeProbability: hasTimeProb
 			};
 		} catch (error) {
-			console.warn("[Jev Classifier] Triage failed or timed out, falling back:", error);
+			console.info("[Jev Classifier] Triage failed or timed out, falling back:", String(error));
 			return fallbackResult;
 		}
 	}
@@ -3499,8 +3499,8 @@ ${cleanBody}`;
 			});
 			if (bgResp && bgResp.ok && (bgResp.result || bgResp.data)) return bgResp.result || bgResp.data;
 		} catch (err) {
-			if (err?.message?.includes("Extension context invalidated")) console.warn("[Jev Classifier] Extension context invalidated; falling back to direct triage.");
-			else console.warn("[Jev Classifier] Content script proxy request via service worker failed, falling back to direct:", err);
+			if (err?.message?.includes("Extension context invalidated")) console.info("[Jev Classifier] Extension context invalidated; falling back to direct triage.");
+			else console.info("[Jev Classifier] Service worker proxy failed, falling back to direct:", String(err));
 		}
 		return classifyAnnouncementDirectly(text, apiKey, timeoutMs);
 	}
@@ -3530,7 +3530,7 @@ ${cleanBody}`;
 					}
 				}
 			} catch (err) {
-				console.warn("[HybridExtractor] Jev category refinement failed:", err);
+				console.info("[HybridExtractor] Jev category refinement failed:", String(err));
 			}
 			return {
 				tasks: localTasks,
@@ -3565,7 +3565,7 @@ ${cleanBody}`;
 				hasTime: jevResult.hasTime
 			};
 		} catch (jevErr) {
-			console.warn("[Blackboarder] Jev classifier error, falling back to Generative AI:", jevErr);
+			console.info("[Blackboarder] Jev classifier error, falling back to Generative AI:", String(jevErr));
 		}
 		console.log(`[Blackboarder] Triggering Generative AI parser for announcement: "${announcement.title}"`);
 		const aiTasks = await extractDeadlinesWithAi(announcement, settings.openRouterApiKey, settings.openRouterModel, jevCategoryHint);

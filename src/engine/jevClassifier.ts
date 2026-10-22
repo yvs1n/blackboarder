@@ -160,7 +160,7 @@ export async function classifyAnnouncementDirectly(
       hasTimeProbability: hasTimeProb
     };
   } catch (error) {
-    console.warn('[Jev Classifier] Triage failed or timed out, falling back:', error);
+    console.info('[Jev Classifier] Triage failed or timed out, falling back:', String(error));
     return fallbackResult;
   }
 }
@@ -234,9 +234,9 @@ export async function classifyAnnouncementWithJev(
       }
     } catch (err: any) {
       if (err?.message?.includes('Extension context invalidated')) {
-        console.warn('[Jev Classifier] Extension context invalidated; falling back to direct triage.');
+        console.info('[Jev Classifier] Extension context invalidated; falling back to direct triage.');
       } else {
-        console.warn('[Jev Classifier] Content script proxy request via service worker failed, falling back to direct:', err);
+        console.info('[Jev Classifier] Service worker proxy failed, falling back to direct:', String(err));
       }
     }
   }

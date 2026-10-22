@@ -868,7 +868,7 @@ async function fetchCourseAnnouncementsApi(
       };
     }).filter((a: Announcement) => a.contentText && a.contentText.length > 5);
   } catch (err) {
-    console.warn('[Scraper] Blackboard REST API fetch unavailable, using DOM scraper:', err);
+    console.info('[Scraper] Course announcements not readable, using the page instead:', String(err));
     return [];
   }
 }
@@ -1173,7 +1173,7 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
     if (interactive) {
       showExtensionReloadToast();
     } else {
-      console.warn('[Blackboarder] Extension context invalidated (extension reloaded). Tab refresh required.');
+      console.info('[Blackboarder] Extension was reloaded; refresh this tab to reconnect.');
     }
     return;
   }
@@ -1365,7 +1365,7 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
   } catch (error: any) {
     if (error?.message?.includes('Extension context invalidated')) {
       teardownOrphanedContentScript();
-      console.warn('[Blackboarder] Extension context invalidated (extension reloaded). Tab refresh required.');
+      console.info('[Blackboarder] Extension was reloaded; refresh this tab to reconnect.');
       if (interactive) {
         showExtensionReloadToast();
       }
@@ -1428,7 +1428,7 @@ function init() {
     if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'b' || e.key === 'B')) {
       if (isExtensionContextValid()) {
         try {
-          chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
+          chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
         } catch {
           // Extension context might be invalidated or unavailable
         }
@@ -1552,7 +1552,7 @@ function initUltraStreamObserver() {
         } catch (e: any) {
           if (e?.message?.includes('Extension context invalidated')) {
             teardownOrphanedContentScript();
-            console.warn('[Blackboarder] Extension context invalidated during auto-scan.');
+            console.info('[Blackboarder] Extension was reloaded during auto-scan; refresh this tab to reconnect.');
           } else {
             console.warn('[Blackboarder] Infinite scroll auto-scan error:', e);
           }

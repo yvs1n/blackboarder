@@ -41,7 +41,7 @@ export async function extractDeadlinesWithAi(
   }
 ): Promise<DeadlineTask[]> {
   if (!apiKey || !apiKey.trim()) {
-    console.warn('OpenRouter API key not configured.');
+    console.info('OpenRouter API key not configured.');
     return [];
   }
 
@@ -205,9 +205,9 @@ ${cleanBody}`;
           }
         } catch (e: any) {
           if (e?.message?.includes('Extension context invalidated')) {
-            console.warn('[OpenRouter AI] Extension context invalidated; falling back to direct fetch.');
+            console.info('[OpenRouter AI] Extension context invalidated; falling back to direct fetch.');
           } else {
-            console.warn('[OpenRouter AI] Service worker proxy failed, falling back:', e);
+            console.info('[OpenRouter AI] Service worker proxy failed, falling back:', String(e));
           }
         }
       }
