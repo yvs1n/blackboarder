@@ -3,8 +3,9 @@ import { processAnnouncementsBatch, titleCourseKeyFor } from '../engine/hybridEx
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses, setScanStatus } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode, isValidTask } from '../core/courseHelper';
-import { parseDirectStreamCard, parseSubmissionOrGradeCard, findTaskForUpdate } from '../utils/streamParser';
+import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
+import { gradebookToUpdates, applySubmissionUpdates } from '../utils/gradebook';
 import { mergeStreamAndCourseAnnouncements } from '../utils/announcementMerge';
 
 /**
@@ -868,6 +869,45 @@ async function fetchCourseAnnouncementsApi(
   }
 }
 
+/**
+ * Reads the student's marks from each course gradebook, the same requests Ultra's Grades page
+ * makes: /learn/api/v1/users/me for the user id, then columns (names, max points) and grades
+ * per course. A course that refuses is skipped.
+ */
+async function fetchGradebookUpdates(): Promise<TaskSubmissionUpdate[]> {
+  const getJson = async (path: string) => {
+    const res = await bbFetch(path, { headers: getBlackboardFetchHeaders(), credentials: 'same-origin' });
+    return res.ok ? res.json() : null;
+  };
+  let userId = '';
+  try {
+    userId = (await getJson('/learn/api/v1/users/me'))?.id || '';
+  } catch {}
+  if (!userId) return [];
+
+  const courseIds = await extractAllCourseIdsFromPage();
+  const perCourse = await Promise.all(courseIds.map(async cid => {
+    try {
+      const [cols, grades] = await Promise.all([
+        getJson(`/learn/api/v1/courses/${encodeURIComponent(cid)}/gradebook/columns?includeInvisible=false`),
+        getJson(`/learn/api/v1/courses/${encodeURIComponent(cid)}/gradebook/grades?limit=200&userId=${encodeURIComponent(userId)}`)
+      ]);
+      if (!Array.isArray(cols?.results) || !Array.isArray(grades?.results)) return [];
+      const known = KNOWN_UOS_COURSE_IDS.find(k => k.courseId === cid);
+      const course = known ? { name: known.name, code: known.code } : parseCourseDetails(courseNamesById.get(cid) || '');
+      return gradebookToUpdates(cols.results, grades.results, {
+        courseName: course.name !== 'General Course' ? course.name : undefined,
+        courseCode: course.code
+      });
+    } catch {
+      return [];
+    }
+  }));
+  const updates = perCourse.flat();
+  console.info(`[Blackboarder] Gradebook: ${updates.filter(u => u.submissionStatus === 'graded').length} marks from ${courseIds.length} courses`);
+  return updates;
+}
+
 /** Small deterministic string hash (djb2) for building stable ids. */
 function stableHash(input: string): string {
   let h = 5381;
@@ -1159,8 +1199,9 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
     // 2. Scrape announcement cards (incremental)
     const announcements = await scrapeAnnouncementsFull({ fullRescan });
 
-    // 3. Scrape submission receipts and posted marks from stream cards
+    // 3. Submission receipts and posted marks: stream cards, then the gradebook (it has every mark, so it goes last and wins)
     const submissionUpdates = scrapeStreamSubmissionsAndGrades();
+    submissionUpdates.push(...await fetchGradebookUpdates().catch(() => [] as TaskSubmissionUpdate[]));
 
     // 4. Auto-discover enrolled courses from page
     const discoveredCourses = scrapeEnrolledCourses();
@@ -1253,29 +1294,8 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
 
     const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]).filter(isValidTask);
 
-    // Apply submission and grade updates to matching tasks
-    for (const update of submissionUpdates) {
-      const match = findTaskForUpdate(finalTasks, update);
-
-      if (match) {
-        if (update.submissionStatus === 'graded') {
-          match.submissionStatus = 'graded';
-          if (update.score !== undefined) match.score = update.score;
-          if (update.maxScore !== undefined) match.maxScore = update.maxScore;
-          if (update.scoreDisplay) match.scoreDisplay = update.scoreDisplay;
-          match.status = 'completed';
-          match.updatedAt = new Date().toISOString();
-        } else if (update.submissionStatus === 'submitted') {
-          if (match.submissionStatus !== 'graded') {
-            match.submissionStatus = 'submitted';
-            if (update.submittedAt) match.submittedAt = update.submittedAt;
-            if (update.submissionReceipt) match.submissionReceipt = update.submissionReceipt;
-            match.status = 'completed';
-            match.updatedAt = new Date().toISOString();
-          }
-        }
-      }
-    }
+    // Put marks and submissions on their tasks (only changed tasks are touched)
+    const marksChanged = applySubmissionUpdates(finalTasks, submissionUpdates);
 
     // Auto-register any new courses found in scanned tasks or discovered courses
     await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => {});
@@ -1327,7 +1347,9 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
         state: 'done',
         message: totalNewCount > 0
           ? `Added ${totalNewCount} new deadline${totalNewCount > 1 ? 's' : ''} to calendar!`
-          : `Up to date. Read ${announcements.length + directTasks.length} items with no new deadlines.`,
+          : (marksChanged > 0
+            ? `Up to date. Added or updated ${marksChanged} mark${marksChanged > 1 ? 's' : ''}.`
+            : `Up to date. Read ${announcements.length + directTasks.length} items with no new deadlines.`),
         newCount: totalNewCount
       });
     }

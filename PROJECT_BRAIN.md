@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (380 tests across 43 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (384 tests across 44 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **43 test files comprising 380 automated tests** running on Vitest:
+Blackboarder is covered by **44 test files comprising 384 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **43 test files comprising 380 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 29 Test Suites* | 238 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **380** | **100% Passing** |
+| *Other 30 Test Suites* | 242 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **384** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 43 Vitest test suites (380 tests)
+├── tests/                            # 44 Vitest test suites (384 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Marks read from the Blackboard gradebook
+- Owner: add reading marks from the gradebook (stream grade cards disappear quickly, so most marks never arrived).
+- Endpoints, taken from the traffic of Ultra's own Grades page in the owner's signed-in session: `GET /learn/api/v1/users/me` (user id), then per course `GET /learn/api/v1/courses/{id}/gradebook/columns?includeInvisible=false` (name, `possible`, `calculationType`, `scoreProviderHandle`, `visible`, `gradesReleased`) and `GET /learn/api/v1/courses/{id}/gradebook/grades?userId={id}` (`status` GRADED / NEEDS_GRADING, `displayGrade.score`, `pointsPossible`). Relative paths must go through `bbFetch`: Ultra's `<base href>` points at an asset host and bare paths 404 there.
+- Code: `fetchGradebookUpdates` in `src/content/scraper.ts` runs on every scan after the stream cards (gradebook wins). `src/utils/gradebook.ts`: `gradebookToUpdates` skips attendance, hidden, unreleased and calculated columns; NEEDS_GRADING counts as submitted. `applySubmissionUpdates` puts marks on tasks via `findTaskForUpdate` and only bumps `updatedAt` when the mark changed, so repeat scans do not trigger syncs. Course names come from `KNOWN_UOS_COURSE_IDS` first. The scan status says how many marks were added.
+- Tests: `tests/gradebook.test.ts`, built from the English course's real responses (Quiz 1 4.5/5, Quiz 2 5/5, EAP Midterm Exam 20/20 on task "Midterm").
+- Not covered: gradebook items with no matching deadline are not added as tasks.
 
 ### 2026-10-22 - Stats row colours back
 - Owner: bring back the colours in the stats row (Urgent / This Week / Total).
