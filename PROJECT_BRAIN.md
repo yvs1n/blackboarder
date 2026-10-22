@@ -437,6 +437,13 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - Landing page rewrite
+- `landing/index.html` body rewritten: hero, 8 feature cells (finding deadlines, calendar, grades, sync, phone, calendar feed, updates, side panel and dark mode), install steps (ZIP or clone, load `dist`, run `update.bat` / `update.sh`, scan), phone and calendar setup, an announcement example, FAQ, CTA. Removed stale content: 6-character key examples, "cryptographic", the 4-tab showcase.
+- Head: description, Open Graph tags, favicon, Google Fonts for Inter and Inter Tight, and an early theme script (saved choice, else `prefers-color-scheme`; storage access wrapped in try/catch).
+- Phone nav overflow fixed (the GitHub button is icon-only under 640px). Checked at 390px and desktop: no horizontal scroll, FAQ and theme toggle work.
+- Hosting: a second Cloudflare Pages project with output folder `landing` (README and HOSTING_GUIDE). Owner action: create that project if you want the page online.
+- `<span>Blackboarder vX</span>` in the mockup header is still the build-sync target.
+
 ### 2026-10-22 - Auto-update for git clones, Firebase-only status, calendar names
 - **Auto-update never ran on the owner's machine.** The extension loads from `Desktop/blackboard_sidekick/dist` (Brave), inside a git clone. The helper skipped git clones by design, and it had been registered from the repository's top-level `updater/` folder, so it treated the repository root as the extension and allowed a different extension ID. The old helper would also have copied downloaded files into the repository root if it had ever run.
   - `updater/blackboarder-updater.ps1` / `.sh` now use `dist/` when run from a clone's top-level `updater/`, and update a clone with `git pull --ff-only origin main`, only on `main` with no uncommitted tracked changes; otherwise they reply `dev-checkout` with the reason, which Settings shows. Tested on a throwaway clone: behind (pulls), uncommitted edit, other branch, diverged (all skipped), up to date.

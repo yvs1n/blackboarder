@@ -64,6 +64,18 @@ Netlify does not run `mobile-web/_worker.js`, so the app syncs through Firebase 
 
 ---
 
+## Hosting the Landing Page
+
+`landing/index.html` is the project's public page: features, install steps, phone and calendar setup, and FAQ. It is one static HTML file with no build step and no backend.
+
+- **Cloudflare Pages (Git):** create a second Pages project from the same repository. Framework preset `None`, build command blank, build output directory **`landing`**. Every push to `main` redeploys it, and the version shown in its mockup is kept current by `npm run build`.
+- **Direct upload:** drag the `landing` folder into Cloudflare Pages > Upload assets, Netlify Drop or any static host.
+- **Custom domain:** add it under the Pages project's **Custom domains** tab.
+
+The page links to `blackboarder.pages.dev` for the phone app. If you host your own phone app, change those links (search for `blackboarder.pages.dev` in `landing/index.html`).
+
+---
+
 ## Option 4: Local LAN Server (For Dorm / Home Wi-Fi)
 
 To run the dashboard locally and connect your phone over your home or dorm Wi-Fi:

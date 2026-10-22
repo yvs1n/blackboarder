@@ -3,9 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackboarder - Academic Companion & Deadline Intelligence for Blackboard Learn</title>
-  <meta name="description" content="Blackboarder automatically extracts exams, quizzes, and homework deadlines from Blackboard announcements using hybrid AI. Swiss grid layout, two-toned aesthetic, calendar sync across Chrome, Mobile Web PWA, and Apple/Google Calendar.">
+  <title>Blackboarder - Never miss a Blackboard deadline</title>
+  <meta name="description" content="Blackboarder finds quizzes, assignments and exams in your Blackboard announcements (English and Arabic) and puts them on one calendar in your browser, on your phone and in your calendar app. Free, no account.">
   <meta name="theme-color" content="#121215">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Blackboarder - Never miss a Blackboard deadline">
+  <meta property="og:description" content="Finds deadlines in Blackboard announcements and syncs them to your browser, phone and calendar. Free and open source.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/yvs1n/blackboarder/main/assets/logo.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/yvs1n/blackboarder/main/public/icons/icon48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+  <script>
+    // Set the theme before the page paints, so there is no flash of the wrong one
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('bb_landing_theme'); } catch (e) {}
+      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 
   <style>
     /* -------------------------------------------------------------
@@ -1017,6 +1035,142 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* ---- Added: install, phone and example sections ---- */
+    .inline-code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 0.85em;
+      padding: 1px 5px;
+      background-color: var(--bg);
+      border: 1px solid var(--surface-border);
+      color: var(--text-main);
+      overflow-wrap: anywhere;
+    }
+    .step-link {
+      margin-top: auto;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-main);
+      border-bottom: 2px solid var(--text-main);
+      width: fit-content;
+      padding-bottom: 2px;
+    }
+    .step-link:hover { opacity: 0.75; }
+    .install-note {
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 820px;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      background-color: var(--surface-border);
+      border: 1px solid var(--surface-border);
+    }
+    .info-panel {
+      background-color: var(--surface);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .plain-steps {
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .plain-steps strong { color: var(--text-main); }
+    .code-line {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 0.84rem;
+      padding: 12px;
+      background-color: var(--bg);
+      border: 1px solid var(--surface-border-strong);
+      color: var(--text-main);
+      overflow-wrap: anywhere;
+    }
+    .panel-note {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .phone-mock {
+      margin-top: auto;
+      max-width: 320px;
+      border: 2px solid var(--surface-border-strong);
+      background-color: var(--bg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .phone-mock-head {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 8px;
+    }
+    .phone-mock-head span:last-child { color: var(--text-muted); }
+    .phone-mock-links {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+    }
+    .phone-mock-links span {
+      background-color: var(--surface);
+      border: 1px solid var(--surface-border);
+      padding: 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .phone-mock-card {
+      background-color: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-left: 3px solid var(--c-calc);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.82rem;
+    }
+    .phone-mock-card span { color: var(--text-muted); font-size: 0.76rem; }
+    .mock-btn {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid var(--surface-border-strong);
+      padding: 3px 8px;
+    }
+    .cta-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 960px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .nav-cta-label { display: none; }
+      .btn-cta-nav { padding: 0 11px; }
+      .info-panel, .step-item, .bento-cell { padding: 20px; }
+      .hero-actions a { width: 100%; justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -1024,9 +1178,8 @@
   <!-- Navigation Bar -->
   <nav class="site-nav">
     <div class="container nav-inner">
-      <a href="#" class="brand">
-        <!-- Brand Insignia -->
-        <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <a href="#top" class="brand" aria-label="Blackboarder home">
+        <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" aria-hidden="true">
           <rect x="0" y="0" width="512" height="512" fill="#141417"/>
           <rect x="12" y="12" width="488" height="488" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.2"/>
           <rect x="88" y="96" width="336" height="336" fill="#ffffff"/>
@@ -1045,111 +1198,108 @@
       </a>
 
       <ul class="nav-links">
-        <li><a href="#features" class="nav-link">Capabilities</a></li>
-        <li><a href="#how-it-works" class="nav-link">Workflow</a></li>
-        <li><a href="#showcase" class="nav-link">Modules</a></li>
-        <li><a href="#faq" class="nav-link">Specifications</a></li>
+        <li><a href="#features" class="nav-link">Features</a></li>
+        <li><a href="#install" class="nav-link">Install</a></li>
+        <li><a href="#phone" class="nav-link">Phone &amp; Calendar</a></li>
+        <li><a href="#faq" class="nav-link">FAQ</a></li>
       </ul>
 
       <div class="nav-actions">
-        <button id="theme-toggle" class="btn-theme" aria-label="Toggle light or dark theme" title="Toggle Theme">
-          <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button id="theme-toggle" class="btn-theme" aria-label="Switch between light and dark theme" title="Switch theme">
+          <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <circle cx="12" cy="12" r="5" stroke-width="2"/>
             <path stroke-linecap="square" stroke-width="2" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
           </svg>
-          <svg id="theme-icon-moon" style="display: none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg id="theme-icon-moon" style="display: none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
           </svg>
         </button>
 
-        <a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="btn-cta-nav">
-          <svg viewBox="0 0 24 24" fill="currentColor">
+        <a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="btn-cta-nav" aria-label="Blackboarder on GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
           </svg>
-          <span>Repository</span>
+          <span class="nav-cta-label">GitHub</span>
         </a>
       </div>
     </div>
   </nav>
 
-  <!-- Hero Section -->
-  <header class="hero-section">
+  <!-- Hero -->
+  <header class="hero-section" id="top">
     <div class="container">
       <div class="hero-grid">
         <div class="hero-left">
-          <span class="swiss-label">Academic Intelligence // UOS & Blackboard Learn</span>
-          
-          <h1 class="hero-display">
-            Never Miss an Academic Deadline Again.
-          </h1>
+          <span class="swiss-label">For UOS students // Blackboard Learn &amp; Ultra</span>
+
+          <h1 class="hero-display">Never miss a Blackboard deadline again.</h1>
 
           <p class="hero-body">
-            Blackboarder automatically parses assignments, quizzes, and room allocations from conversational announcements using a 3-tier hybrid AI pipeline. Synchronizes across desktop Chrome extension, mobile PWA, and RFC 5545 calendar feeds.
+            Blackboarder reads your course announcements, finds the quizzes, assignments and exams hidden in them, and puts them on one calendar. In your browser, on your phone, and in your calendar app. Free, no account needed.
           </p>
 
           <div class="hero-actions">
-            <a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="btn-swiss-primary">
-              <span>Install via GitHub</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <a href="#install" class="btn-swiss-primary">
+              <span>Install the extension</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
               </svg>
             </a>
-            <a href="#how-it-works" class="btn-swiss-secondary">
-              <span>View Workflow</span>
+            <a href="https://blackboarder.pages.dev" target="_blank" rel="noopener noreferrer" class="btn-swiss-secondary">
+              <span>Open the phone app</span>
             </a>
           </div>
 
           <div class="hero-meta-spec">
             <div class="spec-item">
-              <span class="spec-val">0ms Local</span>
-              <span class="spec-desc">Tier 1 Regex Parser</span>
+              <span class="spec-val">EN + AR</span>
+              <span class="spec-desc">Reads both languages</span>
             </div>
             <div class="spec-item">
-              <span class="spec-val">RFC 5545</span>
-              <span class="spec-desc">Live WebCal Feeds</span>
+              <span class="spec-val">No account</span>
+              <span class="spec-desc">Private sync key</span>
             </div>
             <div class="spec-item">
-              <span class="spec-val">Isolated</span>
-              <span class="spec-desc">BBS-XXXX Sync Keys</span>
+              <span class="spec-val">Free</span>
+              <span class="spec-desc">Updates itself</span>
             </div>
           </div>
         </div>
 
         <div class="hero-right">
-          <!-- Swiss Geometric Extension Mockup Frame -->
-          <div class="mockup-frame">
+          <div class="mockup-frame" aria-label="Preview of the Blackboarder extension">
             <div class="mockup-header-bar">
               <span>Blackboarder v1.1.0</span>
               <span>elearning.sharjah.ac.ae</span>
             </div>
 
             <div class="mockup-body">
-              <!-- App Header Bar -->
               <div class="app-header-mock">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <strong style="font-family: var(--font-display); font-size: 0.92rem; text-transform: uppercase;">Blackboarder</strong>
                   <span class="brand-tag">UOS</span>
                 </div>
                 <div style="display: flex; gap: 6px;">
-                  <span style="font-size: 0.72rem; font-weight: 700; border: 1px solid var(--surface-border-strong); padding: 4px 8px; text-transform: uppercase;">⚡ Scan</span>
-                  <span style="font-size: 0.72rem; font-weight: 700; border: 1px solid var(--surface-border-strong); padding: 4px 8px;">⚙</span>
+                  <span class="mock-btn">⚡ Scan</span>
+                  <span class="mock-btn">⚙</span>
                 </div>
               </div>
 
-              <!-- Segmented Control -->
               <div class="mock-tab-group">
                 <div class="mock-tab active">Monthly Calendar</div>
                 <div class="mock-tab">Deadlines (4)</div>
               </div>
 
-              <!-- Calendar Month Header -->
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="font-family: var(--font-display); font-size: 0.95rem; text-transform: uppercase;">October 2026</strong>
-                <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid var(--surface-border-strong); padding: 2px 6px;">Today</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="mock-btn">‹</span>
+                  <strong style="font-family: var(--font-display); font-size: 0.95rem;">October 2026</strong>
+                  <span class="mock-btn">›</span>
+                </div>
+                <span class="mock-btn">Today</span>
               </div>
 
-              <!-- Calendar Grid -->
               <div class="mock-cal-grid">
                 <div class="mock-weekday">M</div>
                 <div class="mock-weekday">T</div>
@@ -1193,7 +1343,6 @@
                 <div class="mock-day"><span class="mock-day-num">18</span></div>
               </div>
 
-              <!-- Active Task Card -->
               <div class="mock-deadline-card">
                 <div>
                   <div class="mock-card-course">0402202 // Calculus 1</div>
@@ -1213,416 +1362,380 @@
     </div>
   </header>
 
-  <!-- Capabilities Section (Swiss Bento Grid) -->
+  <!-- Features -->
   <section id="features" class="section-wrap">
     <div class="container">
       <div class="section-header-swiss">
-        <span class="swiss-label">01 // Architectural Capabilities</span>
-        <h2 class="section-title">Engineered for Academic Precision.</h2>
+        <span class="swiss-label">01 // Features</span>
+        <h2 class="section-title">Everything due, in one place.</h2>
         <p class="section-desc">
-          University stream posts bury critical dates inside ambiguous conversational paragraphs. Blackboarder extracts, categorizes, and organizes tasks into a unified timetable.
+          Instructors post deadlines inside long messages, in English, Arabic or both. Blackboarder finds them and keeps them organised across all your devices.
         </p>
       </div>
 
       <div class="swiss-bento">
-        <!-- Card 1: 3-Tier AI Engine (Span 8) -->
         <div class="bento-cell span-8">
           <div>
-            <span class="bento-num">01.01 // EXTRACTION</span>
-            <h3 class="bento-title">3-Tier Hybrid AI Pipeline</h3>
+            <span class="bento-num">01.01 // FINDING DEADLINES</span>
+            <h3 class="bento-title">Reads announcements for you</h3>
             <p class="bento-desc">
-              Combines zero-latency local regex parsing, Jev System One classifier triage, and generative AI fallback (Gemini / OpenRouter). Resolves dates, exam weights, and room numbers from unstructured bilingual Arabic and English posts.
+              Click Scan on Blackboard and a built-in parser picks out quizzes, assignments, exams, dates and times from English and Arabic posts, right in your browser. For long or vague announcements you can add an optional AI key.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">Tier 1: 0ms Local Regex</span>
-            <span class="bento-tag">Tier 2: Jev Gatekeeper</span>
-            <span class="bento-tag">Tier 3: Generative AI</span>
-            <span class="bento-tag">AR / EN Bilingual</span>
+            <span class="bento-tag">Quiz / كويز</span>
+            <span class="bento-tag">Assignment / واجب</span>
+            <span class="bento-tag">Exam / امتحان</span>
+            <span class="bento-tag">Optional AI</span>
           </div>
         </div>
 
-        <!-- Card 2: Academic Calendar (Span 4) -->
         <div class="bento-cell span-4">
           <div>
-            <span class="bento-num">01.02 // SCHEDULING</span>
-            <h3 class="bento-title">Monday-First Grid</h3>
+            <span class="bento-num">01.02 // CALENDAR</span>
+            <h3 class="bento-title">A calendar that stays in order</h3>
             <p class="bento-desc">
-              Strict chronological ordering ensures earlier events appear first. Re-sorts in real time when dates or times are edited.
+              Monday-first month view and a deadline list. Each day is sorted by time, and edits re-sort straight away.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">Chronological Sort</span>
-            <span class="bento-tag">Day Details Drawer</span>
+            <span class="bento-tag">Month view</span>
+            <span class="bento-tag">Day details</span>
           </div>
         </div>
 
-        <!-- Card 3: Syllabus Weight Tracker (Span 4) -->
         <div class="bento-cell span-4">
           <div>
-            <span class="bento-num">01.03 // EVALUATION</span>
-            <h3 class="bento-title">Syllabus Weights</h3>
+            <span class="bento-num">01.03 // GRADES</span>
+            <h3 class="bento-title">Grade weights</h3>
             <p class="bento-desc">
-              Computes grade percentage impact for upcoming deliverables (Midterms 25%, Quizzes 15%, Labs 10%) so you can prioritize effort.
+              See how much each deliverable counts, such as a 25% midterm or 10% lab report, so you know where to focus.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">Grade Impact</span>
-            <span class="bento-tag">Course Mapping</span>
+            <span class="bento-tag">Syllabus weights</span>
+            <span class="bento-tag">Rooms &amp; times</span>
           </div>
         </div>
 
-        <!-- Card 4: Private Cloud Sync (Span 8) -->
         <div class="bento-cell span-8">
           <div>
-            <span class="bento-num">01.04 // SYNCHRONIZATION</span>
-            <h3 class="bento-title">Private Isolated Cloud Sync</h3>
+            <span class="bento-num">01.04 // SYNC</span>
+            <h3 class="bento-title">Private sync, no account</h3>
             <p class="bento-desc">
-              Zero login or tracking. Every student receives a private 6-character sync key (e.g. BBS-9A2K). Updates in the desktop browser reflect instantly on mobile web and calendar feeds via Firebase Realtime Database.
+              Every install gets its own random sync key, <code class="inline-code">BBS-</code> plus 10 characters. Your deadlines sync through Firebase under that key, and each key can only reach its own data. No sign-up, no password, nothing tied to your Blackboard login.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">BBS-XXXX Sync Keys</span>
-            <span class="bento-tag">Firebase RTDB</span>
-            <span class="bento-tag">Bi-Directional</span>
-            <span class="bento-tag">Zero Accounts</span>
+            <span class="bento-tag">Laptop ⇄ Phone</span>
+            <span class="bento-tag">Isolated per key</span>
+            <span class="bento-tag">No sign-up</span>
           </div>
         </div>
 
-        <!-- Card 5: Mobile PWA (Span 6) -->
         <div class="bento-cell span-6">
           <div>
-            <span class="bento-num">01.05 // CLIENT</span>
-            <h3 class="bento-title">Mobile Web PWA Companion</h3>
+            <span class="bento-num">01.05 // PHONE</span>
+            <h3 class="bento-title">Phone app</h3>
             <p class="bento-desc">
-              Offline-first Progressive Web App deployable to Cloudflare Pages. Add to Home Screen on iOS and Android with built-in quick links for marks, advising, and attendance.
+              The same calendar on your phone. Add it to your home screen on iPhone or Android, use it offline, and open marks, attendance and your study plan from quick links.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">Service Worker Cache</span>
-            <span class="bento-tag">iOS / Android</span>
+            <span class="bento-tag">iPhone / Android</span>
+            <span class="bento-tag">Works offline</span>
           </div>
         </div>
 
-        <!-- Card 6: Live WebCal Feed (Span 6) -->
         <div class="bento-cell span-6">
           <div>
-            <span class="bento-num">01.06 // PROTOCOL</span>
-            <h3 class="bento-title">Live RFC 5545 WebCal Feed</h3>
+            <span class="bento-num">01.06 // CALENDAR FEED</span>
+            <h3 class="bento-title">Deadlines in your calendar app</h3>
             <p class="bento-desc">
-              Subscribe directly in Apple Calendar, Google Calendar, or Microsoft Outlook. Timetables update automatically in the background without manual exports.
+              Subscribe once in Apple Calendar, Google Calendar or Outlook. New and changed deadlines show up there automatically.
             </p>
           </div>
           <div class="bento-tags">
-            <span class="bento-tag">Apple Calendar (.ics)</span>
-            <span class="bento-tag">Google Calendar</span>
+            <span class="bento-tag">Apple</span>
+            <span class="bento-tag">Google</span>
             <span class="bento-tag">Outlook</span>
+          </div>
+        </div>
+
+        <div class="bento-cell span-6">
+          <div>
+            <span class="bento-num">01.07 // UPDATES</span>
+            <h3 class="bento-title">Updates itself</h3>
+            <p class="bento-desc">
+              No Web Store needed. After a one-time setup the extension checks GitHub every hour and installs new versions on its own, keeping your tasks and settings.
+            </p>
+          </div>
+          <div class="bento-tags">
+            <span class="bento-tag">Hourly check</span>
+            <span class="bento-tag">Data kept</span>
+          </div>
+        </div>
+
+        <div class="bento-cell span-6">
+          <div>
+            <span class="bento-num">01.08 // COMFORT</span>
+            <h3 class="bento-title">Side panel and dark mode</h3>
+            <p class="bento-desc">
+              Keep Blackboarder open next to Blackboard in the browser side panel, and switch the extension, the phone app and Blackboard itself to dark mode.
+            </p>
+          </div>
+          <div class="bento-tags">
+            <span class="bento-tag">Side panel</span>
+            <span class="bento-tag">Dark Blackboard</span>
+            <span class="bento-tag">Alt+B</span>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Workflow Section -->
-  <section id="how-it-works" class="section-wrap">
+  <!-- Install -->
+  <section id="install" class="section-wrap">
     <div class="container">
       <div class="section-header-swiss">
-        <span class="swiss-label">02 // Disciplined Workflow</span>
-        <h2 class="section-title">Deployment in Four Phases.</h2>
+        <span class="swiss-label">02 // Install</span>
+        <h2 class="section-title">Set up in about two minutes.</h2>
         <p class="section-desc">
-          No complex setup. Load the unpacked extension, visit your university portal, and let the extraction engine process deadlines.
+          Works in Chrome, Edge, Brave, Opera and Vivaldi on Windows, macOS and Linux. The extension is already built; there is nothing to compile.
         </p>
       </div>
 
       <div class="steps-grid">
         <div class="step-item">
           <span class="step-idx">01</span>
-          <h3 class="step-title">Load Extension</h3>
+          <h3 class="step-title">Download</h3>
           <p class="step-desc">
-            Load the unpacked build in Google Chrome, Brave, Microsoft Edge, or Opera in 60 seconds directly from GitHub.
+            Download the ZIP and unzip it somewhere permanent, such as Documents. Keep the folder; the browser loads the extension from it.
           </p>
+          <a href="https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip" class="step-link">Download ZIP &rarr;</a>
         </div>
 
         <div class="step-item">
           <span class="step-idx">02</span>
-          <h3 class="step-title">Execute Scan</h3>
+          <h3 class="step-title">Load it</h3>
           <p class="step-desc">
-            Navigate to the Blackboard portal stream. Click the floating "Scan Blackboard" pill or press Alt+B to initiate parsing.
+            Open <code class="inline-code">chrome://extensions</code> (or <code class="inline-code">edge://</code>, <code class="inline-code">brave://</code>), turn on <strong>Developer mode</strong>, click <strong>Load unpacked</strong> and choose the <code class="inline-code">dist</code> folder.
           </p>
         </div>
 
         <div class="step-item">
           <span class="step-idx">03</span>
-          <h3 class="step-title">Pair Key</h3>
+          <h3 class="step-title">Turn on updates</h3>
           <p class="step-desc">
-            Copy your unique BBS-XXXX sync key from Settings. Open the companion URL on mobile to establish immediate cloud parity.
+            Double-click <code class="inline-code">update.bat</code> in the folder (Windows) or run <code class="inline-code">./update.sh</code> (macOS, Linux). Then click the reload arrow on Blackboarder once.
           </p>
         </div>
 
         <div class="step-item">
           <span class="step-idx">04</span>
-          <h3 class="step-title">Subscribe Feed</h3>
+          <h3 class="step-title">Scan Blackboard</h3>
           <p class="step-desc">
-            Paste your WebCal subscription link into Apple Calendar, Google Calendar, or Outlook for system-level notifications.
+            Open Blackboard and click the floating <strong>Scan Blackboard</strong> button, or press <strong>Alt+B</strong> (Option+Shift+B on Mac) to open Blackboarder.
           </p>
         </div>
       </div>
+
+      <p class="install-note">
+        Using git instead? Clone the repository and load its <code class="inline-code">dist</code> folder the same way. The updater then runs <code class="inline-code">git pull</code> for you, but only when your clone is on <code class="inline-code">main</code> with no uncommitted changes, so it never touches your work.
+      </p>
     </div>
   </section>
 
-  <!-- Interactive Modules Showcase -->
-  <section id="showcase" class="section-wrap">
+  <!-- Phone & Calendar -->
+  <section id="phone" class="section-wrap">
     <div class="container">
       <div class="section-header-swiss">
-        <span class="swiss-label">03 // Interface Specifications</span>
-        <h2 class="section-title">Operational Surface Modules.</h2>
+        <span class="swiss-label">03 // Phone &amp; Calendar</span>
+        <h2 class="section-title">Take it with you.</h2>
         <p class="section-desc">
-          Explore the components that power Blackboarder across desktop and mobile clients.
+          Pair your phone with one link, then subscribe your calendar app to your deadlines.
         </p>
       </div>
 
-      <!-- Segmented Tab Switcher -->
-      <div class="showcase-control">
-        <button class="showcase-tab-btn active" data-tab="tab-popup">01 / Desktop Popup</button>
-        <button class="showcase-tab-btn" data-tab="tab-pipeline">02 / AI Triage</button>
-        <button class="showcase-tab-btn" data-tab="tab-pwa">03 / Mobile PWA</button>
-        <button class="showcase-tab-btn" data-tab="tab-calendar">04 / WebCal Feed</button>
-      </div>
-
-      <!-- Tab 1: Extension Popup -->
-      <div id="tab-popup" class="tab-panel active">
-        <div class="showcase-panel-body">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 14px;">
-            <div>
-              <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">Desktop Extension Interface</h3>
-              <p style="font-size: 0.88rem; color: var(--text-muted);">Side panel and popup workspace with instant keyboard access.</p>
+      <div class="two-col">
+        <div class="info-panel">
+          <h3 class="bento-title">Pair your phone</h3>
+          <ol class="plain-steps">
+            <li>In the extension, open <strong>Settings</strong> and click <strong>Copy Phone Pairing Link</strong>.</li>
+            <li>Open the link on your phone. The app pairs with your key and loads your deadlines.</li>
+            <li>Add it to your home screen: <strong>Share &gt; Add to Home Screen</strong> on iPhone, <strong>Install app</strong> in Chrome on Android.</li>
+          </ol>
+          <div class="phone-mock" aria-hidden="true">
+            <div class="phone-mock-head">
+              <span>Blackboarder</span>
+              <span>Synced</span>
             </div>
-            <span class="bento-tag">Manifest V3</span>
-          </div>
-
-          <div style="background-color: var(--bg); border: 1px solid var(--surface-border-strong); padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <strong style="font-family: var(--font-display); font-size: 0.95rem; text-transform: uppercase;">Upcoming Deadlines // Monday Oct 12</strong>
-              <span style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">3 Deliverables</span>
+            <div class="phone-mock-links">
+              <span>Marks</span><span>Attendance</span><span>Study Plan</span><span>Library</span>
             </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div class="mock-deadline-card" style="border-left-color: var(--c-calc);">
-                <div>
-                  <div class="mock-card-course">0402202 // Calculus 1</div>
-                  <div class="mock-card-title">Midterm Examination</div>
-                  <div class="mock-card-meta"><span>10:00 AM - 11:30 AM</span><span>//</span><span>Room W8-102</span></div>
-                </div>
-                <div class="mock-card-weight">25% Weight</div>
-              </div>
-
-              <div class="mock-deadline-card" style="border-left-color: var(--c-phys);">
-                <div>
-                  <div class="mock-card-course">0403101 // Physics 1</div>
-                  <div class="mock-card-title">Laboratory Report #3</div>
-                  <div class="mock-card-meta"><span>11:59 PM</span><span>//</span><span>Online Submission</span></div>
-                </div>
-                <div class="mock-card-weight">10% Weight</div>
-              </div>
-
-              <div class="mock-deadline-card" style="border-left-color: var(--c-islam);">
-                <div>
-                  <div class="mock-card-course">0202112 // Islamic Culture</div>
-                  <div class="mock-card-title">Assessment Quiz (كويز إلكتروني)</div>
-                  <div class="mock-card-meta"><span>02:00 PM - 02:30 PM</span><span>//</span><span>Blackboard Ultra</span></div>
-                </div>
-                <div class="mock-card-weight">15% Weight</div>
-              </div>
+            <div class="phone-mock-card">
+              <strong>Calculus 1 Midterm</strong>
+              <span>Mon 12 Oct // 10:00 AM // W8-102</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Tab 2: AI Pipeline -->
-      <div id="tab-pipeline" class="tab-panel">
-        <div class="showcase-panel-body">
-          <div style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 14px;">
-            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">Unstructured Post to Structured Record</h3>
-            <p style="font-size: 0.88rem; color: var(--text-muted);">Demonstration of announcement normalization into cryptographic JSON schema.</p>
-          </div>
-
-          <div class="pipeline-grid">
-            <div class="pipeline-box">
-              <div class="pipeline-header">
-                <span>01 // Raw Instructor Announcement</span>
-                <span>Input</span>
-              </div>
-              <p class="pipeline-text" style="color: var(--text-muted);">
-                "Dear Students, please be informed that the Midterm exam for Calculus 1 (0402202) is scheduled for next Monday Oct 12 at 10:00 AM in room W8-102. Weight is 25%. Scientific calculators are permitted."
-              </p>
-            </div>
-
-            <div class="pipeline-arrow">&rarr;</div>
-
-            <div class="pipeline-box">
-              <div class="pipeline-header">
-                <span>02 // Structured Event Object</span>
-                <span>Output</span>
-              </div>
-              <pre class="pipeline-text" style="color: var(--text-main);">{
-  "course": "0402202 Calculus 1",
-  "title": "Midterm Examination",
-  "dueDate": "2026-10-12T10:00:00",
-  "room": "W8-102",
-  "weight": "25%",
-  "type": "exam"
-}</pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 3: Mobile PWA -->
-      <div id="tab-pwa" class="tab-panel">
-        <div class="showcase-panel-body" style="text-align: center;">
-          <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;">Mobile Web Companion Client</h3>
-          <p style="font-size: 0.88rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 24px;">
-            Engineered for touch ergonomics. Deployed on Cloudflare Pages and installable to the phone home screen.
+        <div class="info-panel">
+          <h3 class="bento-title">Subscribe your calendar</h3>
+          <ol class="plain-steps">
+            <li>In Settings click <strong>Copy WebCal Feed Link</strong>, or tap <strong>Subscribe</strong> in the phone app.</li>
+            <li><strong>Apple Calendar:</strong> open the link and confirm the subscription.</li>
+            <li><strong>Google Calendar:</strong> on a computer, go to <strong>Other calendars &gt; + &gt; From URL</strong> and paste the link.</li>
+          </ol>
+          <div class="code-line">webcal://blackboarder.pages.dev/feed.ics?key=BBS-XXXXXXXXXX</div>
+          <p class="panel-note">
+            The link contains your sync key, so keep it to yourself. If an older subscription stops updating, copy the link again: feeds now always need a key.
           </p>
-
-          <div style="max-width: 360px; margin: 0 auto; background: var(--bg); border: 2px solid var(--surface-border-strong); padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--surface-border); padding-bottom: 8px;">
-              <span style="font-family: var(--font-display); font-size: 0.82rem; font-weight: 700; text-transform: uppercase;">Blackboarder Mobile</span>
-              <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">SYNC: BBS-9A2K</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 16px;">
-              <div style="background: var(--surface); border: 1px solid var(--surface-border); padding: 8px 4px; font-size: 0.68rem; font-weight: 700;">GRADES</div>
-              <div style="background: var(--surface); border: 1px solid var(--surface-border); padding: 8px 4px; font-size: 0.68rem; font-weight: 700;">ROSTER</div>
-              <div style="background: var(--surface); border: 1px solid var(--surface-border); padding: 8px 4px; font-size: 0.68rem; font-weight: 700;">LIBRARY</div>
-              <div style="background: var(--surface); border: 1px solid var(--surface-border); padding: 8px 4px; font-size: 0.68rem; font-weight: 700;">CONFIG</div>
-            </div>
-            <div style="background: var(--surface); border: 1px solid var(--surface-border); padding: 12px; text-align: left;">
-              <div style="font-family: var(--font-display); font-size: 0.78rem; font-weight: 700; text-transform: uppercase;">Upcoming Deliverable</div>
-              <div style="font-size: 0.84rem; color: var(--text-muted);">Calculus 1 Midterm in 2 days</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 4: WebCal Feed -->
-      <div id="tab-calendar" class="tab-panel">
-        <div class="showcase-panel-body">
-          <div style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 14px;">
-            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">RFC 5545 iCalendar Subscription Protocol</h3>
-            <p style="font-size: 0.88rem; color: var(--text-muted);">Native calendar synchronization without requiring third-party plugins.</p>
-          </div>
-
-          <div style="background-color: var(--bg); border: 1px solid var(--surface-border-strong); padding: 24px;">
-            <p style="font-size: 0.92rem; color: var(--text-main); margin-bottom: 12px;">
-              Dedicated calendar feed endpoint partitioned by your personal sync key:
-            </p>
-            <div style="background: var(--surface); border: 1px solid var(--surface-border-strong); padding: 12px; font-family: monospace; font-size: 0.85rem; color: var(--text-main); overflow-x: auto;">
-              webcal://blackboarder.pages.dev/feed.ics?key=BBS-9A2K
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
-              <span class="bento-tag">Apple Calendar (iOS / macOS)</span>
-              <span class="bento-tag">Google Calendar (From URL)</span>
-              <span class="bento-tag">Microsoft Outlook</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- FAQ Section (Swiss Accordion) -->
+  <!-- How it reads an announcement -->
+  <section id="example" class="section-wrap">
+    <div class="container">
+      <div class="section-header-swiss">
+        <span class="swiss-label">04 // Example</span>
+        <h2 class="section-title">From announcement to deadline.</h2>
+        <p class="section-desc">
+          A typical post goes in; a task with a date, time, room and grade weight comes out.
+        </p>
+      </div>
+
+      <div class="pipeline-grid">
+        <div class="pipeline-box">
+          <div class="pipeline-header">
+            <span>Instructor announcement</span>
+            <span>In</span>
+          </div>
+          <p class="pipeline-text" style="color: var(--text-muted);">
+            "Dear Students, the Midterm exam for Calculus 1 (0402202) is next Monday, Oct 12 at 10:00 AM in room W8-102. It is worth 25%. Scientific calculators are allowed."
+          </p>
+        </div>
+
+        <div class="pipeline-arrow" aria-hidden="true">&rarr;</div>
+
+        <div class="pipeline-box">
+          <div class="pipeline-header">
+            <span>Task in Blackboarder</span>
+            <span>Out</span>
+          </div>
+          <pre class="pipeline-text" style="color: var(--text-main);">Course   0402202 Calculus 1
+Task     Midterm Exam
+Type     Exam
+Due      Mon 12 Oct 2026, 10:00 AM
+Room     W8-102
+Weight   25%</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
   <section id="faq" class="section-wrap">
     <div class="container">
       <div class="section-header-swiss">
-        <span class="swiss-label">04 // Specifications</span>
-        <h2 class="section-title">Frequently Answered Queries.</h2>
-        <p class="section-desc">
-          Operational details and architectural answers for students and developers.
-        </p>
+        <span class="swiss-label">05 // FAQ</span>
+        <h2 class="section-title">Questions.</h2>
       </div>
 
       <div class="faq-list">
         <div class="faq-item open">
-          <button class="faq-question">
-            <span>Is Blackboarder free and open source?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="true">
+            <span>Is it free?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Yes. Blackboarder is 100% free software distributed under the permissive MIT License. There are no subscriptions, account registrations, or feature gating. Source code is published on GitHub.
+            Yes. Blackboarder is free and open source under the MIT License. No subscriptions, no accounts, no paid features.
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">
-            <span>Is compatibility restricted to University of Sharjah?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="false">
+            <span>Does it only work at the University of Sharjah?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            While course code resolvers and schedule matcher databases are preconfigured for the University of Sharjah (UOS) syllabus structure, the hybrid extraction pipeline operates on any standard Blackboard Learn or Blackboard Ultra institution.
+            It is tuned for UOS course codes, schedules and syllabus weights, but the deadline finder works on any Blackboard Learn or Ultra site.
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">
-            <span>How is student privacy preserved?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="false">
+            <span>What data leaves my computer?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Blackboarder enforces complete data isolation. Each installation receives an unlinked 6-character sync key (BBS-XXXX). No cookies, session tokens, passwords, or personal academic credentials are ever transmitted or tracked.
+            Your tasks, courses and quick links are stored in Firebase under your sync key so your phone can read them. Your Blackboard password and cookies are never sent anywhere. Anyone who has your key or calendar link can see your deadlines, so keep them private.
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">
-            <span>Which browsers and operating systems are supported?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="false">
+            <span>Do I need an AI key?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            The extension targets Chromium Manifest V3 and runs on Google Chrome, Brave Browser, Microsoft Edge, Opera, and Vivaldi on Windows, macOS, and Linux. The Mobile Web PWA supports mobile Safari on iOS and Chrome on Android.
+            No. The built-in parser handles most announcements on its own. An OpenRouter or Jev key in Settings only helps with long or vague posts.
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">
-            <span>How does the 3-tier hybrid AI extraction engine function?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="false">
+            <span>How do updates work without the Chrome Web Store?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Tier 1 scans announcement text locally with 0ms regular expressions. Ambiguous posts pass to Tier 2 (Jev System One classifier gatekeeper) to confirm whether a deadline exists. Actionable items are routed to Tier 3 (Gemini Flash or OpenRouter) to extract ISO timestamps, room numbers, and deliverables.
+            Running update.bat or update.sh once registers a small helper. The extension then checks GitHub every hour, the helper downloads the new version into your folder, and the extension restarts into it once its popup is closed. If the helper is not set up, Blackboarder shows a banner when an update is available.
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">
-            <span>Are manual timetable adjustments supported?</span>
-            <span class="faq-symbol">+</span>
+          <button class="faq-question" aria-expanded="false">
+            <span>Can I edit or add deadlines myself?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
           </button>
           <div class="faq-answer">
-            Yes. Tasks can be modified directly within both the extension popup and mobile PWA. Editing dates or times automatically triggers chronological re-sorting and propagates across cloud and calendar feeds.
+            Yes, in both the extension and the phone app. Changes sync to your other devices and your calendar feed.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Which browsers are supported?</span>
+            <span class="faq-symbol" aria-hidden="true">+</span>
+          </button>
+          <div class="faq-answer">
+            Chrome, Edge, Brave, Opera and Vivaldi on Windows, macOS and Linux. The phone app works in Safari on iPhone and Chrome on Android.
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Call to Action Banner -->
+  <!-- Call to action -->
   <section class="container">
     <div class="cta-banner">
-      <span class="swiss-label" style="justify-content: center; margin-bottom: 16px;">System Deployment</span>
-      <h2 class="cta-title">Deploy Blackboarder for Your Semester.</h2>
+      <span class="swiss-label" style="justify-content: center; margin-bottom: 16px;">Get started</span>
+      <h2 class="cta-title">Ready for this semester?</h2>
       <p class="cta-desc">
-        Free, open source, and built to maintain schedule clarity throughout your coursework.
+        Download Blackboarder, load it in your browser, and scan your first Blackboard page.
       </p>
-      <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
-        <a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="btn-swiss-primary">
-          <span>Get Started on GitHub</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
+      <div class="cta-actions">
+        <a href="https://github.com/yvs1n/blackboarder/archive/refs/heads/main.zip" class="btn-swiss-primary">
+          <span>Download ZIP</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="5 12 12 19 19 12"></polyline>
           </svg>
         </a>
-        <a href="https://blackboarder.pages.dev" target="_blank" rel="noopener noreferrer" class="btn-swiss-secondary">
-          <span>Launch Web Dashboard</span>
+        <a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="btn-swiss-secondary">
+          <span>View on GitHub</span>
         </a>
       </div>
     </div>
@@ -1638,105 +1751,76 @@
             <span class="brand-tag">UOS</span>
           </div>
           <p style="color: var(--text-muted); max-width: 420px; line-height: 1.5; margin-top: 8px;">
-            Academic productivity suite, syllabus weighting, and calendar synchronization engineered for University of Sharjah students.
+            Deadline tracker and academic companion for University of Sharjah students on Blackboard.
           </p>
         </div>
 
         <div class="footer-col">
-          <span class="footer-head">Architecture</span>
+          <span class="footer-head">Product</span>
           <ul class="footer-links">
-            <li><a href="#features" class="footer-link">Capabilities</a></li>
-            <li><a href="#how-it-works" class="footer-link">Workflow</a></li>
-            <li><a href="#showcase" class="footer-link">Modules</a></li>
-            <li><a href="https://blackboarder.pages.dev" target="_blank" rel="noopener noreferrer" class="footer-link">Mobile PWA</a></li>
+            <li><a href="#features" class="footer-link">Features</a></li>
+            <li><a href="#install" class="footer-link">Install</a></li>
+            <li><a href="#phone" class="footer-link">Phone &amp; Calendar</a></li>
+            <li><a href="https://blackboarder.pages.dev" target="_blank" rel="noopener noreferrer" class="footer-link">Phone app</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <span class="footer-head">Repository</span>
+          <span class="footer-head">Project</span>
           <ul class="footer-links">
-            <li><a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub Source</a></li>
+            <li><a href="https://github.com/yvs1n/blackboarder" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a></li>
             <li><a href="https://github.com/yvs1n/blackboarder#readme" target="_blank" rel="noopener noreferrer" class="footer-link">Documentation</a></li>
-            <li><a href="#faq" class="footer-link">Specifications</a></li>
+            <li><a href="https://github.com/yvs1n/blackboarder/blob/main/docs/HOSTING_GUIDE.md" target="_blank" rel="noopener noreferrer" class="footer-link">Hosting guide</a></li>
+            <li><a href="https://github.com/yvs1n/blackboarder/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" class="footer-link">Changelog</a></li>
             <li><a href="https://github.com/yvs1n/blackboarder/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="footer-link">MIT License</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <div>&copy; 2026 Blackboarder. Licensed under the MIT License.</div>
-        <div>Swiss Grid Design System // Flat Two-Toned Edition.</div>
+        <div>&copy; 2026 Blackboarder. MIT License.</div>
+        <div>Not affiliated with Blackboard Inc. or the University of Sharjah.</div>
       </div>
     </div>
   </footer>
 
-  <!-- Vanilla JavaScript: Theme Switcher, Tab Switcher, Accordion -->
   <script>
-    // Theme Switcher Logic
+    // Theme: saved choice, else the system setting. Storage can be blocked, so every access is guarded.
     (function initTheme() {
-      const themeToggleBtn = document.getElementById('theme-toggle');
-      const sunIcon = document.getElementById('theme-icon-sun');
-      const moonIcon = document.getElementById('theme-icon-moon');
-      const htmlEl = document.documentElement;
-
-      function applyTheme(theme) {
+      var htmlEl = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      var sun = document.getElementById('theme-icon-sun');
+      var moon = document.getElementById('theme-icon-moon');
+      function saved() { try { return localStorage.getItem('bb_landing_theme'); } catch (e) { return null; } }
+      function save(t) { try { localStorage.setItem('bb_landing_theme', t); } catch (e) {} }
+      function apply(theme) {
         htmlEl.setAttribute('data-theme', theme);
-        localStorage.setItem('bb_landing_theme', theme);
-        if (theme === 'light') {
-          sunIcon.style.display = 'none';
-          moonIcon.style.display = 'block';
-        } else {
-          sunIcon.style.display = 'block';
-          moonIcon.style.display = 'none';
-        }
+        sun.style.display = theme === 'light' ? 'none' : 'block';
+        moon.style.display = theme === 'light' ? 'block' : 'none';
       }
-
-      const savedTheme = localStorage.getItem('bb_landing_theme') || 'dark';
-      applyTheme(savedTheme);
-
-      themeToggleBtn.addEventListener('click', function() {
-        const currentTheme = htmlEl.getAttribute('data-theme');
-        const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
-        applyTheme(nextTheme);
+      var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      apply(saved() || (prefersLight ? 'light' : 'dark'));
+      btn.addEventListener('click', function () {
+        var next = htmlEl.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        apply(next);
+        save(next);
       });
     })();
 
-    // Tab Switcher Logic for Interactive Modules
-    (function initTabs() {
-      const tabBtns = document.querySelectorAll('.showcase-tab-btn');
-      const tabPanels = document.querySelectorAll('.tab-panel');
-
-      tabBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-          const targetId = this.getAttribute('data-tab');
-
-          tabBtns.forEach(b => b.classList.remove('active'));
-          tabPanels.forEach(p => p.classList.remove('active'));
-
-          this.classList.add('active');
-          const activePanel = document.getElementById(targetId);
-          if (activePanel) {
-            activePanel.classList.add('active');
-          }
-        });
-      });
-    })();
-
-    // FAQ Accordion Logic
+    // FAQ accordion
     (function initFAQ() {
-      const faqItems = document.querySelectorAll('.faq-item');
-
-      faqItems.forEach(item => {
-        const questionBtn = item.querySelector('.faq-question');
-        questionBtn.addEventListener('click', function() {
-          const isOpen = item.classList.contains('open');
-
-          faqItems.forEach(otherItem => {
-            otherItem.classList.remove('open');
+      var items = document.querySelectorAll('.faq-item');
+      items.forEach(function (item) {
+        var q = item.querySelector('.faq-question');
+        q.addEventListener('click', function () {
+          var wasOpen = item.classList.contains('open');
+          items.forEach(function (other) {
+            other.classList.remove('open');
+            other.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
           });
-
-          if (!isOpen) {
+          if (!wasOpen) {
             item.classList.add('open');
+            q.setAttribute('aria-expanded', 'true');
           }
         });
       });

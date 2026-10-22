@@ -122,6 +122,7 @@ You only need this to run your own phone app and backend instead of `blackboarde
 2. **Firebase.** Create a Realtime Database, then paste [`database.rules.json`](database.rules.json) into **Realtime Database > Rules** and click **Publish**. The rules only take effect once published. They allow each sync key to read and write only its own `users/<key>` folder. If you use your own database, change the URL in `src/utils/firebaseSync.ts`, `mobile-web/app.js` and `mobile-web/_worker.js`.
 3. **Point the extension at it.** Set **Hosted Web Dashboard URL** in Settings to your Pages address.
 4. **Optional:** add a Cloudflare rate limiting rule for `/api/*`. The built-in limit (60 requests a minute per IP and per key) slows abuse down but does not stop it.
+5. **Landing page (optional).** `landing/index.html` is a single static page with no build step. Create a second Cloudflare Pages project from the same repository with no build command and **`landing`** as the output folder (or drag the `landing` folder into Pages > Upload assets, or Netlify Drop).
 
 Other hosts: **Vercel** (deploy from the repository root; `api/[...path].js` runs the same backend) or a **local server** for your own Wi-Fi (`npm run server`).
 
