@@ -543,421 +543,467 @@
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
       <div>
         <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">Settings &amp; Preferences</h3>
-        <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Configure AI engine, notifications, sync, and database cache</p>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Pick a section below. Save Settings saves every section.</p>
       </div>
     </div>
 
     <form id="form-settings">
-      <!-- Setup Guide / Walkthrough Replay Button -->
-      <button type="button" class="btn-outline-action" id="btn-replay-walkthrough" style="margin-bottom: 12px; justify-content: center; width: 100%; border-style: dashed; padding: 8px 12px;">
-        <svg class="ui-icon mr-1" style="color: var(--primary);"><use href="#icon-sparkles"></use></svg>
-        <span>Replay Setup Walkthrough &amp; Guide</span>
-      </button>
-
-      <!-- Card 1: AI & Hybrid Extraction Engine -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">AI &amp; Extraction Engine</h3>
-              <p class="settings-card-subtitle">Local heuristic parser with Jev triage and Generative AI</p>
-            </div>
-          </div>
-          <span class="settings-pill pill-blue">Hybrid Engine</span>
-        </div>
-
-        <p class="settings-card-desc">
-          Analyzes course announcements with zero lag. Jev acts as an instant ~100ms gatekeeper before invoking deeper LLM extraction.
-        </p>
-
-        <!-- Toggle: Enable AI Deep Extraction -->
-        <div class="toggle-control-row">
-          <div class="toggle-text-block">
-            <span class="toggle-main-label">Enable AI Deep Extraction</span>
-            <span class="toggle-status-desc">Use Gemini or GPT fallback for conversational announcements</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="setting-use-ai">
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <div class="form-group" style="margin-top: 8px;">
-          <label class="form-label" for="setting-apikey">OpenRouter API Key (AI Fallback)</label>
-          <input type="password" id="setting-apikey" class="form-input" placeholder="sk-or-v1-...">
-          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Used when local parser encounters ambiguous or conversational announcements.</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="setting-model">AI Model</label>
-          <select id="setting-model" class="form-select">
-            <option value="google/gemini-3.8-flash">Google Gemini 3.8 Flash (Fast &amp; Recommended)</option>
-            <option value="google/gemini-3.7-flash">Google Gemini 3.7 Flash</option>
-            <option value="google/gemini-flash-latest">Google Gemini Flash Latest</option>
-            <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
-          </select>
-        </div>
-
-        <!-- Jev Fast Classifier Panel -->
-        <div class="settings-panel-box" style="margin-top: 10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <label class="form-label" for="setting-jev-key" style="margin-bottom: 0; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
-              <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
-              <span>Jev Fast Classifier (TypeSafe AI)</span>
-            </label>
-            <span class="settings-pill pill-blue">~100ms Gatekeeper</span>
-          </div>
-          <input type="password" id="setting-jev-key" class="form-input" placeholder="apikey_...">
-          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Instantly weeds out non-deadlines and locks category (Quiz, Exam, Homework) before invoking Generative AI.</span>
-          <div style="margin-top: 8px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
-              <input type="checkbox" id="setting-use-jev" checked>
-              <span>Enable Jev Fast Classification Gatekeeper</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Toggle: Auto-scan announcements -->
-        <div class="toggle-control-row" style="margin-top: 10px; margin-bottom: 0;">
-          <div class="toggle-text-block">
-            <span class="toggle-main-label">Auto-Scan on Page Load</span>
-            <span class="toggle-status-desc">Automatically inspects Blackboard announcements when visiting stream</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="setting-autoscan">
-            <span class="slider round"></span>
-          </label>
-        </div>
+      <!-- Settings pages: one tab per group, all inside the same form so Save keeps saving every field -->
+      <div class="settings-nav" role="tablist" aria-label="Settings sections">
+        <button type="button" class="settings-nav-tab active" role="tab" id="settings-tab-general" data-settings-page="general" aria-selected="true" aria-controls="settings-page-general" tabindex="0">
+          <svg class="ui-icon"><use href="#icon-settings"></use></svg>
+          <span>General</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-courses" data-settings-page="courses" aria-selected="false" aria-controls="settings-page-courses" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-book"></use></svg>
+          <span>Courses</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-scanning" data-settings-page="scanning" aria-selected="false" aria-controls="settings-page-scanning" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+          <span>Scanning</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-sync" data-settings-page="sync" aria-selected="false" aria-controls="settings-page-sync" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
+          <span>Sync</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-alerts" data-settings-page="alerts" aria-selected="false" aria-controls="settings-page-alerts" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-bell"></use></svg>
+          <span>Alerts</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-data" data-settings-page="data" aria-selected="false" aria-controls="settings-page-data" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-download"></use></svg>
+          <span>Data</span>
+        </button>
+        <button type="button" class="settings-nav-tab" role="tab" id="settings-tab-updates" data-settings-page="updates" aria-selected="false" aria-controls="settings-page-updates" tabindex="-1">
+          <svg class="ui-icon"><use href="#icon-refresh"></use></svg>
+          <span>Updates</span>
+        </button>
       </div>
 
-      <!-- Card 2: Notifications & Alerts -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-bell"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Notifications &amp; Alerts</h3>
-              <p class="settings-card-subtitle">Extension icon badge and advance reminder windows</p>
+      <div class="settings-page" id="settings-page-general" role="tabpanel" aria-labelledby="settings-tab-general">
+        <!-- Setup Guide / Walkthrough Replay Button -->
+        <button type="button" class="btn-outline-action" id="btn-replay-walkthrough" style="margin-bottom: 12px; justify-content: center; width: 100%; border-style: dashed; padding: 8px 12px;">
+          <svg class="ui-icon mr-1" style="color: var(--primary);"><use href="#icon-sparkles"></use></svg>
+          <span>Replay Setup Walkthrough &amp; Guide</span>
+        </button>
+
+        <!-- Card 3: Appearance & Shortcuts -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Appearance &amp; Blackboard Dark Mode</h3>
+                <p class="settings-card-subtitle">Interface styling and native Blackboard Ultra dark theme</p>
+              </div>
             </div>
+            <span class="settings-pill pill-purple">Ultra Theme</span>
           </div>
-          <span class="settings-pill pill-orange">Reminders</span>
-        </div>
 
-        <!-- Toggle: Badge notification -->
-        <div class="toggle-control-row">
-          <div class="toggle-text-block">
-            <span class="toggle-main-label">Extension Icon Badge</span>
-            <span class="toggle-status-desc">Show pending deadline counter directly on toolbar icon</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="setting-badge-notif">
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label" for="setting-reminder-hours">Notification Alert Window</label>
-          <select id="setting-reminder-hours" class="form-select">
-            <option value="12">12 hours before deadline</option>
-            <option value="24">24 hours before deadline (Default)</option>
-            <option value="48">48 hours before deadline</option>
-          </select>
-          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Controls when advance desktop push notifications are dispatched.</span>
-        </div>
-      </div>
-
-      <!-- Card 3: Appearance & Shortcuts -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Appearance &amp; Blackboard Dark Mode</h3>
-              <p class="settings-card-subtitle">Interface styling and native Blackboard Ultra dark theme</p>
+          <!-- Blackboard Ultra Native Dark Mode Toggle -->
+          <div class="setting-toggle-row" style="margin-bottom: 12px; padding: 10px 12px; background: var(--surface-hover); border-radius: var(--radius-sm); border: 1px solid var(--surface-border);">
+            <div class="toggle-info">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="setting-title" style="font-weight: 600;">Blackboard Web Dark Mode</span>
+                <span class="settings-pill pill-green" style="font-size: 10px;">Native Theme</span>
+              </div>
+              <span class="setting-desc">Injects native high-contrast dark theme directly into University of Sharjah Blackboard Ultra web pages.</span>
             </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-blackboard-dark-mode" checked>
+              <span class="slider round"></span>
+            </label>
           </div>
-          <span class="settings-pill pill-purple">Ultra Theme</span>
-        </div>
 
-        <!-- Blackboard Ultra Native Dark Mode Toggle -->
-        <div class="setting-toggle-row" style="margin-bottom: 12px; padding: 10px 12px; background: var(--surface-hover); border-radius: var(--radius-sm); border: 1px solid var(--surface-border);">
-          <div class="toggle-info">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="setting-title" style="font-weight: 600;">Blackboard Web Dark Mode</span>
-              <span class="settings-pill pill-green" style="font-size: 10px;">Native Theme</span>
-            </div>
-            <span class="setting-desc">Injects native high-contrast dark theme directly into University of Sharjah Blackboard Ultra web pages.</span>
+          <div class="form-group">
+            <label class="form-label" for="setting-theme">Popup &amp; Dashboard Theme</label>
+            <select id="setting-theme" class="form-select">
+              <option value="light">Light Mode (Classic Academic)</option>
+              <option value="dark">Dark Mode (Focused Night)</option>
+              <option value="system">Match System Theme</option>
+            </select>
           </div>
-          <label class="switch">
-            <input type="checkbox" id="setting-blackboard-dark-mode" checked>
-            <span class="slider round"></span>
-          </label>
-        </div>
 
-        <div class="form-group">
-          <label class="form-label" for="setting-theme">Popup &amp; Dashboard Theme</label>
-          <select id="setting-theme" class="form-select">
-            <option value="light">Light Mode (Classic Academic)</option>
-            <option value="dark">Dark Mode (Focused Night)</option>
-            <option value="system">Match System Theme</option>
-          </select>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label">Keyboard Shortcut</label>
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm);">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <svg class="ui-icon" style="color: var(--text-muted); width: 14px; height: 14px;"><use href="#icon-terminal"></use></svg>
-              <span style="font-size: 12px; color: var(--text-main); font-weight: 500;">Open Blackboarder</span>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Keyboard Shortcut</label>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm);">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <svg class="ui-icon" style="color: var(--text-muted); width: 14px; height: 14px;"><use href="#icon-terminal"></use></svg>
+                <span style="font-size: 12px; color: var(--text-main); font-weight: 500;">Open Blackboarder</span>
+              </div>
+              <span style="display: inline-flex; gap: 3px; align-items: center;">
+                <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">B</kbd>
+              </span>
             </div>
-            <span style="display: inline-flex; gap: 3px; align-items: center;">
-              <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">B</kbd>
+            <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">
+              Press anywhere in Chrome to open popup. (Mac: <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">Shift</kbd>+<kbd class="kbd-badge">B</kbd>)
             </span>
           </div>
-          <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">
-            Press anywhere in Chrome to open popup. (Mac: <kbd class="kbd-badge">Alt</kbd>+<kbd class="kbd-badge">Shift</kbd>+<kbd class="kbd-badge">B</kbd>)
-          </span>
         </div>
       </div>
 
-      <!-- Card 4: Mobile Phone & Cloud Sync -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-smartphone"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Mobile Phone &amp; Cloud Sync</h3>
-              <p class="settings-card-subtitle">Real-time sync to phone PWA and live calendar feeds</p>
+      <div class="settings-page" id="settings-page-courses" role="tabpanel" aria-labelledby="settings-tab-courses" hidden>
+        <!-- Card 5: My Courses, Schedule & Grading (Unified Interactive Manager) -->
+        <div class="settings-card" id="card-my-courses">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-book"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">My Courses, Schedule &amp; Grading</h3>
+                <p class="settings-card-subtitle">Manage class times, room locations, and syllabus mark allocations</p>
+              </div>
             </div>
+            <span class="settings-pill pill-blue" id="pill-course-count">6 Active</span>
           </div>
-          <span class="settings-pill pill-green">Live Sync</span>
-        </div>
 
-        <p class="settings-card-desc">
-          Access your deadlines on your phone via Mobile Web App (PWA) and subscribe natively in Apple Calendar (iOS) or Google Calendar.
-        </p>
+          <p class="settings-card-desc">
+            Configure your enrolled courses, weekly lecture slots, and grade distributions. Deadlines auto-calculate marks and lecture rooms based on these settings.
+          </p>
 
-        <!-- Personal Sync Key Prominent Box -->
-        <div class="settings-panel-box" style="margin-bottom: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label class="form-label" for="setting-sync-key" style="font-weight: 700; margin-bottom: 0;">Personal Sync Pairing Key</label>
-            <button type="button" id="btn-copy-sync-key" style="font-size: 11px; color: var(--primary); background: none; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-              <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-copy"></use></svg>
-              <span>Copy Key</span>
+          <!-- Course Manager Action Toolbar -->
+          <div class="courses-toolbar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center;">
+            <button type="button" class="btn-primary" id="btn-add-course" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;">
+              <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+              <span>Add Course</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btn-import-courses" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="Import from Banner SSB schedule text or JSON backup">
+              <svg class="ui-icon"><use href="#icon-upload"></use></svg>
+              <span>Import / Paste</span>
+            </button>
+            <button type="button" class="btn-outline-action" id="btn-export-courses" style="font-size: 11px; padding: 5px 9px; width: auto; min-height: 28px; display: inline-flex; align-items: center; gap: 4px;" title="Download JSON course configuration backup">
+              <svg class="ui-icon"><use href="#icon-download"></use></svg>
+              <span>Export JSON</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btn-reset-courses" style="font-size: 11px; padding: 5px 9px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px;" title="Reset to standard 6 UOS courses">
+              <span>Reset Defaults</span>
             </button>
           </div>
-          <div style="display: flex; gap: 6px;">
-            <input type="text" id="setting-sync-key" class="form-input" placeholder="e.g. BBS-9A2K" maxlength="24" autocomplete="off" spellcheck="false" style="font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; flex: 1;">
-            <button type="button" id="btn-regen-sync-key" class="btn-secondary" style="padding: 6px 10px; font-size: 11px; white-space: nowrap;" title="Generate new random key">New Key</button>
-          </div>
-          <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 4px;">Keeps your deadlines private and isolated in the cloud so multiple students never overwrite each other.</span>
-        </div>
 
-        <!-- Action Buttons -->
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" class="btn-primary" id="btn-sync-to-server" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
-              <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
-              <span>Sync Now to Mobile</span>
-            </button>
-            <button type="button" class="btn-secondary" id="btn-open-mobile-web" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
-              <svg class="ui-icon mr-1"><use href="#icon-smartphone"></use></svg>
-              <span>Open Mobile App</span>
-            </button>
+          <!-- Dynamic Courses List -->
+          <div id="user-courses-list" class="user-courses-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Populated dynamically by renderUserCoursesManager() -->
           </div>
-          <button type="button" class="btn-outline-action" id="btn-copy-pairing-link">
-            <svg class="ui-icon mr-1"><use href="#icon-share"></use></svg>
-            <span>Copy Phone Pairing Link (?key=...)</span>
-          </button>
-          <button type="button" class="btn-outline-action" id="btn-copy-webcal-link">
-            <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
-            <span>Copy WebCal Feed Link (Apple/Google Cal)</span>
-          </button>
-          <div id="firebase-status-badge" class="firebase-status-badge">
-            <div class="fb-status-main">
-              <svg class="ui-icon fb-status-icon"><use href="#icon-flame"></use></svg>
-              <span>Firebase Cloud DB: Connected</span>
-            </div>
-            <span class="fb-status-sub">24/7 Always Online</span>
-          </div>
-          <div id="sync-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 2px;"></div>
         </div>
+      </div>
 
-        <!-- Advanced Server & Self-Hosting Options Collapsible -->
-        <details class="settings-advanced-details" style="margin-top: 10px; border: 1px solid var(--surface-border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--surface);">
-          <summary style="font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; user-select: none;">
-            Advanced Server &amp; Endpoints
-          </summary>
-          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
-            <div class="form-group">
-              <label class="form-label" for="setting-sync-url">Own Sync Server (optional)</label>
-              <input type="text" id="setting-sync-url" class="form-input" placeholder="Leave empty to sync through Firebase only" value="">
-              <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Only for a self-hosted server. Firebase handles sync without it.</span>
+      <div class="settings-page" id="settings-page-scanning" role="tabpanel" aria-labelledby="settings-tab-scanning" hidden>
+        <!-- Card 1: AI & Hybrid Extraction Engine -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">AI &amp; Extraction Engine</h3>
+                <p class="settings-card-subtitle">Local heuristic parser with Jev triage and Generative AI</p>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="setting-hosted-url">Hosted Web Dashboard URL</label>
-              <input type="text" id="setting-hosted-url" class="form-input" placeholder="https://blackboarder.pages.dev" value="https://blackboarder.pages.dev">
-              <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Your deployed website (Cloudflare Pages, Vercel, or custom domain).</span>
+            <span class="settings-pill pill-blue">Hybrid Engine</span>
+          </div>
+
+          <p class="settings-card-desc">
+            Analyzes course announcements with zero lag. Jev acts as an instant ~100ms gatekeeper before invoking deeper LLM extraction.
+          </p>
+
+          <!-- Toggle: Enable AI Deep Extraction -->
+          <div class="toggle-control-row">
+            <div class="toggle-text-block">
+              <span class="toggle-main-label">Enable AI Deep Extraction</span>
+              <span class="toggle-status-desc">Use Gemini or GPT fallback for conversational announcements</span>
             </div>
-            <div class="form-group" style="margin-top: 2px;">
+            <label class="switch">
+              <input type="checkbox" id="setting-use-ai">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" for="setting-apikey">OpenRouter API Key (AI Fallback)</label>
+            <input type="password" id="setting-apikey" class="form-input" placeholder="sk-or-v1-...">
+            <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Used when local parser encounters ambiguous or conversational announcements.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-model">AI Model</label>
+            <select id="setting-model" class="form-select">
+              <option value="google/gemini-3.8-flash">Google Gemini 3.8 Flash (Fast &amp; Recommended)</option>
+              <option value="google/gemini-3.7-flash">Google Gemini 3.7 Flash</option>
+              <option value="google/gemini-flash-latest">Google Gemini Flash Latest</option>
+              <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
+            </select>
+          </div>
+
+          <!-- Jev Fast Classifier Panel -->
+          <div class="settings-panel-box" style="margin-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <label class="form-label" for="setting-jev-key" style="margin-bottom: 0; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+                <span>Jev Fast Classifier (TypeSafe AI)</span>
+              </label>
+              <span class="settings-pill pill-blue">~100ms Gatekeeper</span>
+            </div>
+            <input type="password" id="setting-jev-key" class="form-input" placeholder="apikey_...">
+            <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Instantly weeds out non-deadlines and locks category (Quiz, Exam, Homework) before invoking Generative AI.</span>
+            <div style="margin-top: 8px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
-                <input type="checkbox" id="setting-sync-midnight" checked>
-                <span>Auto-sync every day at 12:00 AM midnight</span>
+                <input type="checkbox" id="setting-use-jev" checked>
+                <span>Enable Jev Fast Classification Gatekeeper</span>
               </label>
             </div>
-            <div class="form-group" style="margin-top: 2px;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
-                <input type="checkbox" id="setting-sync-onscan" checked>
-                <span>Auto-push to mobile after scanning Blackboard</span>
-              </label>
-            </div>
           </div>
-        </details>
-      </div>
 
-      <!-- Card 5: My Courses, Schedule & Grading (Unified Interactive Manager) -->
-      <div class="settings-card" id="card-my-courses">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-book"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">My Courses, Schedule &amp; Grading</h3>
-              <p class="settings-card-subtitle">Manage class times, room locations, and syllabus mark allocations</p>
+          <!-- Toggle: Auto-scan announcements -->
+          <div class="toggle-control-row" style="margin-top: 10px; margin-bottom: 0;">
+            <div class="toggle-text-block">
+              <span class="toggle-main-label">Auto-Scan on Page Load</span>
+              <span class="toggle-status-desc">Automatically inspects Blackboard announcements when visiting stream</span>
             </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-autoscan">
+              <span class="slider round"></span>
+            </label>
           </div>
-          <span class="settings-pill pill-blue" id="pill-course-count">6 Active</span>
         </div>
 
-        <p class="settings-card-desc">
-          Configure your enrolled courses, weekly lecture slots, and grade distributions. Deadlines auto-calculate marks and lecture rooms based on these settings.
-        </p>
-
-        <!-- Course Manager Action Toolbar -->
-        <div class="courses-toolbar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center;">
-          <button type="button" class="btn-primary" id="btn-add-course" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;">
-            <svg class="ui-icon"><use href="#icon-plus"></use></svg>
-            <span>Add Course</span>
-          </button>
-          <button type="button" class="btn-secondary" id="btn-import-courses" style="font-size: 11.5px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="Import from Banner SSB schedule text or JSON backup">
-            <svg class="ui-icon"><use href="#icon-upload"></use></svg>
-            <span>Import / Paste</span>
-          </button>
-          <button type="button" class="btn-outline-action" id="btn-export-courses" style="font-size: 11px; padding: 5px 9px; width: auto; min-height: 28px; display: inline-flex; align-items: center; gap: 4px;" title="Download JSON course configuration backup">
-            <svg class="ui-icon"><use href="#icon-download"></use></svg>
-            <span>Export JSON</span>
-          </button>
-          <button type="button" class="btn-secondary" id="btn-reset-courses" style="font-size: 11px; padding: 5px 9px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px;" title="Reset to standard 6 UOS courses">
-            <span>Reset Defaults</span>
-          </button>
-        </div>
-
-        <!-- Dynamic Courses List -->
-        <div id="user-courses-list" class="user-courses-container" style="display: flex; flex-direction: column; gap: 10px;">
-          <!-- Populated dynamically by renderUserCoursesManager() -->
-        </div>
-      </div>
-
-      <!-- Card 7: Scanner Maintenance & Cache -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-settings"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Scanner Maintenance &amp; Cache</h3>
-              <p class="settings-card-subtitle">Checkpoint cache and rescan utilities</p>
+        <!-- Card 7: Scanner Maintenance & Cache -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-settings"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Scanner Maintenance &amp; Cache</h3>
+                <p class="settings-card-subtitle">Checkpoint cache and rescan utilities</p>
+              </div>
             </div>
+            <span class="settings-pill pill-orange">Non-Destructive</span>
           </div>
-          <span class="settings-pill pill-orange">Non-Destructive</span>
-        </div>
 
-        <p class="settings-card-desc">
-          Blackboarder caches scanned announcement IDs to make rescans instant. Full Re-scan refreshes all details without resetting completed tasks. Clear Scan Cache forces a clean re-scan of all announcements from scratch.
-        </p>
+          <p class="settings-card-desc">
+            Blackboarder caches scanned announcement IDs to make rescans instant. Full Re-scan refreshes all details without resetting completed tasks. Clear Scan Cache forces a clean re-scan of all announcements from scratch.
+          </p>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-          <button type="button" class="btn-primary" id="btn-trigger-full-rescan" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
-            <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
-            <span>Full Re-scan Blackboard</span>
-          </button>
-          <button type="button" class="btn-secondary" id="btn-reset-checkpoint" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;" title="Clear cached announcement IDs so next scan inspects all announcements">
-            <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
-            <span>Clear Scan Cache</span>
-          </button>
-        </div>
-        <div id="rescan-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 4px;"></div>
-      </div>
-
-      <!-- Card 8: Backup & Data Management -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-download"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Permanent Data Backup</h3>
-              <p class="settings-card-subtitle">Export or restore your deadlines offline</p>
-            </div>
-          </div>
-          <span class="settings-pill pill-blue">Local Storage</span>
-        </div>
-
-        <p class="settings-card-desc">
-          Your scanned deadlines are safely stored in browser storage. Export a JSON backup file anytime for 100% peace of mind.
-        </p>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <button type="button" class="btn-outline-action" id="btn-backup-json" style="justify-content: center;">
-            <svg class="ui-icon mr-1"><use href="#icon-download"></use></svg>
-            <span>Export JSON</span>
-          </button>
-          <button type="button" class="btn-outline-action" id="btn-restore-json-trigger" style="justify-content: center;">
-            <svg class="ui-icon mr-1"><use href="#icon-upload"></use></svg>
-            <span>Restore JSON</span>
-          </button>
-        </div>
-        <input type="file" id="input-restore-json" accept=".json" style="display: none;">
-      </div>
-
-      <!-- Card 9: Extension Updates & GitHub Version -->
-      <div class="settings-card" id="card-extension-updates">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Extension Updates <span id="ext-version-badge" class="settings-pill pill-blue" style="font-size: 11px; margin-left: 6px;">v1.1.0</span></h3>
-              <p class="settings-card-subtitle">Updates itself from GitHub (yvs1n/blackboarder)</p>
-            </div>
-          </div>
-          <span class="settings-pill pill-green" id="ext-update-status-pill">Up to Date</span>
-        </div>
-
-        <p class="settings-card-desc" id="ext-update-status-desc">
-          Installed build: <code id="ext-local-commit">local</code> (<span id="ext-local-date">just now</span>). Checks GitHub every hour and installs new versions automatically.
-        </p>
-
-        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" class="btn-primary" id="btn-check-ext-update" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
-              <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
-              <span>Check for Updates</span>
-            </button>
-            <button type="button" class="btn-secondary" id="btn-reload-ext-settings" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
+            <button type="button" class="btn-primary" id="btn-trigger-full-rescan" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
               <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
-              <span>Reload Extension</span>
+              <span>Full Re-scan Blackboard</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btn-reset-checkpoint" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;" title="Clear cached announcement IDs so next scan inspects all announcements">
+              <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
+              <span>Clear Scan Cache</span>
             </button>
           </div>
-          <button type="button" class="btn-outline-action" id="btn-download-ext-zip">
-            <svg class="ui-icon mr-1"><use href="#icon-download"></use></svg>
-            <span>Download Latest Extension (.zip)</span>
-          </button>
-          <button type="button" class="btn-outline-action" id="btn-open-github-repo">
-            <svg class="ui-icon mr-1"><use href="#icon-external-link"></use></svg>
-            <span>View GitHub Repository</span>
-          </button>
+          <div id="rescan-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 4px;"></div>
         </div>
-        <p class="settings-card-desc" style="margin-top: 10px; font-size: 11px;">
-          Built by <a href="https://yassinr.me" target="_blank" rel="noopener noreferrer" style="color: var(--text-main); text-decoration: underline;">Yassin Ragab</a>, a freshman at UOS.
-        </p>
+      </div>
+
+      <div class="settings-page" id="settings-page-sync" role="tabpanel" aria-labelledby="settings-tab-sync" hidden>
+        <!-- Card 4: Mobile Phone & Cloud Sync -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-smartphone"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Mobile Phone &amp; Cloud Sync</h3>
+                <p class="settings-card-subtitle">Real-time sync to phone PWA and live calendar feeds</p>
+              </div>
+            </div>
+            <span class="settings-pill pill-green">Live Sync</span>
+          </div>
+
+          <p class="settings-card-desc">
+            Access your deadlines on your phone via Mobile Web App (PWA) and subscribe natively in Apple Calendar (iOS) or Google Calendar.
+          </p>
+
+          <!-- Personal Sync Key Prominent Box -->
+          <div class="settings-panel-box" style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="setting-sync-key" style="font-weight: 700; margin-bottom: 0;">Personal Sync Pairing Key</label>
+              <button type="button" id="btn-copy-sync-key" style="font-size: 11px; color: var(--primary); background: none; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-copy"></use></svg>
+                <span>Copy Key</span>
+              </button>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-sync-key" class="form-input" placeholder="e.g. BBS-9A2K" maxlength="24" autocomplete="off" spellcheck="false" style="font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; flex: 1;">
+              <button type="button" id="btn-regen-sync-key" class="btn-secondary" style="padding: 6px 10px; font-size: 11px; white-space: nowrap;" title="Generate new random key">New Key</button>
+            </div>
+            <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 4px;">Keeps your deadlines private and isolated in the cloud so multiple students never overwrite each other.</span>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <button type="button" class="btn-primary" id="btn-sync-to-server" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
+                <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
+                <span>Sync Now to Mobile</span>
+              </button>
+              <button type="button" class="btn-secondary" id="btn-open-mobile-web" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
+                <svg class="ui-icon mr-1"><use href="#icon-smartphone"></use></svg>
+                <span>Open Mobile App</span>
+              </button>
+            </div>
+            <button type="button" class="btn-outline-action" id="btn-copy-pairing-link">
+              <svg class="ui-icon mr-1"><use href="#icon-share"></use></svg>
+              <span>Copy Phone Pairing Link (?key=...)</span>
+            </button>
+            <button type="button" class="btn-outline-action" id="btn-copy-webcal-link">
+              <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
+              <span>Copy WebCal Feed Link (Apple/Google Cal)</span>
+            </button>
+            <div id="firebase-status-badge" class="firebase-status-badge">
+              <div class="fb-status-main">
+                <svg class="ui-icon fb-status-icon"><use href="#icon-flame"></use></svg>
+                <span>Firebase Cloud DB: Connected</span>
+              </div>
+              <span class="fb-status-sub">24/7 Always Online</span>
+            </div>
+            <div id="sync-status-msg" style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 2px;"></div>
+          </div>
+
+          <!-- Advanced Server & Self-Hosting Options Collapsible -->
+          <details class="settings-advanced-details" style="margin-top: 10px; border: 1px solid var(--surface-border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--surface);">
+            <summary style="font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; user-select: none;">
+              Advanced Server &amp; Endpoints
+            </summary>
+            <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" for="setting-sync-url">Own Sync Server (optional)</label>
+                <input type="text" id="setting-sync-url" class="form-input" placeholder="Leave empty to sync through Firebase only" value="">
+                <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Only for a self-hosted server. Firebase handles sync without it.</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="setting-hosted-url">Hosted Web Dashboard URL</label>
+                <input type="text" id="setting-hosted-url" class="form-input" placeholder="https://blackboarder.pages.dev" value="https://blackboarder.pages.dev">
+                <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 2px;">Your deployed website (Cloudflare Pages, Vercel, or custom domain).</span>
+              </div>
+              <div class="form-group" style="margin-top: 2px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
+                  <input type="checkbox" id="setting-sync-midnight" checked>
+                  <span>Auto-sync every day at 12:00 AM midnight</span>
+                </label>
+              </div>
+              <div class="form-group" style="margin-top: 2px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
+                  <input type="checkbox" id="setting-sync-onscan" checked>
+                  <span>Auto-push to mobile after scanning Blackboard</span>
+                </label>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="settings-page" id="settings-page-alerts" role="tabpanel" aria-labelledby="settings-tab-alerts" hidden>
+        <!-- Card 2: Notifications & Alerts -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-bell"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Notifications &amp; Alerts</h3>
+                <p class="settings-card-subtitle">Extension icon badge and advance reminder windows</p>
+              </div>
+            </div>
+            <span class="settings-pill pill-orange">Reminders</span>
+          </div>
+
+          <!-- Toggle: Badge notification -->
+          <div class="toggle-control-row">
+            <div class="toggle-text-block">
+              <span class="toggle-main-label">Extension Icon Badge</span>
+              <span class="toggle-status-desc">Show pending deadline counter directly on toolbar icon</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-badge-notif">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="setting-reminder-hours">Notification Alert Window</label>
+            <select id="setting-reminder-hours" class="form-select">
+              <option value="12">12 hours before deadline</option>
+              <option value="24">24 hours before deadline (Default)</option>
+              <option value="48">48 hours before deadline</option>
+            </select>
+            <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Controls when advance desktop push notifications are dispatched.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page" id="settings-page-data" role="tabpanel" aria-labelledby="settings-tab-data" hidden>
+        <!-- Card 8: Backup & Data Management -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-download"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Permanent Data Backup</h3>
+                <p class="settings-card-subtitle">Export or restore your deadlines offline</p>
+              </div>
+            </div>
+            <span class="settings-pill pill-blue">Local Storage</span>
+          </div>
+
+          <p class="settings-card-desc">
+            Your scanned deadlines are safely stored in browser storage. Export a JSON backup file anytime for 100% peace of mind.
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button type="button" class="btn-outline-action" id="btn-backup-json" style="justify-content: center;">
+              <svg class="ui-icon mr-1"><use href="#icon-download"></use></svg>
+              <span>Export JSON</span>
+            </button>
+            <button type="button" class="btn-outline-action" id="btn-restore-json-trigger" style="justify-content: center;">
+              <svg class="ui-icon mr-1"><use href="#icon-upload"></use></svg>
+              <span>Restore JSON</span>
+            </button>
+          </div>
+          <input type="file" id="input-restore-json" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <div class="settings-page" id="settings-page-updates" role="tabpanel" aria-labelledby="settings-tab-updates" hidden>
+        <!-- Card 9: Extension Updates & GitHub Version -->
+        <div class="settings-card" id="card-extension-updates">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Extension Updates <span id="ext-version-badge" class="settings-pill pill-blue" style="font-size: 11px; margin-left: 6px;">v1.1.0</span></h3>
+                <p class="settings-card-subtitle">Updates itself from GitHub (yvs1n/blackboarder)</p>
+              </div>
+            </div>
+            <span class="settings-pill pill-green" id="ext-update-status-pill">Up to Date</span>
+          </div>
+
+          <p class="settings-card-desc" id="ext-update-status-desc">
+            Installed build: <code id="ext-local-commit">local</code> (<span id="ext-local-date">just now</span>). Checks GitHub every hour and installs new versions automatically.
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <button type="button" class="btn-primary" id="btn-check-ext-update" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
+                <svg class="ui-icon mr-1"><use href="#icon-refresh"></use></svg>
+                <span>Check for Updates</span>
+              </button>
+              <button type="button" class="btn-secondary" id="btn-reload-ext-settings" style="font-size: 11.5px; padding: 7px 10px; justify-content: center;">
+                <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
+                <span>Reload Extension</span>
+              </button>
+            </div>
+            <button type="button" class="btn-outline-action" id="btn-download-ext-zip">
+              <svg class="ui-icon mr-1"><use href="#icon-download"></use></svg>
+              <span>Download Latest Extension (.zip)</span>
+            </button>
+            <button type="button" class="btn-outline-action" id="btn-open-github-repo">
+              <svg class="ui-icon mr-1"><use href="#icon-external-link"></use></svg>
+              <span>View GitHub Repository</span>
+            </button>
+          </div>
+          <p class="settings-card-desc" style="margin-top: 10px; font-size: 11px;">
+            Built by <a href="https://yassinr.me" target="_blank" rel="noopener noreferrer" style="color: var(--text-main); text-decoration: underline;">Yassin Ragab</a>, a freshman at UOS.
+          </p>
+        </div>
       </div>
 
       <div class="modal-footer" style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center;">

@@ -3540,6 +3540,69 @@ body.is-standalone .header {
   margin-bottom: 10px;
 }
 
+/* Settings pages: tab strip (same look as .main-nav-tabs), one page shown at a time.
+   Columns wrap onto a second row when the side panel is narrow. */
+.settings-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 4px;
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border);
+  padding: 4px;
+  margin-bottom: 12px;
+}
+
+.settings-nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 2px;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.settings-nav-tab span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-nav-tab svg {
+  width: 15px;
+  height: 15px;
+}
+
+.settings-nav-tab:hover {
+  color: var(--text-main);
+}
+
+.settings-nav-tab.active {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.settings-nav-tab:focus-visible {
+  outline: 2px solid var(--text-main);
+  outline-offset: -2px;
+}
+
+.settings-page[hidden] {
+  display: none !important;
+}
+
 /* Toggle Switches */
 .toggle-control-row {
   display: flex;

@@ -280,6 +280,42 @@ function switchView(view: AppView) {
   }
 }
 
+// Settings pages: the tab strip shows one group of cards at a time. Every page
+// stays inside #form-settings, so Save Settings still saves all fields.
+function showSettingsPage(page: string, focusTab = false) {
+  const tabs = document.querySelectorAll<HTMLButtonElement>('.settings-nav-tab');
+  tabs.forEach(tab => {
+    const isActive = tab.dataset.settingsPage === page;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+    tab.tabIndex = isActive ? 0 : -1;
+    if (isActive && focusTab) tab.focus();
+  });
+  document.querySelectorAll<HTMLElement>('.settings-page').forEach(panel => {
+    panel.hidden = panel.id !== `settings-page-${page}`;
+  });
+  // A long page may have been scrolled; bring the tab strip back into view.
+  const nav = document.querySelector<HTMLElement>('.settings-nav');
+  if (nav && nav.getBoundingClientRect().top < 0) nav.scrollIntoView({ block: 'start' });
+}
+
+function initSettingsNav() {
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('.settings-nav-tab'));
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => showSettingsPage(tab.dataset.settingsPage || 'general'));
+    tab.addEventListener('keydown', (e: KeyboardEvent) => {
+      let next = -1;
+      if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      showSettingsPage(tabs[next].dataset.settingsPage || 'general', true);
+    });
+  });
+}
+
 // Format date key to 'YYYY-MM-DD'
 function formatDateKey(date: Date): string {
   const y = date.getFullYear();
@@ -2732,6 +2768,7 @@ function setupEvents() {
   btnThemeToggle?.addEventListener('click', toggleTheme);
   btnCancelAdd.addEventListener('click', () => switchView('calendar'));
   btnCancelSettings.addEventListener('click', () => switchView('calendar'));
+  initSettingsNav();
 
   // Listen to OS theme changes if user has system theme selected
   if (typeof window !== 'undefined' && window.matchMedia) {

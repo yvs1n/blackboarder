@@ -139,6 +139,7 @@ graph TB
 - **Popup UI (`src/popup/`)**:
   - Built with pure TypeScript, Swiss Grid CSS, and zero UI frameworks for near-zero startup latency.
   - Tabs: Monthly Calendar, Deadlines List, Quick Links, Grade Tracker, and Settings.
+  - Settings is split into pages by a tab strip (General, Courses, Scanning, Sync, Alerts, Data, Updates); every page lives in the one `#form-settings`, so a new setting goes in the card of the page it belongs to.
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
   - **Scanning does not run in the popup.** The Scan button sends `TRIGGER_SCAN` to the Blackboard tab, which runs `runScan()` and saves the result; the popup only shows `bbs_scan_status` (`ScanStatus` in `src/utils/storage.ts`), on open and on change. Closing the popup no longer cancels a scan.
 - **Content Scripts (`src/content/`)**:
@@ -443,6 +444,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Settings split into pages
+- Owner asked for settings grouped by what they do, so they are easier to find.
+- `#view-settings` in `src/popup/index.html` now starts with a `.settings-nav` tab strip and wraps the existing cards, unchanged, in `.settings-page` panels: General (walkthrough replay, appearance), Courses, Scanning (AI engine, scanner maintenance), Sync, Alerts (notifications), Data (backup), Updates (updates and author credit). All panels stay inside `#form-settings`, so Save Settings and the instant-save fields behave as before; no ids or storage keys changed.
+- `showSettingsPage()` / `initSettingsNav()` in `src/popup/popup.ts` switch pages (click, arrow keys, Home/End; `role="tab"` / `tabpanel`). The open page is kept while the popup stays open.
+- Checked in the built popup with a stubbed `chrome`: 480px popup, a 340px side panel (tabs wrap to two rows, no sideways scroll), and dark mode.
 
 ### 2026-10-22 - Lab Quiz 3 showed the CPE Quiz 3 text
 - Owner: the Physics 1 Lab "Quiz 3" carried the Intro to Computer Eng. "Quiz 3" announcement text.
