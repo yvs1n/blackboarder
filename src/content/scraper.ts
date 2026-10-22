@@ -3,7 +3,7 @@ import { processAnnouncementsBatch, titleCourseKeyFor } from '../engine/hybridEx
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses, setScanStatus } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode, isValidTask } from '../core/courseHelper';
-import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
+import { parseDirectStreamCard, parseSubmissionOrGradeCard, findTaskForUpdate } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
 import { mergeStreamAndCourseAnnouncements } from '../utils/announcementMerge';
 
@@ -1255,15 +1255,7 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
 
     // Apply submission and grade updates to matching tasks
     for (const update of submissionUpdates) {
-      const match = finalTasks.find(t => {
-        const res = parseCourseDetails(`${t.courseCode || ''} ${t.courseName || ''}`);
-        const courseMatches = !update.courseCode || !res.code || update.courseCode === res.code ||
-          (update.courseName && res.name && res.name.toLowerCase().includes(update.courseName.toLowerCase()));
-        if (!courseMatches) return false;
-        const cleanUpdateTitle = (update.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const cleanTaskTitle = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cleanUpdateTitle.length >= 3 && (cleanTaskTitle.includes(cleanUpdateTitle) || cleanUpdateTitle.includes(cleanTaskTitle));
-      });
+      const match = findTaskForUpdate(finalTasks, update);
 
       if (match) {
         if (update.submissionStatus === 'graded') {

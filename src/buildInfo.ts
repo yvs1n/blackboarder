@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "189bdf5d5d94",
-  "commit": "bbdded6021995320b50c79b3d88694ae23b0bf9a",
-  "shortCommit": "bbdded6",
-  "timestamp": "2026-10-22T17:14:41.181Z",
-  "message": "Keep only Scan, Add and Settings in the popup header",
+  "build": "ea367b23668c",
+  "commit": "08a9d80a3633715664c54833a81fe12336fab4d3",
+  "shortCommit": "08a9d80",
+  "timestamp": "2026-10-22T17:49:39.592Z",
+  "message": "build: update generated files for a6a5a3f",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

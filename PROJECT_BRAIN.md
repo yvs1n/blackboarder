@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (375 tests across 42 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (380 tests across 43 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **42 test files comprising 375 automated tests** running on Vitest:
+Blackboarder is covered by **43 test files comprising 380 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **42 test files comprising 375 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 28 Test Suites* | 233 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **375** | **100% Passing** |
+| *Other 29 Test Suites* | 238 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **380** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 42 Vitest test suites (375 tests)
+├── tests/                            # 43 Vitest test suites (380 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Posted marks reach their tasks
+- Owner: no marks were being extracted onto tasks.
+- Causes: `parseSubmissionOrGradeCard` only stripped "Graded:"/"Due:" from the card title, so "Grade posted: HW1_..." kept its prefix and never matched the task title; and the task lookup let any course through when a code was blank, so "Quiz 1" could land on another course.
+- Fix: the title drops grade prefixes (English and Arabic). Matching moved to `findTaskForUpdate` in `src/utils/streamParser.ts`: the course must agree when both sides know it, an exact course name beats a partial one ("Physics 1" vs "Physics 1 Lab"), an exact title beats a partial one, and with no course a mark is applied only when one task fits. Tests: `tests/gradeMatching.test.ts`.
+- Still open: marks come only from activity-stream grade cards, which Blackboard shows for a short time; there is no gradebook read. The real card text has not been captured, so the parser is checked against assumed card text.
 
 ### 2026-10-22 - System theme by default; companion desktop dashboard
 - Owner: theme should follow the system by default (Light and Dark still selectable); the companion on desktop should get the slimmer header and a side-by-side layout with the calendar on the left, Up Next under it instead of the selected day's deadlines, and Quick Links kept; the phone layout stays.

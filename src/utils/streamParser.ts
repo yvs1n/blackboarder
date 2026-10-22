@@ -152,8 +152,9 @@ export function parseSubmissionOrGradeCard(cardText: string): import('../types')
   let title = '';
   if (lines.length >= 2) {
     title = lines[1]
-      .replace(/^(?:due:\s*|graded:\s*|you\s+submitted\s*|assignment:\s*)/i, '')
-      .replace(/^(?:تسليم:\s*|تم\s+رصد\s*)/i, '')
+      // "Grade posted: HW1" must become "HW1", or the mark never finds its task
+      .replace(/^(?:due|graded|grade\s+posted|score\s+posted|new\s+grade(?:\s+available)?|grades?\s+(?:available|released)|grade|you\s+submitted|assignment)\s*:?\s*/i, '')
+      .replace(/^(?:تسليم|تم\s+رصد(?:\s+الدرجة)?|تم\s+نشر\s+الدرجة|درجة\s+جديدة)\s*:?\s*/i, '')
       .trim();
   }
 
@@ -219,4 +220,49 @@ export function parseSubmissionOrGradeCard(cardText: string): import('../types')
   }
 
   return null;
+}
+
+const cleanTitle = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, '');
+const cleanCode = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const cleanName = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, '');
+
+/**
+ * Finds the task a posted mark or submission belongs to. The course must agree when both
+ * sides know it, and an exact title wins over a partial one, so "Quiz 1" in Calculus never
+ * takes the Quiz 1 mark of another course.
+ */
+export function findTaskForUpdate(tasks: DeadlineTask[], update: import('../types').TaskSubmissionUpdate): DeadlineTask | undefined {
+  const want = cleanTitle(update.title);
+  if (want.length < 3) return undefined;
+  const upCode = cleanCode(update.courseCode === 'UOS' ? '' : update.courseCode);
+  const upName = cleanName(update.courseName);
+
+  const scored: { task: DeadlineTask; rank: number }[] = [];
+  for (const t of tasks) {
+    const res = parseCourseDetails(`${t.courseCode || ''} ${t.courseName || ''}`);
+    const tCode = cleanCode(res.code === 'UOS' ? '' : res.code);
+    const tName = cleanName(res.name === 'General Course' ? '' : res.name);
+    let courseKnown = false;
+    let courseExact = false;
+    if (upCode && tCode) {
+      if (upCode !== tCode) continue;
+      courseKnown = true;
+      courseExact = true;
+    } else if (upName && tName) {
+      if (!tName.includes(upName) && !upName.includes(tName)) continue;
+      courseKnown = true;
+      // "Physics 1" is inside "Physics 1 Lab": the exact course must win
+      courseExact = tName === upName;
+    }
+    const have = cleanTitle(t.title);
+    if (have.length < 3) continue;
+    const exact = have === want;
+    if (!exact && !have.includes(want) && !want.includes(have)) continue;
+    scored.push({ task: t, rank: (courseExact ? 4 : 0) + (courseKnown ? 2 : 0) + (exact ? 1 : 0) });
+  }
+  if (scored.length === 0) return undefined;
+  scored.sort((a, b) => b.rank - a.rank);
+  // With no course to go on, only a single candidate is safe
+  if (scored[0].rank < 2 && scored.filter(s => s.rank === scored[0].rank).length > 1) return undefined;
+  return scored[0].task;
 }
