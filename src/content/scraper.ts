@@ -540,6 +540,15 @@ async function expandAllTruncatedAnnouncements(): Promise<void> {
 /**
  * Resolves standard Blackboard AJAX headers including CSRF token if present.
  */
+/**
+ * fetch() for a Blackboard path such as "/learn/api/...". Ultra pages set <base href> to a
+ * CloudFront asset host, so a bare path resolves there and every request 404s. Always send it
+ * to the Blackboard site itself.
+ */
+export function bbFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(new URL(path, window.location.origin).href, init);
+}
+
 function getBlackboardFetchHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Accept': 'application/json, text/plain, */*',
@@ -591,7 +600,7 @@ async function extractAllCourseIdsFromPage(): Promise<string[]> {
 
   // 4. Blackboard Learn user enrolled courses REST API
   try {
-    const res = await fetch('/learn/api/public/v1/users/me/courses?expand=course', {
+    const res = await bbFetch('/learn/api/public/v1/users/me/courses?expand=course', {
       headers: getBlackboardFetchHeaders(),
       credentials: 'same-origin'
     });
@@ -645,7 +654,7 @@ async function fetchCourseAnnouncementsClassicWebapp(courseId: string): Promise<
   }
   const map = new Map<string, { html: string; text: string }>();
   try {
-    const res = await fetch(`/webapps/blackboard/execute/announcement?method=search&course_id=${encodeURIComponent(courseId)}`, {
+    const res = await bbFetch(`/webapps/blackboard/execute/announcement?method=search&course_id=${encodeURIComponent(courseId)}`, {
       credentials: 'same-origin'
     });
     if (res.ok) {
@@ -691,7 +700,7 @@ async function fetchFullAnnouncementBodyFromCode(
     // 1. Try public REST API endpoint
     if (announcementId) {
       try {
-        const res = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
+        const res = await bbFetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
           headers: bbHeaders,
           credentials: 'same-origin'
         });
@@ -708,7 +717,7 @@ async function fetchFullAnnouncementBodyFromCode(
 
       // 2. Try internal v1 REST API endpoint
       try {
-        const res = await fetch(`/learn/api/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
+        const res = await bbFetch(`/learn/api/v1/courses/${encodeURIComponent(courseId)}/announcements/${encodeURIComponent(announcementId)}`, {
           headers: bbHeaders,
           credentials: 'same-origin'
         });
@@ -751,7 +760,7 @@ async function fetchFullAnnouncementBodyFromCode(
 
     // 4. Try REST course announcements list endpoint
     try {
-      const listRes = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements`, {
+      const listRes = await bbFetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements`, {
         headers: bbHeaders,
         credentials: 'same-origin'
       });
@@ -796,7 +805,7 @@ async function fetchCourseAnnouncementsApi(
     let results: any[] | null = null;
     for (const base of ['/learn/api/public/v1', '/learn/api/v1']) {
       try {
-        const res = await fetch(`${base}/courses/${encodeURIComponent(courseId)}/announcements`, {
+        const res = await bbFetch(`${base}/courses/${encodeURIComponent(courseId)}/announcements`, {
           headers: getBlackboardFetchHeaders(),
           credentials: 'same-origin'
         });

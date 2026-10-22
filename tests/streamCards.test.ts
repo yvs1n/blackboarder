@@ -89,6 +89,33 @@ describe('UOS Ultra stream cards', () => {
   });
 });
 
+describe('Blackboard requests ignore the page <base href>', () => {
+  afterEach(() => {
+    document.head.querySelectorAll('base').forEach(b => b.remove());
+    vi.restoreAllMocks();
+  });
+
+  it('sends every request to the Blackboard site, not the CloudFront asset host', async () => {
+    // Live UOS Ultra pages set <base href> to a CloudFront host, so "/learn/api/..." 404'd there
+    const base = document.createElement('base');
+    base.href = 'https://dmuwut6e40u5o.cloudfront.net/ultra/';
+    document.head.appendChild(base);
+    const fetchMock = mockFetch({});
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    streamPage([card({
+      icon: 'document', courseId: '_86929_1', course: 'Calculus I for Engineering- 21 - حسبان 1',
+      titleHref: 'https://elearning.sharjah.ac.ae/bbcswebdav/pid-1/xid-1', title: 'Added: Lecture 9.pdf', date: '2 hours', time: '10:00 AM'
+    })]);
+    await scrapeAnnouncementsFull({ fullRescan: true });
+    const urls = fetchMock.mock.calls.map(c => String(c[0]));
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) {
+      expect(u.startsWith(window.location.origin + '/')).toBe(true);
+    }
+  });
+});
+
 describe('fake tasks made from a timestamp are dropped', () => {
   const junk = { title: 'Exam', courseName: 'Physics 1', courseCode: '1430 115', extractedBy: 'local' };
   it('drops a task whose only text is the posting time', () => {

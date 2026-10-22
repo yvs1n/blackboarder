@@ -275,7 +275,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (346 tests across 38 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (347 tests across 38 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -296,7 +296,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **38 test files comprising 346 automated tests** running on Vitest:
+Blackboarder is covered by **38 test files comprising 347 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -314,8 +314,8 @@ Blackboarder is covered by **38 test files comprising 346 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 24 Test Suites* | 205 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **346** | **100% Passing** |
+| *Other 24 Test Suites* | 206 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **347** | **100% Passing** |
 
 ---
 
@@ -377,7 +377,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 38 Vitest test suites (346 tests)
+├── tests/                            # 38 Vitest test suites (347 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -442,6 +442,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Blackboard requests went to CloudFront and 404'd
+- Owner report: Quiz 3 still not added. A console check on `/ultra/stream` showed every `/learn/api/...` request going to `https://dmuwut6e40u5o.cloudfront.net/...` and returning 404. UOS Ultra pages set `<base href>` to that CloudFront asset host, so bare paths resolve there, in the page and in the content script alike. Every course-announcement request the scanner ever made had failed, which is why announcements that are not visible in the stream were never imported.
+- Fix: `bbFetch()` in `src/content/scraper.ts` builds the URL from `window.location.origin`; all six Blackboard requests use it. Test in `tests/streamCards.test.ts` sets a CloudFront `<base>` and checks every request URL (fails without the fix).
+- Rule for future code: never `fetch('/...')` from a content script on Blackboard; use `bbFetch()`.
+- Still open: whether `/learn/api/public/v1` or `/learn/api/v1` announcements answer students on the real origin is unconfirmed; the `[Blackboarder] Scan read ...` console line shows it after a scan.
 
 ### 2026-10-22 - Stream cards read correctly; no more tasks dated by posting time
 - Owner report: Quiz 3 still missing after the merge fix, and junk tasks such as "Exam" (Physics 1, overdue, announcement text "*Oct 18, 2026 2:20 PM").
