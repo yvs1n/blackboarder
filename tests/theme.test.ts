@@ -21,6 +21,11 @@ function expectSwissGridTokens(css: string) {
   expect(css).not.toMatch(/linear-gradient\((135deg|90deg)/);
   // No other hues in the interface (blue, green, purple, amber)
   expect(css).not.toMatch(/#(2563eb|3b82f6|6366f1|16a34a|10b981|7c3aed|f59e0b)/i);
+  // Red neither: course colours are the only colour in the interface
+  const nonCourseLines = css.split('
+').filter(line => !line.includes('--course-'));
+  expect(nonCourseLines.join('
+')).not.toMatch(/#(dc2626|ef4444|b91c1c|f87171)/i);
 }
 
 describe('Dark Mode / Light Mode Theme System', () => {
