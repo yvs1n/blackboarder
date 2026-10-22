@@ -159,7 +159,7 @@ Run `npm run lint` and `npm test` before every commit. [`PROJECT_BRAIN.md`](PROJ
 
 The TypeScript in `src/` is the single source of course, deadline, weighting, sorting and calendar logic. The build bundles what the phone app needs into `mobile-web/companion/core.js`.
 
-All three interfaces (extension, companion, landing page) follow one design system, described in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): black, white and grey, Inter Tight and Inter, square corners, no gradients, and one red for the main action.
+All three interfaces (extension, companion, landing page) follow one design system, described in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): the two-tone colours (near-black and near-white, with grey shades between), Inter Tight and Inter, square corners, no gradients, and one solid primary action per screen.
 
 - **Edit:** `src/`, `mobile-web/index.html` (landing page), `mobile-web/_worker.js` (backend), the hand-written files in `mobile-web/companion/` (`app.js`, `index.html`, `styles.css`, `sw.js`, `manifest.json`), `widgets/`, `updater/`, `public/`.
 - **Never edit (generated):** `dist/`, `mobile-web/companion/core.js`, `mobile-web/companion/widget.js`, the `version.json` files, `src/buildInfo.ts`, `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js`. The build rewrites them and CI rebuilds them on every push.

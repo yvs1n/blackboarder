@@ -105,8 +105,8 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(cssRes.status).toBe(200);
     expect(cssRes.headers.get('content-type')).toContain('text/css');
     const cssText = await cssRes.text();
-    expect(cssText).toContain('--bg: #f5f5f5;'); // Swiss Grid palette, same as the extension
-    expect(cssText).toContain('--accent: #dc2626;');
+    expect(cssText).toContain('--bg: #f8fafc;'); // two-tone palette, same as the extension
+    expect(cssText).toContain('--accent: #18181b;');
   });
 
   it('POST /api/task-status marks task as completed in Cloudflare KV', async () => {

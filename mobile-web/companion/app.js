@@ -415,7 +415,7 @@ function applyTheme(theme = 'light') {
   // Update meta theme-color for mobile address bar
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
-    metaTheme.setAttribute('content', isDark ? '#0a0a0a' : '#000000');
+    metaTheme.setAttribute('content', isDark ? '#121215' : '#18181b');
   }
 
   const btnToggle = document.getElementById('btn-web-theme-toggle');
@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"8486835e1263","version":"1.1.0","shortCommit":"2a7efe8","timestamp":"2026-10-22T05:26:44.007Z"};
+const APP_BUILD = {"build":"959afe15d329","version":"1.1.0","shortCommit":"f422954","timestamp":"2026-10-22T05:51:08.661Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 

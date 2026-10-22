@@ -4,20 +4,23 @@ import path from 'node:path';
 import { DEFAULT_SETTINGS, UserSettings } from '../src/types';
 
 
-/** The Swiss Grid design system, shared by the extension, the companion and the landing page. */
+/** The design system: two-tone colours with Swiss Grid type, corners and flat surfaces. */
 function expectSwissGridTokens(css: string) {
-  // Light: neutral page, white surfaces, black text, grey metadata, one red for the main action
-  for (const token of ['--bg: #f5f5f5;', '--surface: #ffffff;', '--text-main: #000000;', '--text-muted: #555555;',
-    '--accent: #dc2626;', '--on-accent: #ffffff;', '--radius-md: 0px;']) {
+  // Light: near-white page, white surfaces, near-black primary; the main action uses the primary colour
+  for (const token of ['--bg: #f8fafc;', '--surface: #ffffff;', '--primary: #18181b;', '--text-main: #0f172a;',
+    '--accent: #18181b;', '--on-accent: #ffffff;', '--radius-md: 0px;']) {
     expect(css).toContain(token);
   }
-  // Dark variant keeps the same red
+  // Dark: the same two tones swapped
   expect(css).toContain('[data-theme="dark"]');
-  for (const token of ['--bg: #0a0a0a;', '--surface: #141414;', '--text-main: #f5f5f5;', '--text-muted: #a3a3a3;']) {
+  for (const token of ['--bg: #121215;', '--surface: #1a1a1f;', '--text-main: #f4f4f6;', '--primary: #f4f4f6;',
+    '--accent: #f4f4f6;', '--on-accent: #121215;']) {
     expect(css).toContain(token);
   }
   expect(css).toMatch(/font-family: "Inter Tight"/);
   expect(css).not.toMatch(/linear-gradient\((135deg|90deg)/);
+  // No other hues in the interface (blue, green, purple, amber)
+  expect(css).not.toMatch(/#(2563eb|3b82f6|6366f1|16a34a|10b981|7c3aed|f59e0b)/i);
 }
 
 describe('Dark Mode / Light Mode Theme System', () => {
@@ -140,10 +143,10 @@ describe('Dark Mode / Light Mode Theme System', () => {
     expect(popupCss).toContain('.ucc-action-btn.edit');
   });
 
-  it('Landing page uses the same Swiss Grid palette and red primary action', () => {
+  it('Landing page uses the same two-tone palette and design system', () => {
     const html = fs.readFileSync(path.resolve('mobile-web/index.html'), 'utf8');
-    for (const token of ['--bg: #f5f5f5;', '--surface: #ffffff;', '--text-main: #000000;', '--text-muted: #555555;',
-      '--action-primary-bg: #dc2626;', '--bg: #0a0a0a;', '--text-main: #f5f5f5;']) {
+    for (const token of ['--bg: #121215;', '--text-main: #f4f4f6;', '--action-primary-bg: #f4f4f6;',
+      '--bg: #f8fafc;', '--text-main: #0f172a;', '--action-primary-bg: #0f172a;']) {
       expect(html).toContain(token);
     }
     expect(html).toContain('/companion/fonts/inter-tight.woff2');

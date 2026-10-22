@@ -4,8 +4,8 @@
   "description": "Mobile companion for Blackboard deadlines, exams, and calendar sync",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f5f5f5",
-  "theme_color": "#000000",
+  "background_color": "#f8fafc",
+  "theme_color": "#18181b",
   "orientation": "portrait",
   "icons": [
     {

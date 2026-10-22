@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder - Never miss a Blackboard deadline</title>
   <meta name="description" content="Blackboarder finds quizzes, assignments and exams in your Blackboard announcements (English and Arabic) and puts them on one calendar in your browser, on your phone and in your calendar app. Free, no account.">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#121215">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Blackboarder - Never miss a Blackboard deadline">
   <meta property="og:description" content="Finds deadlines in Blackboard announcements and syncs them to your browser, phone and calendar. Free and open source.">
@@ -41,33 +41,33 @@
        ------------------------------------------------------------- */
     :root {
       /* Current Color Palette - Dark Default (Two-Toned Monochrome) */
-      --bg: #0a0a0a;
-      --bg-alt: #111111;
-      --surface: #141414;
-      --surface-hover: #1f1f1f;
-      --surface-border: #262626;
-      --surface-border-strong: #3a3a3a;
+      --bg: #121215;
+      --bg-alt: #17171c;
+      --surface: #1a1a1f;
+      --surface-hover: #222228;
+      --surface-border: #2c2c36;
+      --surface-border-strong: #3f3f4c;
       
-      --text-main: #f5f5f5;
-      --text-muted: #a3a3a3;
-      --text-subtle: #737373;
+      --text-main: #f4f4f6;
+      --text-muted: #a1a1aa;
+      --text-subtle: #71717a;
       
       /* Single Decisive Interaction Driver - Stark Two-Tone Accent */
-      --action-primary-bg: #dc2626;
-      --action-primary-text: #ffffff;
-      --action-primary-hover: #dc2626;
+      --action-primary-bg: #f4f4f6;
+      --action-primary-text: #121215;
+      --action-primary-hover: #ffffff;
 
-      --action-secondary-bg: transparent;
-      --action-secondary-border: #f5f5f5;
-      --action-secondary-text: #f5f5f5;
-      --action-secondary-hover: #1f1f1f;
+      --action-secondary-bg: #1a1a1f;
+      --action-secondary-border: #3f3f4c;
+      --action-secondary-text: #f4f4f6;
+      --action-secondary-hover: #24242b;
 
       /* Academic Course Legend Markers (Restrained Flat Signals) */
-      --c-calc: #dc2626;
-      --c-phys: #737373;
-      --c-eng: #a3a3a3;
-      --c-comp: #525252;
-      --c-islam: #404040;
+      --c-calc: var(--text-main);
+      --c-phys: #71717a;
+      --c-eng: #a1a1aa;
+      --c-comp: #71717a;
+      --c-islam: #52525b;
 
       /* Swiss Grid Geometry Tokens */
       --radius-sm: 0px;
@@ -81,33 +81,33 @@
       --space-lg: 32px;
 
       /* Typography Stack: Inter Tight / Inter / Helvetica */
-      --font-display: "Inter Tight", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-display: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
       --container-max: 1200px;
     }
 
     [data-theme="light"] {
       /* Current Color Palette - Light Variant (Two-Toned Monochrome) */
-      --bg: #f5f5f5;
-      --bg-alt: #ffffff;
+      --bg: #f8fafc;
+      --bg-alt: #f1f5f9;
       --surface: #ffffff;
-      --surface-hover: #f5f5f5;
-      --surface-border: #e5e5e5;
-      --surface-border-strong: #d4d4d4;
+      --surface-hover: #f4f4f5;
+      --surface-border: #e2e8f0;
+      --surface-border-strong: #cbd5e1;
 
-      --text-main: #000000;
+      --text-main: #0f172a;
       --text-muted: #555555;
-      --text-subtle: #8a8a8a;
+      --text-subtle: #71717a;
 
-      --action-primary-bg: #dc2626;
+      --action-primary-bg: #0f172a;
       --action-primary-text: #ffffff;
-      --action-primary-hover: #b91c1c;
+      --action-primary-hover: #000000;
 
-      --action-secondary-bg: transparent;
-      --action-secondary-border: #000000;
-      --action-secondary-text: #000000;
-      --action-secondary-hover: #ffffff;
+      --action-secondary-bg: #ffffff;
+      --action-secondary-border: #cbd5e1;
+      --action-secondary-text: #0f172a;
+      --action-secondary-hover: #f1f5f9;
     }
 
     /* Reset & Base Rules */
@@ -1199,7 +1199,7 @@
       font-display: swap;
     }
     .btn-swiss-primary, .btn-swiss-primary:hover { border-color: var(--action-primary-bg); }
-    :focus-visible { outline: 2px solid #dc2626; outline-offset: 2px; }
+    :focus-visible { outline: 2px solid var(--text-main); outline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -1209,17 +1209,17 @@
     <div class="container nav-inner">
       <a href="#top" class="brand" aria-label="Blackboarder home">
         <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" aria-hidden="true">
-          <rect x="0" y="0" width="512" height="512" fill="#111111"/>
+          <rect x="0" y="0" width="512" height="512" fill="#141417"/>
           <rect x="12" y="12" width="488" height="488" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.2"/>
           <rect x="88" y="96" width="336" height="336" fill="#ffffff"/>
-          <path d="M88 128 L120 96 L392 96 L424 128 L424 176 L88 176 Z" fill="#1a1a1a"/>
-          <rect x="160" y="74" width="28" height="46" fill="#f5f5f5" stroke="#737373" stroke-width="4"/>
-          <rect x="324" y="74" width="28" height="46" fill="#f5f5f5" stroke="#737373" stroke-width="4"/>
-          <rect x="136" y="216" width="180" height="18" fill="#737373"/>
-          <rect x="136" y="260" width="140" height="18" fill="#737373"/>
-          <rect x="136" y="304" width="156" height="18" fill="#737373"/>
-          <rect x="136" y="348" width="110" height="18" fill="#737373"/>
-          <rect x="302" y="290" width="92" height="92" fill="#1a1a1a"/>
+          <path d="M88 128 L120 96 L392 96 L424 128 L424 176 L88 176 Z" fill="#1e1e24"/>
+          <rect x="160" y="74" width="28" height="46" fill="#f4f4f6" stroke="#71717a" stroke-width="4"/>
+          <rect x="324" y="74" width="28" height="46" fill="#f4f4f6" stroke="#71717a" stroke-width="4"/>
+          <rect x="136" y="216" width="180" height="18" fill="#71717a"/>
+          <rect x="136" y="260" width="140" height="18" fill="#71717a"/>
+          <rect x="136" y="304" width="156" height="18" fill="#71717a"/>
+          <rect x="136" y="348" width="110" height="18" fill="#71717a"/>
+          <rect x="302" y="290" width="92" height="92" fill="#1e1e24"/>
           <polyline points="320,336 338,354 376,316" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="square"/>
         </svg>
         <span>Blackboarder</span>

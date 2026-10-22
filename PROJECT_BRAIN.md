@@ -245,11 +245,12 @@ To prevent modern generic "AI slop" interfaces characterized by exaggerated roun
 }
 ```
 
-### 6.2 Swiss Grid Palette (since 2026-10-22)
+### 6.2 Two-Tone Palette with Swiss Grid Rules (since 2026-10-22)
 The full specification is `docs/DESIGN_SYSTEM.md`; `tests/theme.test.ts` checks that the extension, companion and landing page tokens match it.
-- **Light**: page `#f5f5f5`, cards `#ffffff`, text `#000000`, metadata and borders `#555555` / `#e5e5e5`.
-- **Dark**: page `#0a0a0a`, cards `#141414`, text `#f5f5f5`, metadata `#a3a3a3`, borders `#262626`.
-- **Accent**: one red, `#dc2626` (`--accent`), for the main action on each screen (Scan, Save, Install, Download) and overdue deadlines. No blue, green, purple or amber in the interface; course colours chosen by the student are data and stay.
+- **Two colours**: near-black `#18181b` and near-white `#f4f4f6`, with zinc/slate grey shades between them as needed.
+- **Light**: page `#f8fafc`, cards `#ffffff`, text `#0f172a`, muted `#64748b`, borders `#e4e4e7`.
+- **Dark**: page `#121215`, cards `#1a1a1f`, text `#f4f4f6`, muted `#a1a1aa`, borders `#2c2c36`.
+- **Primary action** (`--accent`, equal to `--primary`): near-black in light mode, near-white in dark mode, one per screen. Red only for errors, overdue and delete. No blue, green, purple or amber in the interface; course colours chosen by the student are data and stay.
 - **Flat**: no gradients, no decorative shadows (`--shadow-sm` / `--shadow-md` are transparent).
 
 ### 6.3 Typography & Punctuation Rules
@@ -440,6 +441,10 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Two-tone colours back, Swiss Grid rules kept
+- Owner asked for the earlier two-tone colours with the rest of the design system ("as many shades as you want, but keep the same two colours"). The three stylesheets were rebuilt from their pre-Swiss-Grid versions (commit 2a7efe8) and the design system re-applied without the palette change: bundled Inter Tight / Inter, headings, flat gradients, transparent `--shadow-sm` / `--shadow-md`, other hues folded into zinc shades, and a closing "Design system" block. `--accent` now equals the primary tone (`#18181b` light / `#f4f4f6` dark), so the Scan, Save and primary buttons are solid black or white instead of red. The Blackboard Scan pill is the original dark pill. The landing page has its original colour blocks; its unused course markers are grey and the mockup's course stripe uses the text colour.
+- Red remains for errors, overdue deadlines and delete actions, as before the Swiss Grid change.
 
 ### 2026-10-22 - Swiss Grid design system everywhere; landing page at /, companion at /companion/
 - **Design system**: `docs/DESIGN_SYSTEM.md` holds the owner's Swiss Grid spec. Applied to `src/popup/popup.css`, `src/content/content.css`, `mobile-web/companion/styles.css` and the landing page: token values (section 6.2), every hard-coded cool grey mapped to a true neutral, blue/green/purple/amber UI colours folded into the neutral scale (CSS, inline icon colours in both `index.html` files, and status colours set from `popup.ts` / `app.js`), gradients on the brand icon, scan progress bar and update banner made flat, and a closing "Swiss Grid design system" block in each stylesheet for fonts, headings, red primary buttons (`.btn-scan-main`, `.btn-primary`, `.btn-primary-action`, `.btn-save-action`) and focus outlines. Course colour palettes in `src/core` are untouched. The two quote fade-outs still use a transparent-to-background gradient, as a truncation cue.

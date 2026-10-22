@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "82da79e918e4",
-  "commit": "2a7efe85c114aff935559ffd1bac52c059ec969d",
-  "shortCommit": "2a7efe8",
-  "timestamp": "2026-10-22T05:27:22.873Z",
-  "message": "Rewrite landing page with current info and make it hostable",
+  "build": "b123c3bdbc7b",
+  "commit": "f422954fe2fedb28d5bb8b813b16c93872a649a3",
+  "shortCommit": "f422954",
+  "timestamp": "2026-10-22T05:51:08.494Z",
+  "message": "Apply Swiss Grid design system everywhere; landing at /, app at /companion/",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
