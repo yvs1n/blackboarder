@@ -276,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (363 tests across 40 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (370 tests across 41 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -297,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **40 test files comprising 363 automated tests** running on Vitest:
+Blackboarder is covered by **41 test files comprising 370 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -315,8 +315,8 @@ Blackboarder is covered by **40 test files comprising 363 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 26 Test Suites* | 222 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, Firebase sync fixes, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **363** | **100% Passing** |
+| *Other 27 Test Suites* | 229 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **370** | **100% Passing** |
 
 ---
 
@@ -378,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 40 Vitest test suites (363 tests)
+├── tests/                            # 41 Vitest test suites (370 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -443,6 +443,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Update prompt shows up right away
+- Owner: the extension did not show an update promptly or prompt to restart.
+- Causes: the background checked GitHub hourly and the popup reused a check up to an hour old, so a new build could wait almost two hours; an open popup never noticed a check finishing; and for a git clone the helper's skip (`dev-checkout`, e.g. uncommitted changes) hid the banner entirely, and the restart happened silently when the popup closed.
+- Fix: `CHECK_PERIOD_MINUTES` is 15 (an existing hourly alarm is replaced). The popup shows the saved result at once and re-checks unless it is under 2 minutes old (`isUpdateStatusFresh`), and listens for `bbs_auto_update_status` changes so the banner appears live. Banner choice moved to `src/utils/updateBanner.ts` (`describeUpdateBanner`): "updated" shows "Update ready - restart to finish" with Restart now as the main button and no Later; `dev-checkout` shows the reason it was not pulled; `update-available` with the helper says it is downloading.
+- Checked in the built popup with a stubbed background reply: both the restart banner and the git-clone banner render.
+- Still open: whether the owner's clone is being skipped (and why) is not known; the new banner will say.
 
 ### 2026-10-22 - Firebase sync review
 - Owner asked for a check of the whole Firebase flow (extension popup, background worker, phone app, edge worker, rules).

@@ -6,7 +6,7 @@ import { fetchRemoteVersion, isRemoteNewer } from '../utils/updateChecker';
  *
  * An unpacked extension cannot change its own files, so a small helper does it: update.bat /
  * update.sh registers updater/ as a native messaging host once. After that the extension checks
- * GitHub every hour; when the main branch has a newer build it asks the helper to download it into
+ * GitHub every 15 minutes (and whenever the popup opens); when the main branch has a newer build it asks the helper to download it into
  * the extension folder, then reloads itself as soon as no popup or side panel is open. In a git
  * clone the helper runs git pull --ff-only instead, and skips it when that could lose work.
  */
@@ -15,8 +15,10 @@ export const NATIVE_HOST_NAME = 'com.blackboarder.updater';
 export const POPUP_PORT_NAME = 'bbs-popup';
 const CHECK_ALARM = 'bbs-auto-update';
 const RELOAD_ALARM = 'bbs-auto-update-reload';
-const CHECK_PERIOD_MINUTES = 60;
-const STATUS_KEY = 'bbs_auto_update_status';
+// GitHub's raw files are cheap to read, so check often enough that a new build is offered quickly
+const CHECK_PERIOD_MINUTES = 15;
+export const AUTO_UPDATE_STATUS_KEY = 'bbs_auto_update_status';
+const STATUS_KEY = AUTO_UPDATE_STATUS_KEY;
 
 export type AutoUpdateState =
   | 'up-to-date'
@@ -163,7 +165,8 @@ export async function getAutoUpdateStatus(): Promise<AutoUpdateStatus | null> {
 async function ensureCheckAlarm(): Promise<void> {
   // Re-creating an alarm restarts its timer, and the service worker wakes often, so only create it once
   const existing = await chrome.alarms.get(CHECK_ALARM);
-  if (!existing) chrome.alarms.create(CHECK_ALARM, { delayInMinutes: 1, periodInMinutes: CHECK_PERIOD_MINUTES });
+  // Older installs created this alarm with a 60-minute period; replace it
+  if (!existing || existing.periodInMinutes !== CHECK_PERIOD_MINUTES) chrome.alarms.create(CHECK_ALARM, { delayInMinutes: 1, periodInMinutes: CHECK_PERIOD_MINUTES });
 }
 
 /** Wires the update check into the background service worker. Call once at top level. */
