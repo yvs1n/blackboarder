@@ -140,6 +140,7 @@ graph TB
   - Built with pure TypeScript, Swiss Grid CSS, and zero UI frameworks for near-zero startup latency.
   - Tabs: Monthly Calendar, Deadlines List, Quick Links, Grade Tracker, and Settings.
   - Settings is split into pages by a tab strip (General, Courses, Scanning, Sync, Alerts, Data, Updates); every page lives in the one `#form-settings`, so a new setting goes in the card of the page it belongs to.
+  - The header row holds only Scan, Add deadline and Settings. Phone sync, calendar (.ics) export, quick links and the theme live in Settings (Sync, Data, General, General).
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
   - **Scanning does not run in the popup.** The Scan button sends `TRIGGER_SCAN` to the Blackboard tab, which runs `runScan()` and saves the result; the popup only shows `bbs_scan_status` (`ScanStatus` in `src/utils/storage.ts`), on open and on change. Closing the popup no longer cancels a scan.
 - **Content Scripts (`src/content/`)**:
@@ -277,7 +278,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (374 tests across 42 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (375 tests across 42 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -298,7 +299,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **42 test files comprising 374 automated tests** running on Vitest:
+Blackboarder is covered by **42 test files comprising 375 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -307,7 +308,7 @@ Blackboarder is covered by **42 test files comprising 374 automated tests** runn
 | `tests/serverIntegration.test.ts` | 6 | Live HTTP sync bridge, rate limiter sliding window, and 429 status codes. |
 | `tests/pagesWorker.test.ts` | 6 | Cloudflare Pages edge worker, rate limiting, and ICS feed routes. |
 | `tests/extensionContext.test.ts` | 15 | Manifest V3 context invalidation resilience and graceful tab reload notifications. |
-| `tests/popupUI.test.ts` | 5 | Screen reader accessibility (`aria-label`, `role`), keyboard controls, and DOM bounds. |
+| `tests/popupUI.test.ts` | 6 | Screen reader accessibility (`aria-label`, `role`), keyboard controls, and DOM bounds. |
 | `tests/realScraperDOM.test.ts` | 7 | Ultra stream scraping across real-world Blackboard HTML mocks and custom tags. |
 | `tests/stressTesting.test.ts` | 11 | Performance under load (1,000+ deadlines sorted and filtered in < 50ms). |
 | `tests/syllabusWeights.test.ts` | 28 | Syllabus component matching, grading formulas, and weight backfilling. |
@@ -317,7 +318,7 @@ Blackboarder is covered by **42 test files comprising 374 automated tests** runn
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
 | *Other 28 Test Suites* | 233 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **374** | **100% Passing** |
+| **Total** | **375** | **100% Passing** |
 
 ---
 
@@ -379,7 +380,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 42 Vitest test suites (374 tests)
+├── tests/                            # 42 Vitest test suites (375 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -444,6 +445,17 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Popup header decluttered
+- Owner asked to free up the header row now that Settings has pages, keeping only what is worth quick access.
+- The header keeps Scan, Add deadline (+) and Settings (gear). Moved:
+  - Phone sync (`btn-quick-sync-mobile`, removed): the Sync page's "Sync Now to Mobile" (`btn-sync-to-server`) runs the same `handleManualSyncToMobile`, and scans push to the phone automatically.
+  - Calendar export (`btn-export-all-ics`): now a full-width button on the Data page, same id and handler.
+  - Quick links (`btn-quick-links-toggle`): now a "Manage Quick Links" button on the General page, same id; the calendar's Quick Links bar ("+ Manage") still opens the editor too.
+  - Light/dark toggle (`btn-theme-toggle`, removed): the Theme dropdown on the General page now applies and saves on change (`setThemeNow()`), so it no longer waits for Save Settings.
+- Under 380px wide (narrow side panel) the "UOS" tag next to the name is hidden so the brand and the three buttons stay on one row.
+- Tests: `tests/popupUI.test.ts` checks the header holds exactly those three buttons and that each moved action is on its settings page; `tests/theme.test.ts` no longer expects the header toggle.
+- Checked in the built popup with a stubbed `chrome`: one header row at 480px and 340px, light and dark; the moved buttons open the quick links editor, run the .ics export, and the dropdown switches theme at once.
 
 ### 2026-10-22 - Settings split into pages
 - Owner asked for settings grouped by what they do, so they are easier to find.

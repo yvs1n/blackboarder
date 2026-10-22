@@ -235,20 +235,9 @@
           <svg class="ui-icon mr-1"><use href="#icon-bolt"></use></svg>
           <span>Scan</span>
         </button>
-        <button class="icon-btn" id="btn-quick-sync-mobile" title="Sync Deadlines to Mobile Phone" aria-label="Sync Deadlines to Mobile Phone">
-          <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
-        </button>
+        <!-- Only everyday actions live here; sync, calendar export, quick links and theme are in Settings -->
         <button class="icon-btn" id="btn-add-modal" title="Add Deadline Manually" aria-label="Add Deadline Manually">
           <svg class="ui-icon"><use href="#icon-plus"></use></svg>
-        </button>
-        <button class="icon-btn" id="btn-export-all-ics" title="Export All to .ICS Calendar" aria-label="Export All to .ICS Calendar">
-          <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
-        </button>
-        <button class="icon-btn" id="btn-quick-links-toggle" title="Academic Quick Links (Attendance, Study Plan, Marks)" aria-label="Academic Quick Links">
-          <svg class="ui-icon"><use href="#icon-link"></use></svg>
-        </button>
-        <button class="icon-btn" id="btn-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Dark or Light Mode">
-          <svg class="ui-icon"><use href="#icon-moon"></use></svg>
         </button>
         <button class="icon-btn" id="btn-settings-toggle" title="Settings" aria-label="Settings">
           <svg class="ui-icon"><use href="#icon-settings"></use></svg>
@@ -585,6 +574,12 @@
         <button type="button" class="btn-outline-action" id="btn-replay-walkthrough" style="margin-bottom: 12px; justify-content: center; width: 100%; border-style: dashed; padding: 8px 12px;">
           <svg class="ui-icon mr-1" style="color: var(--primary);"><use href="#icon-sparkles"></use></svg>
           <span>Replay Setup Walkthrough &amp; Guide</span>
+        </button>
+
+        <!-- Quick links editor (was a header button; the calendar's Quick Links bar opens it too) -->
+        <button type="button" class="btn-outline-action" id="btn-quick-links-toggle" title="Academic Quick Links (Attendance, Study Plan, Marks)" aria-label="Academic Quick Links" style="margin-bottom: 12px; justify-content: center; width: 100%;">
+          <svg class="ui-icon mr-1"><use href="#icon-link"></use></svg>
+          <span>Manage Quick Links (Attendance, Study Plan, Marks)</span>
         </button>
 
         <!-- Card 3: Appearance & Shortcuts -->
@@ -959,6 +954,11 @@
             </button>
           </div>
           <input type="file" id="input-restore-json" accept=".json" style="display: none;">
+          <!-- Calendar file export (was a header button) -->
+          <button type="button" class="btn-outline-action" id="btn-export-all-ics" title="Export All to .ICS Calendar" aria-label="Export All to .ICS Calendar" style="margin-top: 8px; justify-content: center; width: 100%;">
+            <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
+            <span>Export Pending Deadlines to Calendar (.ics)</span>
+          </button>
         </div>
       </div>
 

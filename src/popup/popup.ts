@@ -79,7 +79,6 @@ const btnScanTab = document.getElementById('btn-scan-tab') as HTMLButtonElement;
 const btnAddModal = document.getElementById('btn-add-modal') as HTMLButtonElement;
 const btnExportAllIcs = document.getElementById('btn-export-all-ics') as HTMLButtonElement;
 const btnSettingsToggle = document.getElementById('btn-settings-toggle') as HTMLButtonElement;
-const btnThemeToggle = document.getElementById('btn-theme-toggle') as HTMLButtonElement | null;
 const btnCancelAdd = document.getElementById('btn-cancel-add') as HTMLButtonElement;
 const btnCancelSettings = document.getElementById('btn-cancel-settings') as HTMLButtonElement;
 
@@ -152,24 +151,15 @@ function applyTheme(theme: 'light' | 'dark' | 'system' = 'light') {
 
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 
-  if (btnThemeToggle) {
-    btnThemeToggle.innerHTML = isDark
-      ? `<svg class="ui-icon"><use href="#icon-sun"></use></svg>`
-      : `<svg class="ui-icon"><use href="#icon-moon"></use></svg>`;
-    btnThemeToggle.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    btnThemeToggle.setAttribute('aria-label', btnThemeToggle.title);
-  }
-
   const themeSelect = document.getElementById('setting-theme') as HTMLSelectElement | null;
   if (themeSelect && themeSelect.value !== theme) {
     themeSelect.value = theme;
   }
 }
 
-async function toggleTheme() {
-  const currentEffectiveDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const newTheme: 'light' | 'dark' = currentEffectiveDark ? 'light' : 'dark';
-
+// The Theme dropdown in Settings > General applies and saves at once
+// (it replaced the header's light/dark toggle button).
+async function setThemeNow(newTheme: 'light' | 'dark' | 'system') {
   applyTheme(newTheme);
   try {
     localStorage.setItem('bbs_theme', newTheme);
@@ -2765,7 +2755,10 @@ function setupEvents() {
     switchView('add');
   });
   btnSettingsToggle.addEventListener('click', () => switchView('settings'));
-  btnThemeToggle?.addEventListener('click', toggleTheme);
+  const themeSelect = document.getElementById('setting-theme') as HTMLSelectElement | null;
+  themeSelect?.addEventListener('change', () => {
+    setThemeNow((themeSelect.value || 'light') as 'light' | 'dark' | 'system');
+  });
   btnCancelAdd.addEventListener('click', () => switchView('calendar'));
   btnCancelSettings.addEventListener('click', () => switchView('calendar'));
   initSettingsNav();
@@ -3293,7 +3286,6 @@ function setupEvents() {
   const btnCopyPairingLink = document.getElementById('btn-copy-pairing-link');
   const btnCopySyncKey = document.getElementById('btn-copy-sync-key');
   const btnRegenSyncKey = document.getElementById('btn-regen-sync-key');
-  const btnQuickSyncMobile = document.getElementById('btn-quick-sync-mobile');
 
   // Copy Sync Key
   btnCopySyncKey?.addEventListener('click', async () => {
@@ -3375,7 +3367,6 @@ function setupEvents() {
   }
 
   btnSyncToServer?.addEventListener('click', handleManualSyncToMobile);
-  btnQuickSyncMobile?.addEventListener('click', handleManualSyncToMobile);
 
   btnOpenMobileWeb?.addEventListener('click', async () => {
     const settings = await getSettings();

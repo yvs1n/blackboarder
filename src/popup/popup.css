@@ -565,6 +565,13 @@ body.is-standalone .header {
   flex-shrink: 0;
 }
 
+/* Narrow side panels: drop the UOS tag so the brand and the three header buttons share one row */
+@media (max-width: 380px) {
+  .brand-badge {
+    display: none;
+  }
+}
+
 .brand-icon {
   width: 28px;
   height: 28px;

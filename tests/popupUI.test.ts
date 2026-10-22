@@ -21,20 +21,32 @@ describe('Popup UI Logic & Accessibility Suite', () => {
       const addBtn = document.getElementById('btn-add-modal');
       expect(addBtn?.getAttribute('aria-label')).toBe('Add Deadline Manually');
 
-      const syncBtn = document.getElementById('btn-quick-sync-mobile');
-      expect(syncBtn?.getAttribute('aria-label')).toBe('Sync Deadlines to Mobile Phone');
-
-      const icsBtn = document.getElementById('btn-export-all-ics');
-      expect(icsBtn?.getAttribute('aria-label')).toBe('Export All to .ICS Calendar');
-
       const settingsBtn = document.getElementById('btn-settings-toggle');
       expect(settingsBtn?.getAttribute('aria-label')).toBe('Settings');
 
-      const quickLinksBtn = document.getElementById('btn-quick-links-toggle');
-      expect(quickLinksBtn?.getAttribute('aria-label')).toBe('Academic Quick Links');
+      // The header keeps only everyday actions
+      const headerButtons = Array.from(document.querySelectorAll('.header-actions button')).map(b => b.id);
+      expect(headerButtons).toEqual(['btn-scan-tab', 'btn-add-modal', 'btn-settings-toggle']);
+    });
 
-      const themeBtn = document.getElementById('btn-theme-toggle');
-      expect(themeBtn?.getAttribute('aria-label')).toBe('Toggle Dark or Light Mode');
+    it('keeps the actions moved out of the header reachable in Settings', () => {
+      const inPage = (id: string) =>
+        document.getElementById(id)?.closest('.settings-page')?.id;
+
+      // Calendar export: Data page
+      expect(document.getElementById('btn-export-all-ics')?.getAttribute('aria-label')).toBe('Export All to .ICS Calendar');
+      expect(inPage('btn-export-all-ics')).toBe('settings-page-data');
+
+      // Quick links editor: General page (the calendar's Quick Links bar opens it too)
+      expect(document.getElementById('btn-quick-links-toggle')?.getAttribute('aria-label')).toBe('Academic Quick Links');
+      expect(inPage('btn-quick-links-toggle')).toBe('settings-page-general');
+      expect(document.getElementById('btn-bar-manage-links')).not.toBeNull();
+
+      // Phone sync: Sync page
+      expect(inPage('btn-sync-to-server')).toBe('settings-page-sync');
+
+      // Theme: dropdown on the General page
+      expect(inPage('setting-theme')).toBe('settings-page-general');
     });
 
     it('ensures all modal dialogs declare role="dialog" and aria-modal="true"', () => {

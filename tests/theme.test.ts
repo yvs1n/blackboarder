@@ -67,13 +67,13 @@ describe('Dark Mode / Light Mode Theme System', () => {
     expect(css).toContain('[data-theme="dark"] .drag-pill');
   });
 
-  it('Popup index.html includes theme toggle button, sun/moon icons, and settings selector', () => {
+  it('Popup index.html includes sun/moon icons and the theme selector (header toggle moved to Settings)', () => {
     const htmlPath = path.resolve('src/popup/index.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toContain('id="icon-sun"');
     expect(html).toContain('id="icon-moon"');
-    expect(html).toContain('id="btn-theme-toggle"');
+    expect(html).not.toContain('id="btn-theme-toggle"');
     expect(html).toContain('id="setting-theme"');
     expect(html).toContain('Alt+B');
   });
