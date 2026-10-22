@@ -140,6 +140,7 @@ graph TB
   - Built with pure TypeScript, Swiss Grid CSS, and zero UI frameworks for near-zero startup latency.
   - Tabs: Monthly Calendar, Deadlines List, Quick Links, Grade Tracker, and Settings.
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
+  - **Scanning does not run in the popup.** The Scan button sends `TRIGGER_SCAN` to the Blackboard tab, which runs `runScan()` and saves the result; the popup only shows `bbs_scan_status` (`ScanStatus` in `src/utils/storage.ts`), on open and on change. Closing the popup no longer cancels a scan.
 - **Content Scripts (`src/content/`)**:
   - `scraper.ts`: Scrapes announcements and Ultra stream timelines from Blackboard portals. Injects the floating "Scan Blackboard" pill button. Includes defensive context invalidation checks.
   - `blackboard-dark.js` & `blackboard-dark.css`: Built-in dark mode injector that styles native Blackboard Learn pages to prevent student eye strain.
@@ -275,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (347 tests across 38 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (348 tests across 38 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -296,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **38 test files comprising 347 automated tests** running on Vitest:
+Blackboarder is covered by **38 test files comprising 348 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -314,8 +315,8 @@ Blackboarder is covered by **38 test files comprising 347 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 24 Test Suites* | 206 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **347** | **100% Passing** |
+| *Other 24 Test Suites* | 207 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **348** | **100% Passing** |
 
 ---
 
@@ -377,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 38 Vitest test suites (347 tests)
+├── tests/                            # 38 Vitest test suites (348 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -442,6 +443,14 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Scans survive closing the popup
+- Owner confirmed after the CloudFront fix: a full re-scan read 40 announcements and added Quiz 3 and much more. Remaining report: closing the popup mid-scan lost the scan, and reopening showed no progress.
+- Cause: `scanActiveTab()` in the popup did all extraction (including AI calls) itself, so closing the popup killed it before anything was saved.
+- Fix: the popup sends `TRIGGER_SCAN` (and `PING_SCANNER` to confirm the tab listens, injecting `content.js` if not) and returns. `runScan()` in the tab does the work, writes `bbs_scan_status` (running with done/total, done with the new count, or error), refuses a second scan while one runs, and now also filters with `isValidTask()`. The popup renders the status on open and on change (`renderScanStatus()`); a running status older than 10 minutes counts as dead.
+- `processAnnouncementsBatch()` extracts up to 4 announcements at a time (`mapWithLimit`, merge order unchanged) and takes an optional `onProgress(done, total)`.
+- Checked by loading the built popup with a stubbed `chrome.storage` holding a running status: it shows "Extracting 12/40..." with the button disabled.
+- Still open: the tab's `SCRAPE_PAGE` handler is no longer used by the popup (kept for compatibility); a live progress update while the popup stays open was not checked in a real browser.
 
 ### 2026-10-22 - Blackboard requests went to CloudFront and 404'd
 - Owner report: Quiz 3 still not added. A console check on `/ultra/stream` showed every `/learn/api/...` request going to `https://dmuwut6e40u5o.cloudfront.net/...` and returning 404. UOS Ultra pages set `<base href>` to that CloudFront asset host, so bare paths resolve there, in the page and in the content script alike. Every course-announcement request the scanner ever made had failed, which is why announcements that are not visible in the stream were never imported.

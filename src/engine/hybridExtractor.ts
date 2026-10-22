@@ -28,6 +28,23 @@ export function hasAcademicKeywords(text: string): boolean {
   return ENGLISH_ACADEMIC.test(text) || ARABIC_ACADEMIC.test(text);
 }
 
+/** How many announcements are extracted at once (each may be an AI call). */
+const EXTRACTION_CONCURRENCY = 4;
+
+/** Promise.all with at most `limit` calls in flight; results keep input order. */
+async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 function cleanTitle(title: string | undefined): string {
   return (title || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
 }
@@ -183,7 +200,8 @@ export async function processAnnouncementsBatch(
   announcements: Announcement[],
   existingTasks: DeadlineTask[],
   settings: UserSettings,
-  knownProcessedAnnIds?: Set<string>
+  knownProcessedAnnIds?: Set<string>,
+  onProgress?: (done: number, total: number) => void
 ): Promise<{ newTasks: DeadlineTask[]; allTasks: DeadlineTask[]; updatedTasks: DeadlineTask[] }> {
   // Index existing tasks by normalized key, announcement ID, ID, and title+course
   const existingKeyMap = new Map<string, DeadlineTask>();
@@ -207,13 +225,25 @@ export async function processAnnouncementsBatch(
   const updatedTasks: DeadlineTask[] = [];
   const updatedTaskIds = new Set<string>();
 
-  for (const ann of announcements) {
-    // If announcement was already parsed and recorded in a previous scan, skip re-extracting
-    if (knownProcessedAnnIds && knownProcessedAnnIds.has(ann.id)) {
-      continue;
-    }
+  // Skip announcements already parsed in a previous scan (unless a full re-scan passes no set)
+  const toProcess = announcements.filter(ann => !(knownProcessedAnnIds && knownProcessedAnnIds.has(ann.id)));
 
-    const extracted = await extractDeadlinesHybrid(ann, settings);
+  // Extraction (AI calls) runs a few at a time; merging below stays in order so dedupe is stable
+  let finished = 0;
+  onProgress?.(0, toProcess.length);
+  const extractedLists = await mapWithLimit(toProcess, EXTRACTION_CONCURRENCY, async ann => {
+    try {
+      return await extractDeadlinesHybrid(ann, settings);
+    } catch (err) {
+      console.warn('[HybridExtractor] Extraction failed for', ann.title, err);
+      return [] as DeadlineTask[];
+    } finally {
+      finished++;
+      onProgress?.(finished, toProcess.length);
+    }
+  });
+
+  for (const extracted of extractedLists) {
     for (const task of extracted) {
       if (task.weight === undefined) {
         const wInfo = resolveTaskWeight(task, task.courseName);

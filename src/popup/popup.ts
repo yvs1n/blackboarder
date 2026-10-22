@@ -1,7 +1,6 @@
-import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, TaskSubmissionUpdate, Announcement } from '../types';
-import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, autoRegisterDiscoveredCourses, generateUniqueSyncKey } from '../utils/storage';
+import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
+import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
-import { processAnnouncementsBatch } from '../engine/hybridExtractor';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
@@ -2542,6 +2541,54 @@ async function loadSettingsForm() {
 // ============================================================================
 // Scan Active Tab (Incremental from checkpoint by default, or full rescan)
 // ============================================================================
+function resetScanButton() {
+  btnScanTab.disabled = false;
+  btnScanTab.style.background = '';
+  btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
+}
+
+let scanButtonResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Shows a scan status saved by the scan running in the Blackboard tab. Called on popup open
+ * and whenever the status changes, so reopening the popup mid-scan shows the progress again.
+ */
+function renderScanStatus(status: ScanStatus | null) {
+  if (!status) return;
+  const age = Date.now() - new Date(status.updatedAt).getTime();
+  if (scanButtonResetTimer) {
+    clearTimeout(scanButtonResetTimer);
+    scanButtonResetTimer = null;
+  }
+
+  if (status.state === 'running') {
+    if (age > SCAN_STALE_MS) return; // the tab was closed or reloaded mid-scan
+    btnScanTab.disabled = true;
+    const label = status.total ? 'Parse...' : 'Scan...';
+    btnScanTab.innerHTML = `${getSvgIcon(status.total ? 'sparkles' : 'refresh', 'mr-1 is-spinning')}<span>${label}</span>`;
+    showScanBanner(status.message, 'active');
+    return;
+  }
+
+  // Finished: only worth showing for a short while after it happened
+  if (age > 60 * 1000) return;
+  if (status.state === 'done') {
+    const added = status.newCount || 0;
+    btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>${added > 0 ? `+${added}` : 'Synced'}</span>`;
+    btnScanTab.style.background = 'var(--text-main)';
+    showScanBanner(status.message, added > 0 ? 'success' : 'info', 5000);
+    if (added > 0) switchView('calendar');
+  } else {
+    btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Failed</span>`;
+    showScanBanner(status.message, 'warning', 5000);
+  }
+  scanButtonResetTimer = setTimeout(resetScanButton, 4500);
+}
+
+/**
+ * Starts a scan in the active Blackboard tab. The tab does the work and saves the result, so
+ * the scan keeps going if the popup closes; progress comes back through renderScanStatus().
+ */
 async function scanActiveTab(fullRescan: boolean = false) {
   btnScanTab.disabled = true;
   btnScanTab.style.background = '';
@@ -2551,228 +2598,54 @@ async function scanActiveTab(fullRescan: boolean = false) {
     'active'
   );
 
-  try {
-    if (typeof chrome === 'undefined' || !chrome.tabs) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
-      showScanBanner('Please open Blackboard in an active tab first.', 'warning', 4000);
-      setTimeout(() => {
-        btnScanTab.disabled = false;
-        btnScanTab.style.background = '';
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
-      }, 3000);
-      return;
-    }
+  const fail = (message: string) => {
+    btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
+    showScanBanner(message, 'warning', 4500);
+    setTimeout(resetScanButton, 3500);
+  };
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
-      showScanBanner('No active Blackboard tab detected.', 'warning', 4000);
-      setTimeout(() => {
-        btnScanTab.disabled = false;
-        btnScanTab.style.background = '';
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
-      }, 3000);
-      return;
-    }
+  if (typeof chrome === 'undefined' || !chrome.tabs) {
+    fail('Please open Blackboard in an active tab first.');
+    return;
+  }
 
-    // Await response from content script (incremental from checkpoint by default)
-    let response = await new Promise<{ announcements?: Announcement[]; directTasks?: DeadlineTask[]; isIncremental?: boolean } | null>(resolve => {
-      try {
-        chrome.tabs.sendMessage(tab.id!, { type: 'SCRAPE_PAGE', fullRescan }, res => {
-          if (chrome.runtime.lastError) {
-            // Tab needs content script injection or is not a Blackboard tab
-            resolve(null);
-          } else {
-            resolve(res || null);
-          }
-        });
-      } catch {
-        resolve(null);
-      }
-    });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) {
+    fail('No active Blackboard tab detected.');
+    return;
+  }
 
-    // If communication failed (e.g. content script not yet injected into tab), attempt injection and retry
-    if (!response && (chrome as any).scripting) {
-      try {
-        await (chrome as any).scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content.js']
-        });
-        await new Promise(r => setTimeout(r, 400));
-        response = await new Promise(resolve => {
-          try {
-            chrome.tabs.sendMessage(tab.id!, { type: 'SCRAPE_PAGE', fullRescan }, res => {
-              if (chrome.runtime.lastError) resolve(null);
-              else resolve(res || null);
-            });
-          } catch {
-            resolve(null);
-          }
-        });
-      } catch {
-        // ignore injection failure on restricted browser pages
-      }
-    }
-
-    if (!response || (!response.announcements && !response.directTasks)) {
-      btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Error</span>`;
-      showScanBanner('Please navigate to Blackboard Ultra Stream or Course page first.', 'warning', 4500);
-      setTimeout(() => {
-        btnScanTab.disabled = false;
-        btnScanTab.style.background = '';
-        btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
-      }, 3500);
-      return;
-    }
-
-    const announcements = response.announcements || [];
-    const directTasks: DeadlineTask[] = response.directTasks || [];
-    const submissionUpdates: TaskSubmissionUpdate[] = (response as any).submissionUpdates || [];
-    const discoveredCourses = (response as any).discoveredCourses || [];
-
-    // Keep user informed with real-time banner and compact button
-    btnScanTab.innerHTML = `${getSvgIcon('sparkles', 'mr-1 is-spinning')}<span>Parse...</span>`;
-    showScanBanner(`Scanned ${announcements.length} announcements & ${directTasks.length} stream items. Extracting...`, 'active');
-
-    const settings = await getSettings();
-    const existingTasks = await getTasks();
-    const checkpoint = fullRescan ? { lastScannedAt: '', processedAnnouncementIds: [], processedDirectTaskIds: [] } : await getLastScanCheckpoint();
-
-    // Save announcements to storage (merges with existing stored announcements)
-    if (announcements.length > 0) {
-      await saveAnnouncements(announcements);
-    }
-
-    const { newTasks: extractedTasks, allTasks: mergedAnnTasks, updatedTasks } = await processAnnouncementsBatch(
-      announcements,
-      existingTasks,
-      settings,
-      fullRescan ? undefined : new Set(checkpoint.processedAnnouncementIds)
-    );
-
-    // Merge direct stream tasks with deduplication
-    const existingKeySet = new Set(mergedAnnTasks.map(t => `${t.courseCode}_${t.title}_${new Date(t.dueDate).toISOString().slice(0, 10)}`));
-    const newlyAddedDirect: DeadlineTask[] = [];
-
-    for (const dt of directTasks) {
-      if (!dt.room) {
-        const resolvedRoom = resolveTaskRoom({
-          courseNameOrCode: dt.courseName || dt.courseCode,
-          announcementText: dt.description || dt.sourceSnippet,
-          title: dt.title
-        });
-        if (resolvedRoom.room) {
-          dt.room = resolvedRoom.room;
-        }
-      }
-      const key = `${dt.courseCode}_${dt.title}_${new Date(dt.dueDate).toISOString().slice(0, 10)}`;
-      if (!existingKeySet.has(key)) {
-        existingKeySet.add(key);
-        newlyAddedDirect.push(dt);
-      }
-    }
-
-    const finalTasks = [...newlyAddedDirect, ...mergedAnnTasks].filter(isValidTask).sort(compareTasksByTime);
-
-    // Apply submission and grade updates to matching tasks
-    for (const update of submissionUpdates) {
-      const match = finalTasks.find(t => {
-        const res = resolveCourseInfo(t);
-        const courseMatches = !update.courseCode || !res.courseCode || update.courseCode === res.courseCode ||
-          (update.courseName && res.courseName && res.courseName.toLowerCase().includes(update.courseName.toLowerCase()));
-        if (!courseMatches) return false;
-        const cleanUpdateTitle = (update.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const cleanTaskTitle = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cleanUpdateTitle.length >= 3 && (cleanTaskTitle.includes(cleanUpdateTitle) || cleanUpdateTitle.includes(cleanTaskTitle));
+  const trigger = () => new Promise<boolean>(resolve => {
+    try {
+      // The tab answers when the scan ends; we only need to know the message arrived
+      chrome.tabs.sendMessage(tab.id!, { type: 'TRIGGER_SCAN', fullRescan }, () => {
+        void chrome.runtime.lastError;
       });
-
-      if (match) {
-        if (update.submissionStatus === 'graded') {
-          match.submissionStatus = 'graded';
-          if (update.score !== undefined) match.score = update.score;
-          if (update.maxScore !== undefined) match.maxScore = update.maxScore;
-          if (update.scoreDisplay) match.scoreDisplay = update.scoreDisplay;
-          match.status = 'completed';
-          match.updatedAt = new Date().toISOString();
-        } else if (update.submissionStatus === 'submitted') {
-          if (match.submissionStatus !== 'graded') {
-            match.submissionStatus = 'submitted';
-            if (update.submittedAt) match.submittedAt = update.submittedAt;
-            if (update.submissionReceipt) match.submissionReceipt = update.submissionReceipt;
-            match.status = 'completed';
-            match.updatedAt = new Date().toISOString();
-          }
-        }
-      }
+      // sendMessage throws or sets lastError synchronously-ish when no content script listens;
+      // check with a quick ping instead of waiting for the whole scan
+      chrome.tabs.sendMessage(tab.id!, { type: 'PING_SCANNER' }, res => {
+        resolve(!chrome.runtime.lastError && Boolean(res?.ok));
+      });
+    } catch {
+      resolve(false);
     }
+  });
 
-    // Auto-register any new courses found in scanned tasks or discovered courses
-    currentUserCourses = await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => currentUserCourses);
-    updateCourseFilterOptions(finalTasks);
-    renderUserCoursesManager();
-    renderLegend();
+  let started = await trigger();
 
-    await saveTasks(finalTasks);
-
-    // Save scan checkpoint so future scans only scan from where it left off
-    const annKeys = announcements.flatMap(a => [
-      a.title.toLowerCase().trim(),
-      `${a.courseCode}_${a.title.toLowerCase().trim()}`
-    ]);
-    await saveLastScanCheckpoint({
-      lastScannedAt: new Date().toISOString(),
-      processedAnnouncementIds: announcements.map(a => a.id),
-      processedDirectTaskIds: directTasks.map(d => d.id),
-      processedAnnouncementKeys: annKeys
-    });
-
-    currentTasks = finalTasks;
-    refreshAllViews();
-
-    // Automatically push to Firebase Cloud & mobile sync server
-    syncTasksToCloud(finalTasks, 'Blackboard Extension Scanner');
-
-    const totalFound = newlyAddedDirect.length + extractedTasks.length;
-    const totalUpdated = updatedTasks ? updatedTasks.length : 0;
-
-    // Display clear visual results on the compact button and in the extended banner
-    if (totalFound > 0 && totalUpdated > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
-      btnScanTab.style.background = 'var(--text-main)';
-      showScanBanner(`Found ${totalFound} new deadline${totalFound > 1 ? 's' : ''}, updated ${totalUpdated}!`, 'success', 5000);
-      switchView('calendar');
-    } else if (totalFound > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
-      btnScanTab.style.background = 'var(--text-main)';
-      showScanBanner(`Added ${totalFound} new deadline${totalFound > 1 ? 's' : ''} to calendar!`, 'success', 5000);
-      switchView('calendar');
-    } else if (totalUpdated > 0) {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Updated</span>`;
-      btnScanTab.style.background = 'var(--text-main)';
-      showScanBanner(`Updated ${totalUpdated} existing deadline${totalUpdated > 1 ? 's' : ''}!`, 'success', 5000);
-      switchView('calendar');
-    } else {
-      btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Synced</span>`;
-      btnScanTab.style.background = 'var(--text-main)';
-      showScanBanner(`Up to date. Scanned ${announcements.length + directTasks.length} items with no new deadlines.`, 'info', 4500);
+  // Content script not in this tab yet (e.g. opened before the extension loaded): inject and retry
+  if (!started && (chrome as any).scripting) {
+    try {
+      await (chrome as any).scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+      await new Promise(r => setTimeout(r, 400));
+      started = await trigger();
+    } catch {
+      // restricted browser pages cannot be injected
     }
+  }
 
-    // Keep the completion state visible for 4.5 seconds before returning to default state
-    setTimeout(() => {
-      btnScanTab.disabled = false;
-      btnScanTab.style.background = '';
-      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
-    }, 4500);
-
-  } catch (err: any) {
-    console.error('Scan failed:', err);
-    btnScanTab.innerHTML = `${getSvgIcon('urgent', 'mr-1')}<span>Failed</span>`;
-    showScanBanner(err?.message ? `Scan error: ${err.message}` : 'Scan failed. Make sure you are logged into Blackboard.', 'warning', 5000);
-    setTimeout(() => {
-      btnScanTab.disabled = false;
-      btnScanTab.style.background = '';
-      btnScanTab.innerHTML = `${getSvgIcon('bolt', 'mr-1')}<span>Scan</span>`;
-    }, 3000);
+  if (!started) {
+    fail('Please navigate to Blackboard Ultra Stream or Course page first.');
   }
 }
 
@@ -3340,7 +3213,7 @@ function setupEvents() {
     }
     await scanActiveTab(true);
     if (rescanStatusMsg) {
-      rescanStatusMsg.textContent = 'Full Re-scan completed!';
+      rescanStatusMsg.textContent = 'Full re-scan started. Progress shows at the top; you can close this window.';
       rescanStatusMsg.style.color = 'var(--text-main)';
     }
   });
@@ -4106,6 +3979,9 @@ function setupStorageAndSyncListeners() {
           applyTheme(newSettings.theme);
         }
       }
+      if (area === 'local' && changes[SCAN_STATUS_KEY]) {
+        renderScanStatus(changes[SCAN_STATUS_KEY].newValue as ScanStatus);
+      }
       if (area === 'local' && changes.bbs_quick_links) {
         currentQuickLinks = (changes.bbs_quick_links.newValue as QuickLink[]) || [];
         renderQuickLinksBar();
@@ -4786,6 +4662,9 @@ function initApp() {
 
   // Set up listeners for reactive updates
   setupStorageAndSyncListeners();
+
+  // A scan started earlier keeps running in the Blackboard tab: show where it is
+  getScanStatus().then(renderScanStatus).catch(() => {});
 
   // Run cloud pull and retroactive upgrades non-blockingly in the background
   refreshDataInBackground();

@@ -1,8 +1,8 @@
 import { Announcement, DeadlineTask, TaskSubmissionUpdate } from '../types';
 import { processAnnouncementsBatch, titleCourseKeyFor } from '../engine/hybridExtractor';
-import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses } from '../utils/storage';
+import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses, setScanStatus } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../core/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode, isValidTask } from '../core/courseHelper';
 import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
 
@@ -1162,7 +1162,23 @@ function injectFloatingButton(onScanClick: () => void) {
 /**
  * Main scan execution routine. Supports incremental scanning by default.
  */
+let scanRunning = false;
+
+/**
+ * Runs a scan in this Blackboard tab and saves the result. Lives here, not in the popup,
+ * so closing the popup does not cancel it; progress goes to storage for the popup to show.
+ */
 async function runScan(interactive: boolean = false, fullRescan: boolean = false) {
+  if (scanRunning) return;
+  scanRunning = true;
+  try {
+    await runScanInner(interactive, fullRescan);
+  } finally {
+    scanRunning = false;
+  }
+}
+
+async function runScanInner(interactive: boolean, fullRescan: boolean) {
   if (!isExtensionContextValid()) {
     teardownOrphanedContentScript();
     if (interactive) {
@@ -1175,6 +1191,10 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
 
   // Hydrate user-configured courses & schedules before scanning
   await getUserCourses().catch(() => {});
+
+  if (interactive) {
+    await setScanStatus({ state: 'running', message: fullRescan ? 'Full re-scan: reading Blackboard...' : 'Reading Blackboard...' });
+  }
 
   try {
     const checkpoint = fullRescan
@@ -1208,9 +1228,26 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     if (directStreamTasks.length === 0 && announcements.length === 0 && submissionUpdates.length === 0) {
       if (interactive) {
         showSidekickToast('Blackboarder', 'Up to date. No new deadlines found since last scan.');
+        await setScanStatus({ state: 'done', message: 'Up to date. No new deadlines since the last scan.', newCount: 0 });
       }
       return;
     }
+
+    // Progress is written at most every 400 ms so storage is not flooded
+    let lastProgressWrite = 0;
+    const reportProgress = (done: number, total: number) => {
+      if (!interactive) return;
+      const now = Date.now();
+      if (done !== 0 && done !== total && now - lastProgressWrite < 400) return;
+      lastProgressWrite = now;
+      void setScanStatus({
+        state: 'running',
+        message: `Read ${announcements.length} announcements & ${directTasks.length} stream items. Extracting ${done}/${total}...`,
+        done,
+        total
+      });
+    };
+    const directTasks = directStreamTasks;
 
     const settings = await getSettings();
     const existingTasks = await getTasks();
@@ -1225,7 +1262,8 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       announcements,
       existingTasks,
       settings,
-      fullRescan ? undefined : knownAnnIds
+      fullRescan ? undefined : knownAnnIds,
+      reportProgress
     );
 
     // Merge direct stream tasks with deduplication against existing stored tasks
@@ -1273,7 +1311,7 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       }
     }
 
-    const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]);
+    const finalTasks = deduplicateTaskList([...newlyAddedDirect, ...mergedAnnTasks]).filter(isValidTask);
 
     // Apply submission and grade updates to matching tasks
     for (const update of submissionUpdates) {
@@ -1352,6 +1390,15 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
         : `All deadlines up to date. (${finalTasks.filter(t => t.status === 'pending').length} pending tasks in dashboard)`;
       showSidekickToast('Scan Complete', msg, totalNewCount);
     }
+    if (interactive) {
+      await setScanStatus({
+        state: 'done',
+        message: totalNewCount > 0
+          ? `Added ${totalNewCount} new deadline${totalNewCount > 1 ? 's' : ''} to calendar!`
+          : `Up to date. Read ${announcements.length + directTasks.length} items with no new deadlines.`,
+        newCount: totalNewCount
+      });
+    }
   } catch (error: any) {
     if (error?.message?.includes('Extension context invalidated')) {
       teardownOrphanedContentScript();
@@ -1364,6 +1411,7 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     console.error('Error during Blackboard scan:', error);
     if (interactive) {
       showSidekickToast('Scan Notice', 'Blackboard scan encountered an issue. If page layout changed, try refreshing the tab.', 0);
+      await setScanStatus({ state: 'error', message: 'Scan hit a problem. Refresh the Blackboard tab and try again.' });
     }
   }
 }
@@ -1460,6 +1508,9 @@ function init() {
             }
           })();
           return true; // Keep message channel open for async response
+        } else if (message.type === 'PING_SCANNER') {
+          sendResponse({ ok: true, scanning: scanRunning });
+          return false;
         } else if (message.type === 'TRIGGER_SCAN') {
           runScan(true, Boolean(message.fullRescan))
             .then(() => sendResponse({ success: true }))

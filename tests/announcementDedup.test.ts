@@ -63,6 +63,20 @@ describe('announcement tasks are not swallowed by an older task with the same ti
     expect(deduplicateTaskList(r.allTasks)).toHaveLength(2);
   });
 
+  it('reports progress and keeps announcement order when extracting in parallel', async () => {
+    const anns: Announcement[] = [1, 2, 3, 4, 5, 6].map(n => ({
+      ...ann('MATH101', 'Calculus'),
+      id: `ann_${n}`,
+      title: `Quiz ${n}`,
+      contentText: `Quiz ${n} will be on Thursday, ${n} November 2026.`
+    }));
+    const progress: Array<[number, number]> = [];
+    const r = await processAnnouncementsBatch(anns, [], DEFAULT_SETTINGS, undefined, (d, t) => progress.push([d, t]));
+    expect(r.newTasks.map(t => t.title)).toEqual(['Quiz 1', 'Quiz 2', 'Quiz 3', 'Quiz 4', 'Quiz 5', 'Quiz 6']);
+    expect(progress[0]).toEqual([0, 6]);
+    expect(progress[progress.length - 1]).toEqual([6, 6]);
+  });
+
   it('still merges the same quiz scanned twice', async () => {
     const first = await processAnnouncementsBatch([ann('UOS', 'General Course')], [], DEFAULT_SETTINGS);
     const second = await processAnnouncementsBatch([{ ...ann('UOS', 'General Course'), id: 'ann_ultra_other' }], first.allTasks, DEFAULT_SETTINGS);

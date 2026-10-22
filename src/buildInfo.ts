@@ -13,10 +13,10 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "170f1a20c560",
-  "commit": "6045f6ef37132af84e32d72e8ff00f88ccdc10e6",
-  "shortCommit": "6045f6e",
-  "timestamp": "2026-10-22T10:28:40.685Z",
+  "build": "2db7f74c6c97",
+  "commit": "e68351e1528764af760b4d23ebbe6771dd324f27",
+  "shortCommit": "e68351e",
+  "timestamp": "2026-10-22T10:59:08.465Z",
   "message": "Merge CI build commit",
   "repo": "yvs1n/blackboarder",
   "branch": "main"

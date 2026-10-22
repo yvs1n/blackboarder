@@ -1034,6 +1034,41 @@ export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[
   return updatedTasks;
 }
 
+// ============================================================================
+// Scan status: written by the scan in the Blackboard tab, read by the popup.
+// The scan outlives the popup, so the popup shows progress from here when reopened.
+// ============================================================================
+export const SCAN_STATUS_KEY = 'bbs_scan_status';
+
+export interface ScanStatus {
+  state: 'running' | 'done' | 'error';
+  message: string;
+  done?: number;
+  total?: number;
+  newCount?: number;
+  updatedAt: string;
+}
+
+/** A running status older than this is from a scan that died (tab closed or reloaded). */
+export const SCAN_STALE_MS = 10 * 60 * 1000;
+
+export async function setScanStatus(status: Omit<ScanStatus, 'updatedAt'>): Promise<void> {
+  if (!isExtensionContextValid()) return;
+  try {
+    await chrome.storage.local.set({ [SCAN_STATUS_KEY]: { ...status, updatedAt: new Date().toISOString() } });
+  } catch {}
+}
+
+export async function getScanStatus(): Promise<ScanStatus | null> {
+  if (!isExtensionContextValid()) return null;
+  try {
+    const res = await chrome.storage.local.get([SCAN_STATUS_KEY]);
+    return (res?.[SCAN_STATUS_KEY] as ScanStatus) || null;
+  } catch {
+    return null;
+  }
+}
+
 // Automatically sync cached courses into active state on module load
 try {
   const cachedInitialCourses = getCachedCoursesSync();
