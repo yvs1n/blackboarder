@@ -3,7 +3,7 @@ import { loadDraft, saveDraft, clearDraft, collectFields, applyFields } from './
 import { attachCoursePicker, findPickedCourse } from './coursePicker';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
-import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY } from '../utils/storage';
+import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY, saveTasksMergingLatest } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
@@ -2357,8 +2357,8 @@ async function pullTasksFromFirebaseIfNewer(): Promise<DeadlineTask[] | null> {
 
       const { tasks, changed } = mergeCloudTasks(currentTasks, res.tasks, tombstones);
       if (changed) {
-        currentTasks = tasks.sort(compareTasksByTime);
-        await saveTasks(currentTasks);
+        // Merge with what is stored now: a scan may have saved marks since this popup read its tasks
+        currentTasks = (await saveTasksMergingLatest(tasks)).sort(compareTasksByTime);
         refreshAllViews();
         result = currentTasks;
         console.log('[Firebase Sync] Merged notes & deadline updates from mobile phone/cloud');
@@ -4258,7 +4258,8 @@ async function refreshDataInBackground() {
       let weightDisplay = task.weightDisplay;
       let syllabusNote = task.syllabusNote;
 
-      if (resolved.weight !== undefined && (resolved.weight !== task.weight || resolved.weightDisplay !== task.weightDisplay)) {
+      // Only a different weight counts: the label wording varies between callers and would flip back and forth
+      if (resolved.weight !== undefined && resolved.weight !== task.weight) {
         weight = resolved.weight;
         weightDisplay = resolved.weightDisplay;
         syllabusNote = resolved.syllabusNote;
@@ -4372,7 +4373,8 @@ async function refreshDataInBackground() {
       updatedAny = true;
     }
     if (updatedAny) {
-      await saveTasks(currentTasks);
+      // Merge with what is stored now: a scan may have saved marks while this ran
+      currentTasks = (await saveTasksMergingLatest(currentTasks)).sort(compareTasksByTime);
       syncTasksToCloud(currentTasks, 'Retroactive Upgrades & Cleanup');
       refreshAllViews();
     }

@@ -281,7 +281,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (416 tests across 50 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (419 tests across 51 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -302,7 +302,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **50 test files comprising 416 automated tests** running on Vitest:
+Blackboarder is covered by **51 test files comprising 419 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -320,8 +320,8 @@ Blackboarder is covered by **50 test files comprising 416 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 36 Test Suites* | 274 | Regex extraction, course picker and popup drafts, mark safety, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **416** | **100% Passing** |
+| *Other 37 Test Suites* | 277 | Regex extraction, marks surviving saves, course picker and popup drafts, mark safety, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **419** | **100% Passing** |
 
 ---
 
@@ -383,7 +383,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 50 Vitest test suites (416 tests)
+├── tests/                            # 51 Vitest test suites (419 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -448,6 +448,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-23 - Scan marks no longer overwritten by the popup
+- Owner signed in to Blackboard in the browser pane. Live check: `/learn/api/v1/users/me` and the gradebook of all 7 courses answer from the page (with the scan's own headers); `_84837_1` (Physics 1 section 02) has no columns, the marks are in `_88369_1`. Course names from Blackboard look like "Calculus I for Engineering- 02 - حسبان 1 للمهندسين" and parse to the plain name.
+- Dry run of the real gradebook through `gradebookToUpdates` + `findTaskForUpdate` against the backup tasks plus a hand-added Calculus "Assignment 1": every graded item lands on the right task (including Assignment-1-Graded); only Lab "Vectors" has no task; the English "EAP Midterm Exam" goes to the Oct 25 Midterm and is held back by the date rule. So matching was not the fault.
+- Cause found: the popup saved its own copy of the task list over storage. `refreshDataInBackground` (on open: Firebase fetch, then weight/time/room upgrades, then `saveTasks(currentTasks)`) and `pullTasksFromFirebaseIfNewer` (every 25 s while open) could write a copy taken before a scan finished, wiping the marks it had just saved. The popup also rewrote `weightDisplay` whenever its wording differed from the scan's (series index), bumping `updatedAt` on every open, which kept the overwrite path busy and is another source of "values changing by themselves".
+- Fix: `saveTasksMergingLatest` (`src/utils/storage.ts`) re-reads storage and merges by `updatedAt` per task (`mergeCloudTasks`, tombstones respected) before saving. Used by both popup background saves and by the scan's final save (the scan can also run long while the popup or phone saves). The popup's weight refresh only changes a task when the weight number differs.
+- Test: `tests/marksSurviveSaves.test.ts` (the owner's real gradebook item names with made-up scores; real marks are not committed). Still unverified in the owner's own Brave: needs `git pull`, reload, Scan.
 
 ### 2026-10-23 - Course picker, popup keeps unfinished work, gradebook report
 - Owner: the course field when adding a deadline should offer the extension's courses and narrow as you type; the popup should reopen where it was when closed during an edit or scan, otherwise on the calendar; the Calculus "Assignment 1" mark and other marks still do not arrive.

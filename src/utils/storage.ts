@@ -1,6 +1,6 @@
 import { DeadlineTask, Announcement, UserSettings, DEFAULT_SETTINGS, QuickLink, DEFAULT_QUICK_LINKS, UserCourseConfig } from '../types';
 import { isValidTask, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../core/courseHelper';
-import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList } from './taskMerge';
+import { areTasksDuplicates, mergeDuplicatePair, deduplicateTaskList, mergeCloudTasks } from './taskMerge';
 import { DEFAULT_USER_COURSES, setActiveUserCourses } from '../core/userCourses';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskRoom, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
@@ -376,6 +376,26 @@ export async function getTasks(): Promise<DeadlineTask[]> {
     }
   }
   return [];
+}
+
+/**
+ * Saves tasks without losing a newer copy that was saved meanwhile: a scan's marks while the
+ * popup was busy, or a phone edit while a scan ran. Per task the newer updatedAt wins; tasks
+ * only in storage are kept unless deleted (tombstoned) or junk. Returns what was saved.
+ */
+export async function saveTasksMergingLatest(tasks: DeadlineTask[]): Promise<DeadlineTask[]> {
+  let stored: DeadlineTask[] = [];
+  let tombstones: Record<string, string> = {};
+  try {
+    stored = await getTasks();
+    if (isExtensionContextValid()) {
+      const data = await chrome.storage.local.get(['bbs_tombstones']);
+      tombstones = (data?.bbs_tombstones as Record<string, string>) || {};
+    }
+  } catch {}
+  const { tasks: merged } = mergeCloudTasks(tasks, stored, tombstones);
+  await saveTasks(merged);
+  return merged;
 }
 
 export async function saveTasks(tasks: DeadlineTask[]): Promise<void> {

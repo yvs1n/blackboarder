@@ -1,6 +1,6 @@
 import { Announcement, DeadlineTask, TaskSubmissionUpdate } from '../types';
 import { processAnnouncementsBatch, titleCourseKeyFor } from '../engine/hybridExtractor';
-import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses, setScanStatus } from '../utils/storage';
+import { getSettings, getTasks, saveTasksMergingLatest, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses, setScanStatus } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode, isValidTask } from '../core/courseHelper';
 import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
@@ -1334,7 +1334,8 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
     // Auto-register any new courses found in scanned tasks or discovered courses
     await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => {});
 
-    await saveTasks(finalTasks);
+    // Merge with what is stored now: the popup or a phone edit may have saved while this scan ran
+    await saveTasksMergingLatest(finalTasks);
 
     // Automatically push newly scanned tasks & courses to Firebase / sync server
     try {
