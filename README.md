@@ -5,299 +5,201 @@
 </p>
 
 <p align="center">
-  <strong>Smart Academic Companion & Deadline Intelligence for Blackboard Learn</strong>
+  <strong>Deadline tracker and academic companion for Blackboard Learn</strong>
 </p>
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
-  <a href="#-mobile-web-pwa--calendar-sync"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development--testing"><img src="https://img.shields.io/badge/Tests-330_Passing-success?logo=vitest&logoColor=white" alt="Vitest 330 Passing" /></a>
-  <a href="#-live-webcal-calendar-feed"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
+  <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-330_Passing-success?logo=vitest&logoColor=white" alt="Vitest 330 Passing" /></a>
+  <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
 
 ---
 
-## 📖 Overview
+## 📖 What it is
 
-**Blackboarder** is an academic productivity suite built for university students (optimized for **University of Sharjah / UOS** at `blackboard.sharjah.ac.ae` and standard Blackboard Learn / Ultra portals).
+Course announcements on Blackboard bury quiz dates, homework deadlines, exams and room changes inside long English or Arabic messages. **Blackboarder** reads them for you and turns them into one calendar of deadlines.
 
-University course announcements often bury critical deadlines, quiz schedules, homework submissions, and exam room allocations inside conversational Arabic or English text. Blackboarder automatically extracts, categorizes, and organizes these dates into a unified schedule with **multi-user cloud synchronization**, an **offline-first Mobile Web PWA**, and a **live WebCal calendar feed (`.ics`)** that syncs with Apple Calendar, Google Calendar, and Outlook.
+It is built for the **University of Sharjah** (`elearning.sharjah.ac.ae`, `blackboard.sharjah.ac.ae`) and works on standard Blackboard Learn and Ultra portals. It has three parts that stay in sync:
 
----
+| Part | What it does |
+| :--- | :--- |
+| **Browser extension** | Scans Blackboard, finds deadlines, and shows them in a popup or the browser's side panel. |
+| **Phone app (PWA)** | The same calendar and deadlines on your phone. Installs to the home screen and works offline. |
+| **Calendar feed** | A live `.ics` link for Apple Calendar, Google Calendar or Outlook. |
 
-## 🌟 Key Features
-
-### 1. 3-Tier Hybrid Extraction Pipeline
-Combines ultra-fast local parsing, instant classification gatekeeping, and deep generative AI:
-- **Tier 1: Local Regex Engine (0ms, Zero Network)**  
-  Parses high-confidence English and Arabic keywords (*Quiz*, *Assignment*, *Project*, *Midterm*, *كويز*, *امتحان*, *واجب*), absolute/relative dates (`Oct 15`, `18/10/2026`, `next Sunday`), and explicit timestamps.
-- **Tier 2: Jev System One Classifier (~100ms Gatekeeper)**  
-  TypeSafe AI classifier that verifies whether an announcement contains an actionable deadline, categorizes task types, and filters out non-deadline announcements before making heavy API calls.
-- **Tier 3: Generative AI Extraction (OpenRouter / Gemini 3.8 Flash Fallback)**  
-  Synthesizes precise ISO timestamps, room numbers, and deliverables from multi-paragraph, ambiguous, or conversational announcements.
-
-### 2. Academic Quick Links Bar
-A direct access bar at the top of both the extension and mobile dashboard to quickly open essential university portals:
-- **Marks & Grades Portal**
-- **Attendance Records**
-- **Degree Audit & Study Plan**
-- **Library Resources**
-- **Academic Advising**
-- **Custom Links**: Add, edit, reorder, or delete custom links with instant local and cloud sync.
-
-### 3. Chronological Time Ordering & Academic Calendar
-- **Strict Chronological Sorting**: Tasks on any day are ordered from earliest to latest by specific time. Tasks automatically re-sort in real time whenever date or time details are edited.
-- **Monday-First Academic Grid**: Standard Monday to Sunday academic week layout across both extension and mobile views.
-- **Interactive Day Drawer**: Tap any calendar cell to slide out full details, syllabus weight, room number, doctor's announcement text, and student notes.
-
-### 4. Student Room & Class Schedule Matcher
-- Matches university course codes (e.g., `0401201`, `0402202`) with the student's registered lecture schedule, faculty timings, and assigned room locations.
-- When an announcement omits a room number, Blackboarder cross-references the student's weekly schedule to identify where the quiz or lecture takes place.
-
-### 5. Syllabus Weight & Grade Tracker
-- Built-in syllabus database calculates the grade percentage impact for upcoming deliverables (e.g., *Midterm Exam (25%)*, *Quizzes (15%)*, *Lab Reports (10%)*).
-- Displays weighted deliverables clearly on task cards and calendar summaries.
-
-### 6. Private Multi-Tenant Cloud Sync
-- **Personal Sync Keys**: Each installation receives an isolated 6-character sync key (such as `BBS-9A2K`).
-- **Data Isolation**: Student data is partitioned into separate cloud endpoints (`/users/{syncKey}/data.json`), preventing cross-account collisions.
-- **Bi-Directional Sync**: Edits made in the Chrome extension reflect instantly on the mobile web dashboard, and vice versa.
-
-### 7. Real-Time RFC 5545 WebCal Feed (`.ics`)
-- Generates live subscription feeds compatible with Apple Calendar (iOS / macOS), Google Calendar (Android / Web), and Microsoft Outlook.
-- Changes made on Blackboard or edited locally update calendar subscriptions automatically through the background worker.
+Data syncs through **Firebase**, each student under their own private sync key. No account or sign-in is needed.
 
 ---
 
-## 🏗️ Architecture
+## 🌟 Features
 
-```mermaid
-flowchart TD
-    subgraph Blackboard["University Portal"]
-        BB_Stream["Blackboard Ultra Stream / Announcements"]
-    end
-
-    subgraph ChromeExtension["Blackboarder Chrome Extension (Manifest V3)"]
-        CS["Content Script (scraper.ts)"]
-        FloatBtn["Floating 'Scan Blackboard' Pill"]
-        SW["Background Service Worker (serviceWorker.ts)"]
-        PopupUI["Popup & Side Panel (popup.ts / index.html)"]
-        QuickLinksExt["Academic Quick Links Bar"]
-        
-        subgraph HybridEngine["3-Tier Hybrid Extractor"]
-            T1["Tier 1: Local Regex Engine"]
-            T2["Tier 2: Jev Fast Classifier"]
-            T3["Tier 3: OpenRouter / Gemini AI"]
-        end
-    end
-
-    subgraph CloudLayer["Edge & Cloud Synchronization"]
-        CF_Worker["Cloudflare Pages / Worker (_worker.js)"]
-        Firebase["Firebase Realtime Database (Isolated Sync Keys)"]
-        WebCal["Live RFC 5545 WebCal Feed (/feed.ics)"]
-    end
-
-    subgraph MobilePWA["Mobile Web Companion (mobile-web/)"]
-        PWA_UI["Responsive Touch PWA (app.js / styles.css)"]
-        QuickLinksWeb["Quick Links Bar & Modals"]
-        ServiceWorker["Service Worker (sw.js / Offline Cache)"]
-    end
-
-    subgraph NativeCalendars["Personal Calendars"]
-        AppleCal["Apple Calendar (iOS / macOS)"]
-        GCal["Google Calendar (Android / Web)"]
-        Outlook["Microsoft Outlook"]
-    end
-
-    BB_Stream --> CS
-    FloatBtn --> CS
-    CS --> HybridEngine
-    T1 -->|Ambiguous| T2
-    T2 -->|Confirmed Deadline| T3
-    HybridEngine --> SW
-    SW --> PopupUI
-    PopupUI --> Firebase
-    Firebase <--> CF_Worker
-    CF_Worker <--> PWA_UI
-    CF_Worker --> WebCal
-    WebCal --> AppleCal
-    WebCal --> GCal
-    WebCal --> Outlook
-    QuickLinksExt <--> Firebase
-    QuickLinksWeb <--> Firebase
-```
+- **Finds deadlines automatically.** A local parser reads English and Arabic keywords (*quiz*, *assignment*, *midterm*, *كويز*, *واجب*, *امتحان*) and dates such as `Oct 15`, `18/10/2026` or `next Sunday`. Optional AI steps handle vague or long announcements (see Settings and AI Keys below).
+- **Monthly calendar and deadline list.** Monday-first grid, tasks sorted by time within each day, and a day view with the full announcement, room, grade weight and your notes.
+- **Course schedule matching.** When an announcement does not name a room or time, Blackboarder fills it in from your weekly class schedule.
+- **Grade weights.** Shows how much each deliverable counts (for example *Midterm 25%*) on cards and in the calendar.
+- **Quick links.** One-tap links to marks, attendance, study plan, library and your own custom links, synced to the phone.
+- **Private sync.** Every install gets its own sync key (`BBS-` plus 10 random characters). Changes on the laptop show up on the phone and the other way round.
+- **Dark mode** for the extension, the phone app, and Blackboard itself.
+- **Updates itself from GitHub**, the way a Chrome Web Store extension would (see [Automatic updates](#-automatic-updates)).
 
 ---
 
 ## 🚀 Quick Start & Installation
 
-### Option 1: Chrome Extension (60 Seconds)
+Works in **Chrome, Edge, Brave, Opera and Vivaldi**.
 
-Compatible with **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, and **Vivaldi**.
+### 1. Get the files
 
-1. Download or clone this repository.
-2. Run the production build or use the pre-built `dist/` directory:
-   ```bash
-   npm run build
-   ```
-3. Open the Extensions management page in your browser:
-   - **Chrome**: `chrome://extensions`
-   - **Edge**: `edge://extensions`
-   - **Brave**: `brave://extensions`
-4. Enable **Developer mode** in the top-right corner.
-5. Click **Load unpacked** and select the `dist/` directory from this repository.
-6. Pin **Blackboarder** to your browser toolbar.
-7. Navigate to your university Blackboard portal (for UOS: `https://elearning.sharjah.ac.ae/ultra/stream`).
-8. Click the floating **Scan Blackboard** button on the bottom right or press `Alt+B`.
+- **No git:** on GitHub click **Code > Download ZIP** and unzip it somewhere permanent (for example `Documents\blackboarder`). Do not delete the folder afterwards; the browser loads the extension from it.
+- **With git:** `git clone https://github.com/yvs1n/blackboarder.git`
 
-### Option 2: Mobile Web PWA & Calendar Sync
+The built extension is already in the `dist/` folder. You do not need to build anything.
 
-The `mobile-web/` directory is a standalone Progressive Web App with offline caching and calendar feed generation.
+### 2. Load the extension
 
-#### Deploy to Cloudflare Pages (Recommended: 1 Minute)
-1. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages**.
-2. Click **Create Application** > **Pages** > **Upload assets**.
-3. Select the `mobile-web/` directory and deploy.
-4. Cloudflare provides a live HTTPS endpoint: `https://<your-project>.pages.dev`.
+1. Open your browser's extensions page: `chrome://extensions`, `edge://extensions` or `brave://extensions`.
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and pick the **`dist`** folder.
+4. Pin **Blackboarder** to the toolbar.
 
-#### Deploy to Vercel or Netlify
-```bash
-# Vercel
-npx vercel ./mobile-web
+### 3. Turn on automatic updates (once)
 
-# Or drag-and-drop mobile-web/ into https://app.netlify.com/drop
-```
+- **Windows:** double-click **`update.bat`** in the project folder.
+- **macOS / Linux:** run `./update.sh` in the project folder.
 
-#### Run Local Development Server
-```bash
-npm run server
-```
-Access the server locally at `http://localhost:3456` or over your local Wi-Fi from your smartphone.
+This registers a small helper that lets the extension update itself whenever a new version is pushed to GitHub. Then go back to the extensions page and click the reload arrow on Blackboarder once. Your tasks, courses and sync key are kept.
+
+### 4. Use it
+
+1. Open Blackboard (for UOS: `https://elearning.sharjah.ac.ae/ultra/stream`).
+2. Click the floating **Scan Blackboard** button, or press **Alt+B** (**Option+Shift+B** on Mac) to open the popup.
+3. To keep Blackboarder open next to the page, open it in the browser's **side panel**.
 
 ---
 
-## 📱 Pairing Your Phone & Subscribing to Calendars
+## 📱 Phone App and Calendar
 
-1. Open the Blackboarder Chrome extension and switch to the **Settings** view.
-2. Note your unique **Personal Sync Key** (such as `BBS-9A2K`).
-3. Click **Copy Phone Pairing Link** and open that link on your phone.
-4. Your mobile browser loads the dashboard, automatically pairs with your sync key, and saves it to offline storage.
-5. On the mobile dashboard, tap **Add to Home Screen** to install it as a standalone app.
-6. Tap **Subscribe in Apple / Google Calendar**:
-   - **Apple Calendar**: Opens the native subscription prompt directly.
-   - **Google Calendar**: Paste the URL into **Other calendars** > **From URL** in Google Calendar web.
+The phone app is hosted at **`https://blackboarder.pages.dev`**.
+
+1. In the extension, open **Settings** and click **Copy Phone Pairing Link**.
+2. Open that link on your phone. The app pairs with your sync key and loads your deadlines.
+3. Add it to your home screen: **Share > Add to Home Screen** on iPhone, or **Install app** in Chrome on Android.
+4. To get deadlines in your calendar, click **Copy WebCal Feed Link** in Settings (or **Subscribe** in the phone app):
+   - **Apple Calendar:** opening the `webcal://` link asks to subscribe.
+   - **Google Calendar:** on a computer, go to **Other calendars > + > From URL** and paste the `https://.../feed.ics?key=...` link.
+
+The calendar link includes your sync key. Links without a key are rejected, so if an old subscription stops updating, copy the link again and re-subscribe.
 
 ---
 
-## ⚙️ Configuration & AI API Keys
+## ⚙️ Settings and AI Keys
 
-Blackboarder operates fully with local regex parsing out of the box. For advanced triage and ambiguous multi-paragraph extraction, configure API keys in extension Settings:
+Everything works without any keys; the local parser handles most announcements. Keys only add the optional AI steps.
 
-| Setting | Purpose | Default / Requirement |
+| Setting | What it is for | Default |
 | :--- | :--- | :--- |
-| **OpenRouter API Key** | Powers Tier 3 generative AI fallback for unstructured announcements | Optional (`sk-or-v1-...`) |
-| **AI Model** | Model selection for extraction | `google/gemini-3.8-flash` |
-| **Jev API Key** | Low-latency (~100ms) deadline gatekeeper | Optional (`apikey_...`) |
-| **Hosted Web URL** | Cloudflare Pages or self-hosted companion URL | `https://blackboarder.pages.dev` |
-| **Auto-Scan** | Automatically scans announcements on Blackboard page load | Enabled (`true`) |
-| **Theme** | Light Mode, Dark Mode, or Match System | Light / Dark / System |
+| **OpenRouter API key** | AI extraction for long or vague announcements | Empty (optional) |
+| **AI model** | Model used through OpenRouter | `google/gemini-3.8-flash` |
+| **Jev API key** | Fast check that skips AI calls for announcements with no deadline | Empty (optional) |
+| **Hosted Web Dashboard URL** | Where your phone app is hosted | `https://blackboarder.pages.dev` |
+| **Own Sync Server** | Only for a self-hosted server. Leave empty to sync through Firebase | Empty |
+| **Auto-scan** | Scans announcements when a Blackboard page loads | On |
+| **Theme** | Light, dark, or match the system | Light |
+
+The two URL fields are under **Settings > Advanced Server & Endpoints**.
 
 ---
 
-## 🧪 Development & Testing
+## 🌐 Hosting Your Own Copy
 
-The project includes an automated test suite covering regex parsing, AI triage, bi-directional synchronization, RFC 5545 calendar formatting, stress testing, and extension context recovery.
+You only need this to run your own phone app and backend instead of `blackboarder.pages.dev`. Full steps are in the [hosting guide](docs/HOSTING_GUIDE.md).
+
+1. **Cloudflare Pages (recommended).** Connect the GitHub repository in **Workers & Pages**, with no build command and **`mobile-web`** as the output folder. Every push to `main` then deploys automatically. `mobile-web/_worker.js` is the backend: sync API, calendar feed and AI proxy.
+2. **Firebase.** Create a Realtime Database, then paste [`database.rules.json`](database.rules.json) into **Realtime Database > Rules** and click **Publish**. The rules only take effect once published. They allow each sync key to read and write only its own `users/<key>` folder. If you use your own database, change the URL in `src/utils/firebaseSync.ts`, `mobile-web/app.js` and `mobile-web/_worker.js`.
+3. **Point the extension at it.** Set **Hosted Web Dashboard URL** in Settings to your Pages address.
+4. **Optional:** add a Cloudflare rate limiting rule for `/api/*`. The built-in limit (60 requests a minute per IP and per key) slows abuse down but does not stop it.
+
+Other hosts: **Vercel** (deploy from the repository root; `api/[...path].js` runs the same backend) or a **local server** for your own Wi-Fi (`npm run server`).
+
+---
+
+## 🔄 Automatic Updates
+
+Pushing to `main` updates everything without a store:
+
+- **GitHub Actions** (`.github/workflows/build.yml`) builds, type-checks, lints and tests every push, then commits the generated files (`dist/`, `mobile-web/core.js`, the `version.json` files and the standalone worker).
+- **Phone app:** Cloudflare Pages deploys the push. The app notices the new build and reloads into it when you open it or come back to it, never while you are typing.
+- **Extension:** once `update.bat` / `update.sh` has run, the extension checks GitHub every hour. The helper downloads the new build into the extension folder, and the extension restarts once its popup and side panel are closed. **In a git clone** the helper runs `git pull --ff-only` instead, and only when the clone is on `main` with no uncommitted changes, so it never overwrites your work. Otherwise **Settings** shows why it skipped.
+
+Each build is identified by a hash of its files, so a push that does not change the extension does not update it (the same goes for the phone app).
+
+**Version sync.** The version in `package.json` is the only one to edit. `npm run build` copies it into the extension manifest, the phone app, the landing page and this README's badges, and `npm run lint` fails if any of them disagree. CI runs both on every push.
+
+---
+
+## 🧪 Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Run full Vitest suite (31 test files, 309 passing tests)
-npm test
-
-# Build extension into dist/
-npm run build
-
-# Rebuild the extension into dist/ (no watch mode)
-npm run dev
-
-# Bundle standalone Cloudflare Worker
-npm run bundle:worker
-
-# Package production release zips
-npm run package
+npm install        # install dependencies
+npm run build      # build dist/, mobile-web/core.js and the workers; sync versions
+npm run lint       # type-check plus style, JSON and version-sync checks
+npm test           # run the Vitest suite
+npm run package    # build release zips into release/
+npm run server     # optional local server on http://localhost:3456
 ```
 
-### Automatic Updates
+Run `npm run lint` and `npm test` before every commit. [`PROJECT_BRAIN.md`](PROJECT_BRAIN.md) is the full technical reference and change log; read it before changing an area it covers, and update it in the same commit.
 
-Pushing to `main` updates every part of Blackboarder without a store:
+### Which files to edit
 
-- **GitHub Actions** (`.github/workflows/build.yml`) runs the build and tests and commits the generated files (`dist/`, `mobile-web/core.js`, `version.json` files, the standalone worker).
-- **Web app and PWA**: Cloudflare Pages deploys the push. The app compares its build with the deployed `version.json` and reloads into the new version when it is opened, brought back, or hidden (never while you are typing).
-- **Extension**: after `update.bat` / `update.sh` has been run once, the extension checks `dist/version.json` on GitHub every hour, has the helper in `updater/` download the new build into its folder, and restarts itself when its popup is closed.
+The TypeScript in `src/` is the single source of course, deadline, weighting, sorting and calendar logic. The build bundles what the phone app needs into `mobile-web/core.js`.
 
-Each build has an id: a hash of the files that make it up. Pushes that do not change the extension's code do not update the extension, and the same goes for the web app.
-
-### Shared Code
-
-The extension's TypeScript in `src/` is the one source of course, deadline, weighting, sorting and calendar logic. `npm run build` bundles the parts the web app needs into `mobile-web/core.js` (from `src/mobile/core.ts`), copies the iOS widget from `widgets/` to `mobile-web/widget.js`, and generates `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js` from `mobile-web/_worker.js`. Edit the sources, not the generated files.
-
-### Packaging Distribution Bundles
-
-Running `npm run package` creates verified, production-ready archives in `release/`:
-- **`blackboarder-extension.zip`**: Complete unpacked extension for direct student use.
-- **`blackboarder-website.zip`**: Standalone PWA folder for drag-and-drop cloud hosting.
-- **`blackboarder-full-product.zip`**: All product bundles, documentation, and guides.
+- **Edit:** `src/`, the hand-written files in `mobile-web/` (`app.js`, `index.html`, `styles.css`, `sw.js`, `manifest.json`, `_worker.js`), `widgets/`, `updater/`, `public/`, `landing/`.
+- **Never edit (generated):** `dist/`, `mobile-web/core.js`, `mobile-web/widget.js`, the `version.json` files, `src/buildInfo.ts`, `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js`. The build rewrites them and CI rebuilds them on every push.
 
 ---
 
-## 📂 Project Directory Structure
+## 📂 Project Structure
 
 ```text
 blackboarder/
-|
-|-- src/                  SOURCE: the extension, written in TypeScript
-|   |-- popup/            Popup and side panel (popup.ts, popup.css, index.html)
-|   |-- content/          Scraper that runs on Blackboard pages
-|   |-- background/       Background worker: sync, notifications, automatic updates
-|   |-- engine/           Deadline detection (regex, Jev classifier, AI)
+|-- src/                  Extension source (TypeScript)
+|   |-- popup/            Popup and side panel
+|   |-- content/          Scraper and dark mode for Blackboard pages
+|   |-- background/       Background worker: sync, reminders, automatic updates
+|   |-- engine/           Deadline detection: local parser, Jev check, AI
 |   |-- core/             Logic shared with the phone app: courses, weights, schedules
-|   |-- utils/            Storage, calendar, Firebase sync, task merging
-|   `-- mobile/core.ts    Entry point that is bundled into mobile-web/core.js
+|   |-- utils/            Storage, Firebase sync, calendar, task merging
+|   `-- mobile/core.ts    Bundled into mobile-web/core.js
 |
-|-- mobile-web/           THE PHONE APP / PWA, served as-is by Cloudflare Pages
-|   |-- app.js, index.html, styles.css, sw.js, manifest.json   Hand-written
-|   |-- _worker.js        Backend (sync API and calendar feed) for Cloudflare Pages
-|   `-- core.js, widget.js, version.json                       Generated by the build
+|-- mobile-web/           Phone app (PWA), served as-is by Cloudflare Pages
+|   `-- _worker.js        Backend: sync API, calendar feed, AI proxy
+|-- dist/                 Built extension; load this folder (generated)
 |
-|-- dist/                 THE BUILT EXTENSION: load this folder in the browser (generated)
+|-- updater/              Update helper (copied into dist/ by the build)
+|-- update.bat, update.sh Turn on automatic updates (run once)
+|-- database.rules.json   Firebase security rules (publish in the Firebase console)
 |
-|-- updater/              Update helper, copied into dist/ by the build
+|-- api/                  Vercel entry point (runs mobile-web/_worker.js)
+|-- self-hosted/          Standalone Cloudflare Worker and local Node server
+|-- landing/              Project landing page
 |-- widgets/              iOS Scriptable widget source
 |-- public/               Extension manifest template and icons
-|-- scripts/              Build, packaging and icon scripts
+|-- scripts/              Build, lint and packaging scripts
 |-- tests/                Automated tests
+|-- docs/                 Install, hosting and walkthrough guides
 |
-|-- api/                  Vercel entry point; runs the same backend as mobile-web/_worker.js
-|-- self-hosted/          Other ways to run the backend
-|   |-- cloudflare-worker/   Single-file Cloudflare Worker (generated)
-|   `-- server/              Node server for your own computer or Wi-Fi
-|
-|-- landing/              Project landing page
-|-- assets/               Logos
-|-- docs/                 Guides: installing, hosting, how it works, course syllabi
-|
-|-- version.json          Build id for installs that predate dist/version.json (generated)
-`-- package.json          Scripts and dependencies
+|-- CHANGELOG.md          Release notes
+`-- PROJECT_BRAIN.md      Full technical reference and progress log
 ```
 
-**Guides:** [Install the extension](docs/INSTALL_EXTENSION.md) | [Host the web app](docs/HOSTING_GUIDE.md) | [How it all works](docs/WALKTHROUGH.md)
+**Folders that cannot move:** installed extensions read `dist/` and the `version.json` files to update themselves, Cloudflare Pages serves `mobile-web/`, and Vercel looks for functions in `api/`.
 
-**Which files do I edit?** Edit `src/`, the hand-written files in `mobile-web/`, `widgets/`, `updater/` and `public/`. Never edit generated files (`dist/`, `mobile-web/core.js`, `mobile-web/widget.js`, `version.json` files, `self-hosted/**/calendarFeed.js` and `worker.js`): `npm run build` rewrites them, and GitHub Actions rebuilds them on every push.
-
-**Folders that cannot move:** `dist/` and `version.json` are read by installed extensions to update themselves, `mobile-web/` is the output folder set in Cloudflare Pages, and `api/` is where Vercel looks for functions.
+**Guides:** [Install the extension](docs/INSTALL_EXTENSION.md) | [Host the phone app](docs/HOSTING_GUIDE.md) | [How it all works](docs/WALKTHROUGH.md)
 
 ---
 

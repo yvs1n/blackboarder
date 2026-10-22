@@ -78,7 +78,7 @@ Blackboarder consists of four tightly synchronized layers designed to operate of
 
 ### B. Streamlined Extension Settings
 - **Personal Sync Pairing Key**:
-  - Displayed prominently at the top of the Mobile Phone Sync card (e.g., `BBS-9A2K`).
+  - Displayed prominently at the top of the Mobile Phone Sync card (e.g., `BBS-7K2QX9M4PA`).
   - Includes one-click **Copy Key**, **New Key** generator, and **Copy Phone Pairing Link** (`https://blackboarder.pages.dev/?key=...`).
 - **24/7 Firebase Cloud Status**:
   - Live status indicator confirming real-time cloud connectivity without requiring any local server.
@@ -86,7 +86,7 @@ Blackboarder consists of four tightly synchronized layers designed to operate of
   - **Full Re-scan Blackboard**: Performs a non-destructive re-scan of the page, upgrading announcement text, meeting times, and room numbers without resetting completed status or notes.
   - **Clear Scan Cache**: Clears the internal cache of processed announcement IDs so subsequent scans re-evaluate all historical announcements from scratch.
 - **Advanced Endpoints (Collapsible)**:
-  - Technical settings (`Sync Server Endpoint: http://localhost:3456`, `Hosted Web Dashboard URL: https://blackboarder.pages.dev`, and midnight auto-sync) are neatly organized inside an expandable details panel, keeping the primary interface clutter-free for students while preserving full developer configurability.
+  - Technical settings (an optional own sync server, empty by default because sync runs through Firebase, the `Hosted Web Dashboard URL: https://blackboarder.pages.dev`, and midnight auto-sync) are neatly organized inside an expandable details panel, keeping the primary interface clutter-free for students while preserving full developer configurability.
 
 ---
 

@@ -55,7 +55,7 @@ Look in the top-right (or left sidebar in Edge) for the **Developer mode** toggl
 
 1. Click the Blackboarder extension icon in your browser.
 2. Switch to the **Settings** tab.
-3. Notice your unique **Personal Sync Key** (such as `BBS-9A2K`).
+3. Notice your unique **Personal Sync Key** (`BBS-` plus 10 characters, such as `BBS-7K2QX9M4PA`).
 4. Click **"Copy Phone Pairing Link"** and open that link on your smartphone to access your deadlines on mobile or subscribe to the live `.ics` calendar feed.
 
 ---
@@ -75,5 +75,5 @@ From then on Blackboarder checks GitHub every hour, like an extension from the C
 ### Without the helper
 If you skip the step above, the popup shows an **Update Available** banner when a new version is on GitHub. Run `update.bat` / `update.sh` then, or download the zip, extract it over your folder and click **Reload**.
 
-> If you loaded the extension from a `git clone`, update with `git pull` and `npm run build` instead; the helper never overwrites a git checkout.
+> If you loaded the extension from a `git clone`, the helper updates it with `git pull --ff-only`, and only when the clone is on `main` with no uncommitted changes. Otherwise it leaves your work alone and **Settings** shows why.
 

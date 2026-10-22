@@ -60,6 +60,8 @@ On Vercel, `api/[...path].js` runs the same backend as Cloudflare (`mobile-web/_
 2. Drag and drop the `mobile-web` folder into the upload area.
 3. Your dashboard is instantly deployed with an HTTPS URL.
 
+Netlify does not run `mobile-web/_worker.js`, so the app syncs through Firebase but the calendar feed (`/feed.ics`) and AI proxy are not available. Use Cloudflare Pages or Vercel if you need them.
+
 ---
 
 ## Option 4: Local LAN Server (For Dorm / Home Wi-Fi)
