@@ -966,6 +966,9 @@ export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[
   let changed = false;
 
   const updatedTasks = tasks.map(task => {
+    // Tasks the student made or edited keep their own values
+    if (task.userEdited || task.extractedBy === 'manual') return task;
+
     // 1. Recalculate syllabus weight
     const resolvedWeight = resolveTaskWeight(task);
     let newWeight = task.weight;
@@ -983,7 +986,9 @@ export async function recalculateTasksWithActiveCourses(): Promise<DeadlineTask[
         courseNameOrCode: task.courseName || task.courseCode,
         announcementText: task.description || task.sourceSnippet || '',
         title: task.title,
-        type: task.type
+        type: task.type,
+        // Keep a sensible saved room; only an announced room in the text replaces it
+        existingRoom: task.room
       });
       if (roomRes.room) {
         newRoom = roomRes.room;

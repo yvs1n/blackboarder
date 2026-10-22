@@ -138,7 +138,7 @@ graph TB
 ### 3.1 Chrome Extension Architecture (Manifest V3)
 - **Popup UI (`src/popup/`)**:
   - Built with pure TypeScript, Swiss Grid CSS, and zero UI frameworks for near-zero startup latency.
-  - Tabs: Monthly Calendar, Deadlines List, Quick Links, Grade Tracker, and Settings.
+  - Tabs: Monthly Calendar, Deadlines List, Quick Links, Marks, and Settings. The Marks card (Deadline Details view, and the phone's deadlines view) lists every graded and submitted item by course; both apps render it with `src/utils/marks.ts`.
   - Settings is split into pages by a tab strip (General, Courses, Scanning, Sync, Alerts, Data, Updates); every page lives in the one `#form-settings`, so a new setting goes in the card of the page it belongs to.
   - The header row holds only Scan, Add deadline and Settings. Phone sync, calendar (.ics) export, quick links and the theme live in Settings (Sync, Data, General, General).
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (389 tests across 45 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (400 tests across 47 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **45 test files comprising 389 automated tests** running on Vitest:
+Blackboarder is covered by **47 test files comprising 400 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **45 test files comprising 389 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 31 Test Suites* | 247 | Regex extraction, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **389** | **100% Passing** |
+| *Other 33 Test Suites* | 258 | Regex extraction, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **400** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 45 Vitest test suites (389 tests)
+├── tests/                            # 47 Vitest test suites (400 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,14 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Weights and rooms stop changing on their own; one Marks list
+- Owner: the CPE Midterm card showed room "s" and "75% of Grade", and values changed without any edit ("like hallucination"); asked for one place with all marks.
+- Weight causes: (1) `resolveTaskWeight` took the first percentage anywhere in the text ("final exam out of 75%"); the body now only counts a stated weight (`extractStatedWeight`: "worth 15%", "15% of the grade", "counts for", "weight: 15%"). (2) Syllabus components were matched on title plus text, so an Islamic midterm whose text says امتحان نهائي matched the final (50%); the title is tried first. (3) The phone recalculated weights on every load and overwrote the extension's; it now only fills missing weights. (4) `recalculateTasksWithActiveCourses` (runs when courses change or sync from the cloud) rewrote weight and room on edited tasks too, and ignored the saved room; it now skips edited/manual tasks and keeps a plausible saved room.
+- Room causes: "A10:006" was not read (a colon before three digits now separates building and room; times like 12:30 are unaffected), and junk saved rooms ("s", "Please") were kept as valid (`isPlausibleRoom`: needs a digit, 2-30 characters).
+- `repairTaskWeightsAndRooms` (`src/utils/taskRepair.ts`) runs at the end of every scan on tasks the student did not edit, so stored wrong values (CPE Midterm 75% -> 30%, room s -> A10-006; Islamic Midterm 50% -> 25%) get corrected and synced once.
+- Marks: the "Syllabus Grade Progress" card became "Marks" (`buildMarksSummary`, `marksSummaryHtml`, exported to the phone through `BBCore`): per course, each mark with score / max, percent and the share of the grade it earned, plus submitted items awaiting a grade. Checked in the built popup with the owner's backup tasks and sample marks.
+- Tests: `tests/weightRoomRepair.test.ts` (built from the owner's CPE and Islamic midterm text), `tests/marks.test.ts`.
 
 ### 2026-10-22 - Extension Errors page cleaned up
 - Owner: errors in the extension log (screenshot: many "[Scraper] Blackboard REST API fetch unavailable ... Failed to fetch" and one "Unchecked runtime.lastError: Could not establish connection").

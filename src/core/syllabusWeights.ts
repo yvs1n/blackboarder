@@ -340,6 +340,30 @@ export function extractExplicitPoints(text: string): number | null {
 }
 
 /**
+ * A weight stated in announcement text. Unlike a title, a body mentions many numbers
+ * ("your final exam will be out of 75%"), so a percentage only counts when the wording ties
+ * it to the item: "worth 15%", "15% of the grade", "counts for 15%", "carries 15 marks".
+ */
+export function extractStatedWeight(text: string): number | null {
+  if (!text) return null;
+  const num = '(\\d+(?:\\.\\d+)?)';
+  const unit = '\\s*(?:%|percent\\b|marks?\\b|points?\\b)';
+  const patterns = [
+    new RegExp(`(?:worth|weigh(?:s|ted|ing)?|carr(?:y|ies|ying)|counts?\\s+(?:for|as)|accounts?\\s+for|constitutes?|contributes?)\\s+(?:of\\s+|for\\s+|about\\s+|up\\s+to\\s+)?${num}${unit}`, 'i'),
+    new RegExp(`${num}\\s*%\\s+of\\s+(?:the|your)\\s+(?:total\\s+|overall\\s+|final\\s+|course\\s+)?(?:grade|mark|score)`, 'i'),
+    new RegExp(`(?:weight|weightage)\\s*(?:is|of|:)?\\s*${num}\\s*%`, 'i')
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const val = parseFloat(m[1]);
+      if (val > 0 && val <= 100) return val;
+    }
+  }
+  return null;
+}
+
+/**
  * Finds matching syllabus from database by course name/code.
  */
 export function findCourseSyllabus(courseName: string = '', courseCode: string = ''): CourseSyllabus | null {
@@ -451,7 +475,8 @@ export function resolveTaskWeight(
 
   // 1. Check for explicit marks/percentages directly written in title or snippet
   const explicitInTitle = extractExplicitPoints(title);
-  const explicitInSnippet = extractExplicitPoints(snippet);
+  // In the body only a clearly stated weight counts ("out of 75%" is not this item's weight)
+  const explicitInSnippet = extractStatedWeight(snippet || desc);
   const explicitPoints = explicitInTitle !== null ? explicitInTitle : explicitInSnippet;
 
   // 2. Identify Course Syllabus
@@ -473,11 +498,20 @@ export function resolveTaskWeight(
   let matchedComp: SyllabusComponent | null = null;
   const searchString = `${title} ${desc} ${snippet}`.trim();
 
-  // Try matching components in order (Final, Midterm, then Quizzes/Assignments/Labs)
+  // The title says what the item is; the body often mentions other parts of the course
+  // ("those who miss the midterm will have their final exam out of 75%"), so try the title first
   for (const comp of syllabus.components) {
-    if (comp.matcher.test(searchString)) {
+    if (comp.matcher.test(title)) {
       matchedComp = comp;
       break;
+    }
+  }
+  if (!matchedComp) {
+    for (const comp of syllabus.components) {
+      if (comp.matcher.test(searchString)) {
+        matchedComp = comp;
+        break;
+      }
     }
   }
 

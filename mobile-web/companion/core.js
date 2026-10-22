@@ -1292,13 +1292,13 @@ var BBCoreBundle = (function() {
 	*/
 	function extractRoomFromText(text) {
 		if (!text) return null;
-		const targetMatch = text.match(/(?:moved\s*to(?:\s*room)?|transferred\s*to|held\s*in|location:?|venue:?|in\s*room|في\s*قاعة|قاعة)\s*[:\-–]?\s*([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/i);
-		if (targetMatch) return targetMatch[1].replace(/\s*[-–—/]\s*/, "-").toUpperCase();
-		const allBldMatches = Array.from(text.matchAll(/\b([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/gi));
+		const targetMatch = text.match(/(?:moved\s*to(?:\s*room)?|transferred\s*to|held\s*in|location:?|venue:?|in\s*room|في\s*قاعة|قاعة)\s*[:\-–]?\s*([A-Za-z]\d{1,2}\s*(?:[-–—/]|:(?=\d{3}))\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/i);
+		if (targetMatch) return targetMatch[1].replace(/\s*[-–—/:]\s*/, "-").toUpperCase();
+		const allBldMatches = Array.from(text.matchAll(/\b([A-Za-z]\d{1,2}\s*(?:[-–—/]|:(?=\d{3}))\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/gi));
 		for (const m of allBldMatches) {
 			const matchIndex = m.index ?? 0;
 			const precedingSnippet = text.slice(Math.max(0, matchIndex - 35), matchIndex).toLowerCase();
-			if (!/not\s*(?:take\s*place\s*)?in\s*$|not\s*in\s*$|never\s*in\s*$|instead\s*of\s*$|ليس\s*في\s*$/i.test(precedingSnippet)) return m[1].replace(/\s*[-–—/]\s*/, "-").toUpperCase();
+			if (!/not\s*(?:take\s*place\s*)?in\s*$|not\s*in\s*$|never\s*in\s*$|instead\s*of\s*$|ليس\s*في\s*$/i.test(precedingSnippet)) return m[1].replace(/\s*[-–—/:]\s*/, "-").toUpperCase();
 		}
 		const centralMatch = text.match(/\b(?:central\s*lab(?:orator(?:y|ies))?(?:\s*\(?men\)?)?)\s*[-–—:]*\s*(\d{2,4}[A-Za-z]?)\b/i);
 		if (centralMatch) return `Central Lab Men - ${centralMatch[1]}`;
@@ -1313,6 +1313,11 @@ var BBCoreBundle = (function() {
 			if (raw && /\d/.test(raw) && !/^(?:الامتحان|الدراسة|المحاضرة|اليوم|أمس|غدا|غداً)$/i.test(raw)) return raw.replace(/\s*[-–—/]\s*/, "-");
 		}
 		return null;
+	}
+	/** A saved room is only kept when it looks like one: it has a number ("s" and "Please" do not). */
+	function isPlausibleRoom(room) {
+		const r = (room || "").trim();
+		return r.length >= 2 && r.length <= 30 && /\d/.test(r);
 	}
 	/**
 	* Resolves the classroom/room for a task:
@@ -1332,7 +1337,7 @@ var BBCoreBundle = (function() {
 			room: announcedRoom,
 			isCustom: true
 		};
-		if (existingRoom && existingRoom.trim()) return {
+		if (isPlausibleRoom(existingRoom)) return {
 			room: existingRoom.trim(),
 			isCustom: true
 		};
@@ -1369,6 +1374,28 @@ var BBCoreBundle = (function() {
 		if (marksMatch) {
 			const val = parseFloat(marksMatch[1]);
 			if (val > 0 && val <= 100) return val;
+		}
+		return null;
+	}
+	/**
+	* A weight stated in announcement text. Unlike a title, a body mentions many numbers
+	* ("your final exam will be out of 75%"), so a percentage only counts when the wording ties
+	* it to the item: "worth 15%", "15% of the grade", "counts for 15%", "carries 15 marks".
+	*/
+	function extractStatedWeight(text) {
+		if (!text) return null;
+		const num = "(\\d+(?:\\.\\d+)?)";
+		const patterns = [
+			new RegExp(`(?:worth|weigh(?:s|ted|ing)?|carr(?:y|ies|ying)|counts?\\s+(?:for|as)|accounts?\\s+for|constitutes?|contributes?)\\s+(?:of\\s+|for\\s+|about\\s+|up\\s+to\\s+)?${num}\\s*(?:%|percent\\b|marks?\\b|points?\\b)`, "i"),
+			new RegExp(`${num}\\s*%\\s+of\\s+(?:the|your)\\s+(?:total\\s+|overall\\s+|final\\s+|course\\s+)?(?:grade|mark|score)`, "i"),
+			new RegExp(`(?:weight|weightage)\\s*(?:is|of|:)?\\s*${num}\\s*%`, "i")
+		];
+		for (const re of patterns) {
+			const m = text.match(re);
+			if (m) {
+				const val = parseFloat(m[1]);
+				if (val > 0 && val <= 100) return val;
+			}
 		}
 		return null;
 	}
@@ -1453,7 +1480,7 @@ var BBCoreBundle = (function() {
 		const cName = task.courseName || fallbackCourseName;
 		const cCode = task.courseCode || "";
 		const explicitInTitle = extractExplicitPoints(title);
-		const explicitInSnippet = extractExplicitPoints(snippet);
+		const explicitInSnippet = extractStatedWeight(snippet || desc);
 		const explicitPoints = explicitInTitle !== null ? explicitInTitle : explicitInSnippet;
 		const syllabus = findCourseSyllabus(cName, cCode) || findCourseSyllabus(title);
 		if (!syllabus) {
@@ -1467,9 +1494,15 @@ var BBCoreBundle = (function() {
 		}
 		let matchedComp = null;
 		const searchString = `${title} ${desc} ${snippet}`.trim();
-		for (const comp of syllabus.components) if (comp.matcher.test(searchString)) {
+		for (const comp of syllabus.components) if (comp.matcher.test(title)) {
 			matchedComp = comp;
 			break;
+		}
+		if (!matchedComp) {
+			for (const comp of syllabus.components) if (comp.matcher.test(searchString)) {
+				matchedComp = comp;
+				break;
+			}
 		}
 		if (!matchedComp && task.type) matchedComp = syllabus.components.find((c) => c.type === task.type) || null;
 		if (explicitPoints !== null) {
@@ -1499,6 +1532,110 @@ var BBCoreBundle = (function() {
 			};
 		}
 		return {};
+	}
+	// src/utils/marks.ts
+	var round1 = (n) => Math.round(n * 10) / 10;
+	/**
+	* Every mark in one place: graded and submitted tasks grouped by course, with each course's
+	* earned share of the grade. Courses are named after their syllabus when one matches.
+	*/
+	function buildMarksSummary(tasks, syllabi = []) {
+		const byCourse = /* @__PURE__ */ new Map();
+		let gradedCount = 0;
+		let submittedCount = 0;
+		for (const t of tasks || []) {
+			if (!t) continue;
+			const graded = t.submissionStatus === "graded" && typeof t.score === "number" && !!t.maxScore && t.maxScore > 0;
+			const submitted = !graded && (t.submissionStatus === "submitted" || t.submissionStatus === "graded");
+			if (!graded && !submitted) continue;
+			const syl = syllabi.find((s) => s.courseCodePattern.test(t.courseName || "") || s.courseCodePattern.test(t.courseCode || ""));
+			const courseName = syl?.courseName || t.courseName || t.courseCode || "Other";
+			let course = byCourse.get(courseName);
+			if (!course) {
+				course = {
+					courseName,
+					totalWeight: syl?.totalWeight || 100,
+					marks: [],
+					gradedWeight: 0,
+					earnedWeight: 0
+				};
+				byCourse.set(courseName, course);
+			}
+			const weight = Number(t.weight) > 0 ? Number(t.weight) : void 0;
+			const row = {
+				id: t.id,
+				title: t.title,
+				status: graded ? "graded" : "submitted",
+				weight,
+				dueDate: t.dueDate
+			};
+			if (graded) {
+				gradedCount++;
+				row.score = t.score;
+				row.maxScore = t.maxScore;
+				row.percent = round1(t.score / t.maxScore * 100);
+				if (weight) {
+					row.earned = round1(t.score / t.maxScore * weight);
+					course.gradedWeight += weight;
+					course.earnedWeight += t.score / t.maxScore * weight;
+				}
+			} else submittedCount++;
+			course.marks.push(row);
+		}
+		const courses = Array.from(byCourse.values());
+		for (const c of courses) {
+			c.gradedWeight = round1(c.gradedWeight);
+			c.earnedWeight = round1(c.earnedWeight);
+			const pcts = c.marks.filter((m) => m.percent !== void 0).map((m) => m.percent);
+			if (pcts.length) c.averagePercent = round1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+			c.marks.sort((a, b) => (a.status === b.status ? 0 : a.status === "graded" ? -1 : 1) || String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
+		}
+		courses.sort((a, b) => a.courseName.localeCompare(b.courseName));
+		return {
+			courses,
+			gradedCount,
+			submittedCount
+		};
+	}
+	/** "4.5 / 5" with trailing zeros dropped. */
+	function formatScore(score, max) {
+		const f = (n) => n === void 0 ? "-" : String(round1(n));
+		return `${f(score)} / ${f(max)}`;
+	}
+	function esc(s) {
+		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#39;"
+		})[c]);
+	}
+	/** Short badge text for the Marks header. */
+	function marksBadgeText(summary) {
+		if (!summary.gradedCount && !summary.submittedCount) return "No marks yet";
+		const parts = [`${summary.gradedCount} mark${summary.gradedCount === 1 ? "" : "s"}`];
+		if (summary.submittedCount) parts.push(`${summary.submittedCount} awaiting`);
+		return parts.join(" · ");
+	}
+	/**
+	* The Marks list, shared by the extension popup and the phone app (same classes in both stylesheets).
+	* `colorFor` gives a course's colour.
+	*/
+	function marksSummaryHtml(summary, colorFor) {
+		if (!summary.courses.length) return "<div class=\"marks-empty\">No marks yet. Marks are read from the Blackboard gradebook when you scan.</div>";
+		return summary.courses.map((c) => {
+			const head = c.gradedWeight > 0 ? `<span class="marks-course-total" title="Course grade earned from graded items with a known weight">${c.earnedWeight}% of ${c.gradedWeight}% graded</span>` : c.averagePercent !== void 0 ? `<span class="marks-course-total">Avg ${c.averagePercent}%</span>` : "";
+			const rows = c.marks.map((m) => {
+				const right = m.status === "graded" ? `<span class="marks-score">${esc(formatScore(m.score, m.maxScore))}</span><span class="marks-pct">${m.percent}%</span>` : "<span class=\"marks-awaiting\">Submitted</span>";
+				const sub = m.weight ? `<span class="marks-weight">${m.earned !== void 0 ? `${m.earned} of ${m.weight}%` : `worth ${m.weight}%`}</span>` : "";
+				return `<div class="marks-row"><span class="marks-title">${esc(m.title)}</span>${sub}<span class="marks-right">${right}</span></div>`;
+			}).join("");
+			return `<div class="marks-course">
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc(c.courseName)}</span>${head}</div>
+      ${rows}
+    </div>`;
+		}).join("");
 	}
 	// src/utils/taskMerge.ts
 	/** Union of two tombstone maps; for the same id the later deletion time wins. */
@@ -3639,6 +3776,10 @@ ${cleanBody}`;
 		extractRoomFromText,
 		resolveTaskRoom,
 		resolveTaskWeight,
+		buildMarksSummary,
+		marksSummaryHtml,
+		marksBadgeText,
+		formatScore,
 		extractExplicitPoints,
 		extractAssessmentNumber,
 		sanitizeDoctorAnnouncementText,

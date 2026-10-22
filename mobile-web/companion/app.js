@@ -990,7 +990,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"83c33d7d34a4","version":"1.1.0","shortCommit":"a3756d8","timestamp":"2026-10-22T18:19:36.359Z"};
+const APP_BUILD = {"build":"8fa8fbb4850c","version":"1.1.0","shortCommit":"de1b4c5","timestamp":"2026-10-22T18:41:55.826Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1549,7 +1549,8 @@ function recalculateTaskList(tasks) {
       t.sourceSnippet || t.description || t.notes || '',
       seriesInfo?.index
     );
-    if (wInfo.weight !== undefined && !t.userEdited && t.extractedBy !== 'manual') {
+    // Only fill a missing weight: the extension decides weights, so the two never disagree and flip-flop through sync
+    if (wInfo.weight !== undefined && t.weight === undefined && !t.userEdited && t.extractedBy !== 'manual') {
       t.weight = wInfo.weight;
       t.weightDisplay = wInfo.weightDisplay;
       t.syllabusNote = wInfo.syllabusNote;
@@ -3399,94 +3400,10 @@ function renderGradeTracker() {
   const badge = document.getElementById('mobile-grade-overall-badge');
   const breakdown = document.getElementById('mobile-grade-tracker-breakdown');
   if (!badge || !breakdown) return;
-
-  const courses = DEFAULT_SYLLABUS_DATABASE;
-  if (courses.length === 0) {
-    badge.textContent = '0% Tracked';
-    breakdown.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:10px 4px; text-align:center;">No courses configured yet.</div>';
-    return;
-  }
-  let totalTrackedCompleted = 0;
-  let totalTrackedWeight = 0;
-
-  const courseStats = courses.map(course => {
-    const courseTasks = state.tasks.filter(t => {
-      const { courseName, courseCode } = resolveCourseInfo(t);
-      return course.courseCodePattern.test(courseName || '') ||
-             course.courseCodePattern.test(courseCode || '') ||
-             course.courseCodePattern.test(t.title || '');
-    });
-
-    let completedWeight = 0;
-    let pendingWeight = 0;
-    let earnedPoints = 0;
-    let gradedWeight = 0;
-
-    courseTasks.forEach(t => {
-      const w = Number(t.weight) || 0;
-      if (t.status === 'completed') {
-        completedWeight += w;
-      } else {
-        pendingWeight += w;
-      }
-      if (t.submissionStatus === 'graded' && t.score !== undefined && t.maxScore && t.maxScore > 0 && w > 0) {
-        gradedWeight += w;
-        earnedPoints += (t.score / t.maxScore) * w;
-      }
-    });
-
-    completedWeight = Math.round(completedWeight * 10) / 10;
-    pendingWeight = Math.round(pendingWeight * 10) / 10;
-    earnedPoints = Math.round(earnedPoints * 10) / 10;
-    gradedWeight = Math.round(gradedWeight * 10) / 10;
-    const trackedWeight = completedWeight + pendingWeight;
-
-    totalTrackedCompleted += completedWeight;
-    totalTrackedWeight += trackedWeight;
-
-    return {
-      course,
-      completedWeight,
-      pendingWeight,
-      earnedPoints,
-      gradedWeight,
-      trackedWeight,
-      taskCount: courseTasks.length
-    };
-  });
-
-  const overallPct = totalTrackedWeight > 0
-    ? Math.min(100, Math.round((totalTrackedCompleted / totalTrackedWeight) * 100))
-    : 0;
-
-  badge.textContent = `${overallPct}% Done (${Math.round(totalTrackedCompleted)} pts tracked)`;
-
-  breakdown.innerHTML = courseStats.map(stat => {
-    const course = stat.course;
-    const hex = getCourseColor(course.courseId, course.courseName);
-    const pct = Math.min(100, Math.round((stat.completedWeight / (course.totalWeight || 100)) * 100));
-
-    return `
-      <div class="grade-course-stat-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <div style="display: flex; align-items: center; gap: 7px;">
-            <span style="display: inline-block; width: 9px; height: 9px; border-radius: 0; background: ${hex};"></span>
-            <span style="font-size: 12.5px; font-weight: 700; color: var(--text-main);">${escapeHtml(course.courseName)}</span>
-          </div>
-          <span style="font-size: 11.5px; font-weight: 600; color: var(--text-main);">${stat.completedWeight}% / ${course.totalWeight}% (${pct}%)</span>
-        </div>
-        <div class="grade-progress-bar-bg">
-          <div style="width: ${pct}%; height: 100%; background: var(--text-main); transition: width 0.3s ease;"></div>
-          <div style="width: ${Math.min(100 - pct, Math.round((stat.pendingWeight / course.totalWeight) * 100))}%; height: 100%; background: #93c5fd; transition: width 0.3s ease;"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 6px;">
-          <span>✓ Completed: ${stat.completedWeight}%</span>
-          ${stat.gradedWeight > 0 ? `<span style="color:#d97706; font-weight:600;">★ Graded: ${stat.earnedPoints}/${stat.gradedWeight}</span>` : `<span>⏳ Pending: ${stat.pendingWeight}%</span>`}
-          <span>Upcoming: ${Math.max(0, Math.round((course.totalWeight - stat.trackedWeight) * 10) / 10)}%</span>
-        </div>
-      </div>
-    `;
-  }).join('');
+  // Every mark in one place, grouped by course (same list as the extension)
+  const summary = BB.buildMarksSummary(state.tasks, DEFAULT_SYLLABUS_DATABASE);
+  badge.textContent = BB.marksBadgeText(summary);
+  breakdown.innerHTML = BB.marksSummaryHtml(summary, name => getCourseColor('', name));
 }
 
 function initGradeTracker() {

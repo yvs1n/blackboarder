@@ -245,21 +245,21 @@ export function extractRoomFromText(text: string): string | null {
   if (!text) return null;
 
   // 0. Positive relocation / explicit room indicator (e.g. "moved to room A8-204", "held in A8-103", "in room A8-204", "قاعة A8-204")
-  const targetRoomRegex = /(?:moved\s*to(?:\s*room)?|transferred\s*to|held\s*in|location:?|venue:?|in\s*room|في\s*قاعة|قاعة)\s*[:\-–]?\s*([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/i;
+  const targetRoomRegex = /(?:moved\s*to(?:\s*room)?|transferred\s*to|held\s*in|location:?|venue:?|in\s*room|في\s*قاعة|قاعة)\s*[:\-–]?\s*([A-Za-z]\d{1,2}\s*(?:[-–—/]|:(?=\d{3}))\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/i;
   const targetMatch = text.match(targetRoomRegex);
   if (targetMatch) {
-    return targetMatch[1].replace(/\s*[-–—/]\s*/, '-').toUpperCase();
+    return targetMatch[1].replace(/\s*[-–—/:]\s*/, '-').toUpperCase();
   }
 
   // 1. Explicit Building + Room or Lab patterns (e.g. "A8-103", "A12 - 110", "A3-184", "A8-TH005", "W8-Lab 3", "M9-102")
   // Exclude rooms explicitly negated (e.g. "NOT in A12-110", "not take place in A12-110")
-  const allBldMatches = Array.from(text.matchAll(/\b([A-Za-z]\d{1,2}\s*[-–—/]\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/gi));
+  const allBldMatches = Array.from(text.matchAll(/\b([A-Za-z]\d{1,2}\s*(?:[-–—/]|:(?=\d{3}))\s*(?:TH\d{2,4}|Lab\s*\d+|\d{2,4}[A-Za-z]?))\b/gi));
   for (const m of allBldMatches) {
     const matchIndex = m.index ?? 0;
     const precedingSnippet = text.slice(Math.max(0, matchIndex - 35), matchIndex).toLowerCase();
     const isNegated = /not\s*(?:take\s*place\s*)?in\s*$|not\s*in\s*$|never\s*in\s*$|instead\s*of\s*$|ليس\s*في\s*$/i.test(precedingSnippet);
     if (!isNegated) {
-      return m[1].replace(/\s*[-–—/]\s*/, '-').toUpperCase();
+      return m[1].replace(/\s*[-–—/:]\s*/, '-').toUpperCase();
     }
   }
 
@@ -295,6 +295,12 @@ export function extractRoomFromText(text: string): string | null {
   return null;
 }
 
+/** A saved room is only kept when it looks like one: it has a number ("s" and "Please" do not). */
+export function isPlausibleRoom(room?: string): boolean {
+  const r = (room || '').trim();
+  return r.length >= 2 && r.length <= 30 && /\d/.test(r);
+}
+
 /**
  * Resolves the classroom/room for a task:
  * 1. If the professor explicitly posted a room in the announcement, return that custom room!
@@ -325,8 +331,8 @@ export function resolveTaskRoom(params: {
   }
 
   // 2. If already specified and valid, keep it
-  if (existingRoom && existingRoom.trim()) {
-    return { room: existingRoom.trim(), isCustom: true };
+  if (isPlausibleRoom(existingRoom)) {
+    return { room: existingRoom!.trim(), isCustom: true };
   }
 
   // 3. Otherwise fall back to the default room from schedule.pdf

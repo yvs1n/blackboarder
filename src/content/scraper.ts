@@ -6,6 +6,7 @@ import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemN
 import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
 import { gradebookToUpdates, applySubmissionUpdates } from '../utils/gradebook';
+import { repairTaskWeightsAndRooms } from '../utils/taskRepair';
 import { mergeStreamAndCourseAnnouncements } from '../utils/announcementMerge';
 
 /**
@@ -1305,6 +1306,9 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
 
     // Put marks and submissions on their tasks (only changed tasks are touched)
     const marksChanged = applySubmissionUpdates(finalTasks, submissionUpdates);
+
+    // Correct weights and rooms saved by older rules (tasks the student edited are left alone)
+    repairTaskWeightsAndRooms(finalTasks);
 
     // Auto-register any new courses found in scanned tasks or discovered courses
     await autoRegisterDiscoveredCourses([...finalTasks, ...discoveredCourses]).catch(() => {});
