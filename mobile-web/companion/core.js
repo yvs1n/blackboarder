@@ -6,7 +6,7 @@ var BBCoreBundle = (function() {
 	* These helpers drop or repair records that could crash a renderer or be used as an HTML/CSS
 	* injection payload once interpolated into the UI.
 	*/
-	var SAFE_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
+	var SAFE_ID = /^[^\u0000-\u001f\u007f<>"`\\]{1,200}$/;
 	var SAFE_HEX = /^#[0-9a-f]{3,8}$/i;
 	var TASK_TYPES = [
 		"quiz",
