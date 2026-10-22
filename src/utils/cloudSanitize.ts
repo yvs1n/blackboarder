@@ -6,7 +6,10 @@ import type { DeadlineTask, QuickLink, UserCourseConfig } from '../types';
  * injection payload once interpolated into the UI.
  */
 
-const SAFE_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
+// Ids are always HTML-escaped where they are rendered, so only characters that could break out
+// of markup or a stored key are refused. Arabic letters, brackets and apostrophes are allowed:
+// stream task ids are built from titles such as "واجب (10 درجات)" or "Newton's 2nd Law".
+const SAFE_ID = /^[^\u0000-\u001f\u007f<>"`\\]{1,200}$/;
 const SAFE_HEX = /^#[0-9a-f]{3,8}$/i;
 const TASK_TYPES = ['quiz', 'assignment', 'exam', 'project', 'lab', 'meeting', 'other'];
 const PRIORITIES = ['high', 'medium', 'low'];

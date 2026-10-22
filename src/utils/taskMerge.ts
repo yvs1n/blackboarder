@@ -1,5 +1,5 @@
 import { DeadlineTask } from '../types';
-import { resolveCourseInfo } from '../core/courseHelper';
+import { resolveCourseInfo, isValidTask } from '../core/courseHelper';
 
 export type TombstoneMap = Record<string, string>;
 
@@ -103,6 +103,9 @@ export function mergeCloudTasks(
 
     const local = merged.get(cloud.id);
     if (!local) {
+      // A task this device's cleanup removed (junk, not tombstoned) must not come back from
+      // a cloud copy written before the cleanup reached it.
+      if (!isValidTask(cloud)) continue;
       merged.set(cloud.id, cloud);
       changed = true;
       continue;

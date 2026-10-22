@@ -178,7 +178,7 @@ In `database.rules.json`, public root access is forbidden. Every student's data 
       "$syncKey": {
         ".read": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
         ".write": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
-        "data": { ".validate": "newData.hasChild('tasks')" },
+        "data": { ".validate": "newData.hasChild('lastSync')" },
         "$other": { ".validate": false }
       }
     }
@@ -276,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (358 tests across 39 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (363 tests across 40 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -297,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **39 test files comprising 358 automated tests** running on Vitest:
+Blackboarder is covered by **40 test files comprising 363 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -315,8 +315,8 @@ Blackboarder is covered by **39 test files comprising 358 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 25 Test Suites* | 217 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **358** | **100% Passing** |
+| *Other 26 Test Suites* | 222 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, Firebase sync fixes, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **363** | **100% Passing** |
 
 ---
 
@@ -378,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 39 Vitest test suites (358 tests)
+├── tests/                            # 40 Vitest test suites (363 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -443,6 +443,15 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Firebase sync review
+- Owner asked for a check of the whole Firebase flow (extension popup, background worker, phone app, edge worker, rules).
+- Cloud reads dropped tasks with Arabic, brackets or apostrophes in their id (`SAFE_ID` allowed only `A-Za-z0-9_.:@-`). Stream ids are built from titles, so "واجب (10 درجات)", "البحث العلمي" and "Newton's 2nd Law" never reached the phone, and every phone save rewrote the cloud without them. Ids are HTML-escaped wherever rendered, so `SAFE_ID` now only refuses control characters, `<`, `>`, `"`, backtick and backslash. The popup's one id-built CSS selector (`#quote-body-<id>`) now uses `.quote-body`.
+- `mergeCloudTasks()` no longer adds cloud-only tasks that fail `isValidTask()`. Before, the popup's cleanup removed junk locally, then the pre-push pull merged the old cloud copy back and pushed it again.
+- Phone `pushStateToCloud()` only added cloud-only tasks and pushed its own copy of shared tasks, overwriting newer edits from the extension. It now keeps whichever copy has the newer `updatedAt`. It also posted every save to `/api/sync`, which wrote the same document to Firebase a second time and could overwrite a newer extension save; that route is now only a fallback when the direct PUT fails.
+- Firebase drops empty arrays, so a saved empty task list had no `tasks` child: the rule `newData.hasChild('tasks')` rejected it, and readers treated the key as brand new. The rule is now `newData.hasChild('lastSync')`, and the extension and phone read lastSync-without-tasks as an empty list.
+- Checked and left as is: writes are whole-document PUTs with no ETag, so two devices saving within the same moment can still lose one change (each device pulls and merges right before pushing, which keeps the window small); tombstones are never pruned; the extension pulls quick links from the cloud whenever the cloud has any.
+- Owner action: publish the updated `database.rules.json` in the Firebase console (Realtime Database > Rules).
 
 ### 2026-10-22 - Edited tasks safe from the misfiled-copy rule; scanned extras removed
 - Owner listed the real deadlines: Physics 1 midterm today, English midterm Sunday, Quiz 3 next week in both Physics 1 Lab and Intro to CPE, and asked for every other random deadline to go.

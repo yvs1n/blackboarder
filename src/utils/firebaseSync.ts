@@ -122,10 +122,11 @@ export async function fetchTasksFromFirebase(syncKey?: string): Promise<{
     const quickLinks = sanitizeCloudQuickLinks(data?.quickLinks);
     const courses = sanitizeCloudCourses(data?.courses);
     if (!data || !Array.isArray(data.tasks)) {
+      // Firebase drops empty arrays: a saved empty list has lastSync but no tasks
       return {
         success: true,
         tasks: [],
-        lastSync: undefined,
+        lastSync: data?.lastSync,
         quickLinks,
         courses,
         coursesUpdatedAt: data?.coursesUpdatedAt,

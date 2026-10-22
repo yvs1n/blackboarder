@@ -7,7 +7,7 @@
         ".read": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
         ".write": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
         "data": {
-          ".validate": "newData.hasChild('tasks')"
+          ".validate": "newData.hasChild('lastSync')"
         },
         "$other": {
           ".validate": false

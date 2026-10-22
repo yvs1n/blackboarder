@@ -55,7 +55,7 @@ describe('Firebase rules match where the apps store data', () => {
   it('validates users/<key>/data, the path every client writes', () => {
     const rules = JSON.parse(fs.readFileSync('database.rules.json', 'utf8')).rules;
     expect(rules['.read']).toBe(false);
-    expect(rules.users.$syncKey.data['.validate']).toContain("hasChild('tasks')");
+    expect(rules.users.$syncKey.data['.validate']).toContain("hasChild('lastSync')");
     expect(rules.users.$syncKey['.read']).toContain('length >= 8');
     expect(rules.users.$syncKey.$other['.validate']).toBe(false);
   });

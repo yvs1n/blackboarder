@@ -1621,8 +1621,9 @@ async function fetchTasksFromServer(isManual = false) {
               fetchedCourses = sanitizeCloudCourses(fbData.courses);
               fetchedCoursesUpdatedAt = fbData.coursesUpdatedAt || null;
             }
-            if (Array.isArray(fbData.tasks)) {
-              fetchedTasks = sanitizeCloudTasks(fbData.tasks);
+            // Firebase drops empty arrays, so a saved empty list arrives with lastSync but no tasks
+            if (Array.isArray(fbData.tasks) || fbData.lastSync) {
+              fetchedTasks = sanitizeCloudTasks(fbData.tasks || []);
               fetchedSync = fbData.lastSync || new Date().toISOString();
               tasksLoaded = true;
               if (Array.isArray(fbData.quickLinks) && fbData.quickLinks.length > 0) {
@@ -5106,13 +5107,21 @@ async function pushStateToCloud() {
         }
       }
     }
+    const cloudTasks = sanitizeCloudTasks(snap.tasks);
+    const cloudById = new Map(cloudTasks.map(ct => [ct.id, ct]));
+    const stamp = t => new Date(t.updatedAt || t.createdAt || 0).getTime() || 0;
     const localIds = new Set((state.tasks || []).map(t => t.id));
-    const cloudOnly = sanitizeCloudTasks(snap.tasks).filter(ct => {
+    // A task edited on another device after this phone last fetched keeps that newer copy
+    tasksToPush = (state.tasks || []).map(t => {
+      const ct = cloudById.get(t.id);
+      return ct && stamp(ct) > stamp(t) ? ct : t;
+    });
+    const cloudOnly = cloudTasks.filter(ct => {
       if (localIds.has(ct.id)) return false;
       const tomb = tombstones[ct.id];
-      return !(tomb && new Date(tomb).getTime() >= new Date(ct.updatedAt || ct.createdAt || 0).getTime());
+      return !(tomb && new Date(tomb).getTime() >= stamp(ct));
     });
-    if (cloudOnly.length > 0) tasksToPush = [...(state.tasks || []), ...cloudOnly];
+    if (cloudOnly.length > 0) tasksToPush = [...tasksToPush, ...cloudOnly];
     if ((!linksToPush || linksToPush.length === 0) && Array.isArray(snap.quickLinks)) {
       linksToPush = sanitizeCloudQuickLinks(snap.quickLinks);
     }
@@ -5144,15 +5153,20 @@ async function pushStateToCloud() {
     console.warn('Firebase sync PUT error:', err);
   }
 
-  try {
-    const activeKey = getSyncKey();
-    const edgeSyncUrl = activeKey ? `/api/sync?key=${encodeURIComponent(activeKey)}` : '/api/sync';
-    await fetch(edgeSyncUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(activeKey ? { 'x-sync-key': activeKey } : {}) },
-      body: JSON.stringify(payload)
-    });
-  } catch (err) {}
+  // The edge API writes the same Firebase document, so it is only a fallback: a second, later
+  // copy of this payload could overwrite a newer save from the extension.
+  if (!cloudOk) {
+    try {
+      const activeKey = getSyncKey();
+      const edgeSyncUrl = activeKey ? `/api/sync?key=${encodeURIComponent(activeKey)}` : '/api/sync';
+      const edgeRes = await fetch(edgeSyncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(activeKey ? { 'x-sync-key': activeKey } : {}) },
+        body: JSON.stringify(payload)
+      });
+      cloudOk = edgeRes.ok;
+    } catch (err) {}
+  }
 
   try {
     const syncChannel = new BroadcastChannel('bbs_sync_channel');

@@ -1898,7 +1898,7 @@ function renderTasks() {
     // Toggle quote expansion
     card.querySelector('.btn-toggle-quote')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const body = card.querySelector(`#quote-body-${task.id}`);
+      const body = card.querySelector('.quote-body');
       const btn = card.querySelector('.btn-toggle-quote') as HTMLElement;
       if (!body || !btn) return;
       const isClamped = body.classList.contains('clamped');
