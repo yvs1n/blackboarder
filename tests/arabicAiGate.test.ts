@@ -53,9 +53,9 @@ describe('AI keyword gate handles Arabic', () => {
   });
 });
 
-describe('local parser knows the plural for presentations', () => {
-  it('finds a deadline in an Arabic presentations announcement with a date', () => {
+describe('presentations are not turned into tasks by the local parser', () => {
+  it('leaves an Arabic presentations announcement to the AI instead of making a "Meeting"', () => {
     const tasks = extractDeadlinesLocally(ann('إعلان: عروض الطلاب', 'عروض الطلاب يوم 2026-11-05 الساعة 10:00 صباحاً'));
-    expect(tasks.length).toBeGreaterThan(0);
+    expect(tasks).toHaveLength(0);
   });
 });

@@ -468,6 +468,7 @@ export function isValidTask(task: {
   sourceSnippet?: string;
   userEdited?: boolean;
   extractedBy?: string;
+  type?: string;
 }): boolean {
   if (!task || !task.title || !task.title.trim()) return false;
   // User-created or user-edited tasks are ALWAYS valid and must never be pruned
@@ -520,9 +521,11 @@ export function isValidTask(task: {
     return false;
   }
 
-  // 5b. Tasks called only "Meeting" or "Other": older scans made these from office hours,
-  // start dates and presentation schedules. Blackboard due-date items ("Due date: ...") stay.
-  if (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) && !/^due\s*date/i.test(snippet || desc)) {
+  // 5b. Scanned extras that are not graded work: tasks called only "Meeting" or "Other", and
+  // any task read from an announcement as type "other" or "meeting" (office hours, paper
+  // reviews, presentation schedules, start dates). Blackboard due-date items ("Due date: ...") stay.
+  const isDueDateItem = /^due\s*date/i.test(snippet || desc);
+  if (!isDueDateItem && (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) || task.type === 'other' || task.type === 'meeting')) {
     return false;
   }
   return true;

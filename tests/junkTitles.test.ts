@@ -85,10 +85,21 @@ describe('tasks titled only with a type word', () => {
 describe('announcement filed under the wrong course', () => {
   it('drops the stream copy of Quiz 3 that sits in Physics 1 Lab on the wrong day', () => {
     const right = task({ id: 'right', title: 'Quiz 3', type: 'quiz', courseName: 'Introduction to Computer Eng.', announcementId: 'ann_api__597049_1', dueDate: '2026-10-29T07:00:00.000Z', description: QUIZ3, sourceSnippet: QUIZ3 });
-    const wrong = task({ id: 'wrong', title: 'Quiz 3', type: 'quiz', courseName: 'Physics 1 Lab', announcementId: 'ann_ultra__596674_1', dueDate: '2026-10-28T10:00:00.000Z', userEdited: true, description: QUIZ3, sourceSnippet: QUIZ3 });
+    const wrong = task({ id: 'wrong', title: 'Quiz 3', type: 'quiz', courseName: 'Physics 1 Lab', announcementId: 'ann_ultra__596674_1', dueDate: '2026-10-28T10:00:00.000Z', description: QUIZ3, sourceSnippet: QUIZ3 });
     const out = deduplicateTaskList([wrong, right]);
     expect(out.map(t => t.id)).toEqual(['right']);
     expect(out[0].dueDate.slice(0, 10)).toBe('2026-10-29');
+  });
+
+  it('keeps a copy the student edited (Physics 1 Lab has its own Quiz 3)', () => {
+    const right = task({ id: 'right', title: 'Quiz 3', type: 'quiz', courseName: 'Introduction to Computer Eng.', announcementId: 'ann_api__597049_1', dueDate: '2026-10-29T07:00:00.000Z', description: QUIZ3, sourceSnippet: QUIZ3 });
+    const lab = task({ id: 'lab', title: 'Quiz 3', type: 'quiz', courseName: 'Physics 1 Lab', announcementId: 'ann_ultra__596674_1', dueDate: '2026-10-28T10:00:00.000Z', userEdited: true, description: QUIZ3, sourceSnippet: QUIZ3 });
+    expect(deduplicateTaskList([lab, right]).map(t => t.id).sort()).toEqual(['lab', 'right']);
+  });
+
+  it('removes scanned extras that are not graded work, like a paper review deadline', () => {
+    expect(isValidTask(task({ title: 'Midterm Exam Paper Review Deadline', type: 'other', extractedBy: 'ai' }))).toBe(false);
+    expect(isValidTask(task({ title: 'Midterm Exam Paper Review Deadline', type: 'other', extractedBy: 'ai', userEdited: true }))).toBe(true);
   });
 
   it('keeps the same quiz text in two courses when both came from the announcement list', () => {

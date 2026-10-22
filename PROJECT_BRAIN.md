@@ -276,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (356 tests across 39 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (358 tests across 39 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -297,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **39 test files comprising 356 automated tests** running on Vitest:
+Blackboarder is covered by **39 test files comprising 358 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -315,8 +315,8 @@ Blackboarder is covered by **39 test files comprising 356 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 25 Test Suites* | 215 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **356** | **100% Passing** |
+| *Other 25 Test Suites* | 217 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **358** | **100% Passing** |
 
 ---
 
@@ -378,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 39 Vitest test suites (356 tests)
+├── tests/                            # 39 Vitest test suites (358 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -443,6 +443,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Edited tasks safe from the misfiled-copy rule; scanned extras removed
+- Owner listed the real deadlines: Physics 1 midterm today, English midterm Sunday, Quiz 3 next week in both Physics 1 Lab and Intro to CPE, and asked for every other random deadline to go.
+- Mistake in the previous entry: the Physics 1 Lab "Quiz 3" (Oct 28) was real. The owner had edited it, but it carried the CPE announcement text, so `dropMisfiledCopies()` would have removed it. It now never drops tasks the student made or edited.
+- `isValidTask()` rule 5b also drops any scanned task of type `other` or `meeting` (not "Due date:" items, not edited), such as the AI's "Midterm Exam Paper Review Deadline". The local extractor no longer makes `meeting` tasks (presentations included) or `other` tasks; a name borrowed from the heading also takes its type.
+- Dry run on the owner's backup: the pending tasks left are exactly Physics 1 Midterm (Oct 22), English Midterm (Oct 25), Physics 1 Lab Quiz 3 (Oct 28) and Intro to CPE Quiz 3 (Oct 29).
+- Still open: if the owner opened the popup on commit e62cd94 before this fix, the Lab Quiz 3 was already removed and must be added again by hand (no tombstone was written for it, so a re-add sticks).
 
 ### 2026-10-22 - Junk tasks called "Exam", "Meeting", "Other" removed
 - Owner sent a task backup. 10 junk tasks: 9 scanned tasks titled only with a type word ("Exam", "Meeting", "Other", "Assignment", "Lab", "quiz") made from office hours, start dates, a lab-coat reminder, a presentation schedule and a date-only line, plus a Computer Eng "Quiz 3" filed under Physics 1 Lab on the wrong day.

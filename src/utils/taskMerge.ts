@@ -333,12 +333,13 @@ const normTitle = (t: DeadlineTask) => (t.title || '').toLowerCase().replace(/[^
  * e.g. Computer Eng's "Quiz 3" under Physics Lab on the wrong day. When a task has the same
  * title and the same full announcement text as one read from Blackboard's announcement list
  * (`ann_api_`), but a different course, the list copy is right and the other copy is dropped.
+ * Tasks the student made or edited are never dropped: they may have fixed the course and date.
  */
 function dropMisfiledCopies(tasks: DeadlineTask[]): DeadlineTask[] {
   const fromApi = tasks.filter(t => t && (t.announcementId || '').startsWith('ann_api_') && normText(t).length >= 80);
   if (fromApi.length === 0) return tasks;
   return tasks.filter(t => {
-    if (!t || t.extractedBy === 'manual' || (t.announcementId || '').startsWith('ann_api_')) return true;
+    if (!t || t.extractedBy === 'manual' || t.userEdited || (t.announcementId || '').startsWith('ann_api_')) return true;
     const text = normText(t);
     if (text.length < 80) return true;
     const course = resolveCourseInfo(t).courseName.toLowerCase();

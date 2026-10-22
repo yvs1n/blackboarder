@@ -1192,7 +1192,7 @@ var BBCoreBundle = (function() {
 		const isGenericCourse = !task.courseName || task.courseName === "General Course" || task.courseName.toLowerCase() === "uos";
 		const isGenericCode = !task.courseCode || task.courseCode === "UOS";
 		if (isGenericTitle && isGenericCourse && isGenericCode) return false;
-		if (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) && !/^due\s*date/i.test(snippet || desc)) return false;
+		if (!/^due\s*date/i.test(snippet || desc) && (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) || task.type === "other" || task.type === "meeting")) return false;
 		return true;
 	}
 	/** True for titles that are only a task type word, such as "Exam", "Meeting" or "Other". */
@@ -1643,12 +1643,13 @@ var BBCoreBundle = (function() {
 	* e.g. Computer Eng's "Quiz 3" under Physics Lab on the wrong day. When a task has the same
 	* title and the same full announcement text as one read from Blackboard's announcement list
 	* (`ann_api_`), but a different course, the list copy is right and the other copy is dropped.
+	* Tasks the student made or edited are never dropped: they may have fixed the course and date.
 	*/
 	function dropMisfiledCopies(tasks) {
 		const fromApi = tasks.filter((t) => t && (t.announcementId || "").startsWith("ann_api_") && normText(t).length >= 80);
 		if (fromApi.length === 0) return tasks;
 		return tasks.filter((t) => {
-			if (!t || t.extractedBy === "manual" || (t.announcementId || "").startsWith("ann_api_")) return true;
+			if (!t || t.extractedBy === "manual" || t.userEdited || (t.announcementId || "").startsWith("ann_api_")) return true;
 			const text = normText(t);
 			if (text.length < 80) return true;
 			const course = resolveCourseInfo(t).courseName.toLowerCase();
@@ -2330,23 +2331,22 @@ var BBCoreBundle = (function() {
 				}
 			}
 			if (!matchedType && !/\b(?:due|deadline|submission)\b|تسليم|موعد/i.test(sentence)) continue;
-			const effectiveType = matchedType || "other";
+			let effectiveType = matchedType || "other";
 			const dateMatch = parseDateString(sentence, baseDate);
 			if (!dateMatch) continue;
 			const dateKey = `${announcement.courseCode}_${effectiveType}_${dateMatch.date.toDateString()}`;
 			if (detectedKeys.has(dateKey)) continue;
 			detectedKeys.add(dateKey);
 			let title = extractTaskTitle(sentence, effectiveType);
-			if (effectiveType === "meeting") {
-				const isPresentation = /presentations?|عروض|عرض\s*تقديمي/i.test(sentence);
-				const yearsMentioned = (cleanContent.match(/\b20\d\d\b/g) || []).length;
-				if (!isPresentation || yearsMentioned >= 3) continue;
-				title = "Presentation";
-			} else if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === "other")) {
+			if (effectiveType === "meeting") continue;
+			if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === "other")) {
 				const fromHeading = extractTaskTitle(announcement.title || "", effectiveType);
 				if (isBareTypeTitle(fromHeading)) continue;
 				title = fromHeading;
+				const headingType = TASK_TYPE_PATTERNS.find((p) => p.type !== "other" && p.regex.test(fromHeading));
+				if (headingType) effectiveType = headingType.type;
 			}
+			if (effectiveType === "other") continue;
 			const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 			const scheduleResult = resolveTaskTimeWithSchedule({
 				dueDate: dateMatch.date,

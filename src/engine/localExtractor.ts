@@ -580,7 +580,7 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
       continue;
     }
 
-    const effectiveType = matchedType || 'other';
+    let effectiveType: TaskType = matchedType || 'other';
 
     // Attempt date extraction from this sentence
     const dateMatch = parseDateString(sentence, baseDate);
@@ -601,15 +601,17 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     // they used to become tasks called "Meeting" or "Other".
     let title = extractTaskTitle(sentence, effectiveType);
     if (effectiveType === 'meeting') {
-      const isPresentation = /presentations?|عروض|عرض\s*تقديمي/i.test(sentence);
-      const yearsMentioned = (cleanContent.match(/\b20\d\d\b/g) || []).length;
-      if (!isPresentation || yearsMentioned >= 3) continue;
-      title = 'Presentation';
-    } else if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === 'other')) {
+      continue;
+    }
+    if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === 'other')) {
       const fromHeading = extractTaskTitle(announcement.title || '', effectiveType);
       if (isBareTypeTitle(fromHeading)) continue;
       title = fromHeading;
+      const headingType = TASK_TYPE_PATTERNS.find(p => p.type !== 'other' && p.regex.test(fromHeading));
+      if (headingType) effectiveType = headingType.type;
     }
+    // Dates that are not graded work ("other") are left out; the AI tier may still name them.
+    if (effectiveType === 'other') continue;
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // Time adjustment: if teacher gave a specific time, preserve it.
