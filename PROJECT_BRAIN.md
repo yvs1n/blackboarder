@@ -138,7 +138,7 @@ graph TB
 ### 3.1 Chrome Extension Architecture (Manifest V3)
 - **Popup UI (`src/popup/`)**:
   - Built with pure TypeScript, Swiss Grid CSS, and zero UI frameworks for near-zero startup latency.
-  - Tabs: Monthly Calendar, Deadlines List, Quick Links, Marks, and Settings. The Marks card (Deadline Details view, and the phone's deadlines view) lists every graded and submitted item by course; both apps render it with `src/utils/marks.ts`.
+  - Tabs: Monthly Calendar, Deadlines List, Quick Links, Marks, Syllabus Progress, and Settings. The Marks card (Deadline Details view, and the phone's deadlines view) lists every graded and submitted item by course; both apps render it with `src/utils/marks.ts`.
   - Settings is split into pages by a tab strip (General, Courses, Scanning, Sync, Alerts, Data, Updates); every page lives in the one `#form-settings`, so a new setting goes in the card of the page it belongs to.
   - The header row holds only Scan, Add deadline and Settings. Phone sync, calendar (.ics) export, quick links and the theme live in Settings (Sync, Data, General, General).
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (400 tests across 47 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (402 tests across 48 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **47 test files comprising 400 automated tests** running on Vitest:
+Blackboarder is covered by **48 test files comprising 402 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **47 test files comprising 400 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 33 Test Suites* | 258 | Regex extraction, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **400** | **100% Passing** |
+| *Other 34 Test Suites* | 260 | Regex extraction, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **402** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 47 Vitest test suites (400 tests)
+├── tests/                            # 48 Vitest test suites (402 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Syllabus Progress card back
+- Owner: keep the old syllabus tracker too, to see how much of each syllabus is done.
+- A "Syllabus Progress" card sits under Marks in the popup and the phone app: per course, the weight done, pending, and not announced yet, with an overall percentage. Shared code: `src/utils/syllabusProgress.ts` (exported through `BBCore`). Bars use the two tones (done = text colour, pending = muted grey) instead of the old blue, and the popup version no longer hard-codes dark colours.
+- Owner asked whether marks are saved in Firebase: yes. Marks are fields on each task (`submissionStatus`, `score`, `maxScore`); `sanitizeCloudTasks` keeps them, every scan sends `SYNC_TO_SERVER`, and the merge keeps the copy with the newer `updatedAt`, which a changed mark or repaired weight bumps.
+- Test: `tests/syllabusProgress.test.ts`. Checked in the built popup with the default courses.
 
 ### 2026-10-22 - Weights and rooms stop changing on their own; one Marks list
 - Owner: the CPE Midterm card showed room "s" and "75% of Grade", and values changed without any edit ("like hallucination"); asked for one place with all marks.

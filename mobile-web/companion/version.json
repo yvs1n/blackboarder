@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "8fa8fbb4850c",
-  "commit": "de1b4c5ed410f90b1791569fc5df797a8c321a93",
-  "shortCommit": "de1b4c5",
-  "timestamp": "2026-10-22T18:41:55.826Z",
-  "message": "build: update generated files for f4dd69b",
+  "build": "1db0e37f86f5",
+  "commit": "20140f0563f26e7c3923e1a8d8fd23fa18ac0a70",
+  "shortCommit": "20140f0",
+  "timestamp": "2026-10-22T18:52:57.116Z",
+  "message": "Stop weights and rooms changing on their own; add one Marks list",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

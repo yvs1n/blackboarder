@@ -22,6 +22,7 @@ import { filterCleanUserCourses } from '../core/courseFilter';
 import { extractRoomFromText, resolveTaskRoom, findCourseSchedule, resolveTaskTimeWithSchedule } from '../core/courseSchedule';
 import { resolveTaskWeight, extractExplicitPoints, extractAssessmentNumber } from '../core/syllabusWeights';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText, formatScore } from '../utils/marks';
+import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
 import {
   sanitizeDoctorAnnouncementText,
   resolveCourseInfo,
@@ -111,6 +112,8 @@ const BBCore = {
   marksSummaryHtml,
   marksBadgeText,
   formatScore,
+  buildSyllabusProgress,
+  syllabusProgressHtml,
   extractExplicitPoints,
   extractAssessmentNumber,
   sanitizeDoctorAnnouncementText,

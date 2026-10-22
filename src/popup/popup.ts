@@ -1,5 +1,6 @@
 import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText } from '../utils/marks';
+import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
 import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -1554,13 +1555,26 @@ function renderGradeTracker(tasks: DeadlineTask[]) {
   const summary = buildMarksSummary(tasks, getAllSyllabi());
   badge.textContent = marksBadgeText(summary);
   breakdown.innerHTML = marksSummaryHtml(summary, name => getCourseHex(name));
+
+  // Syllabus Progress card
+  const sylBadge = document.getElementById('syllabus-tracker-badge');
+  const sylBody = document.getElementById('syllabus-tracker-breakdown');
+  if (sylBadge && sylBody) {
+    const progress = buildSyllabusProgress(tasks, getAllSyllabi());
+    sylBadge.textContent = `${progress.overallPercent}% done`;
+    sylBody.innerHTML = syllabusProgressHtml(progress, name => getCourseHex(name));
+  }
 }
 
 function initGradeTrackerToggle() {
-  const toggleBtn = document.getElementById('grade-tracker-toggle-btn');
-  const breakdown = document.getElementById('grade-tracker-breakdown');
-  const arrow = document.getElementById('grade-tracker-arrow');
+  wireCollapsible('syllabus-tracker-toggle-btn', 'syllabus-tracker-breakdown', 'syllabus-tracker-arrow');
+  wireCollapsible('grade-tracker-toggle-btn', 'grade-tracker-breakdown', 'grade-tracker-arrow');
+}
 
+function wireCollapsible(btnId: string, bodyId: string, arrowId: string) {
+  const toggleBtn = document.getElementById(btnId);
+  const breakdown = document.getElementById(bodyId);
+  const arrow = document.getElementById(arrowId);
   toggleBtn?.addEventListener('click', () => {
     if (!breakdown) return;
     const isHidden = breakdown.style.display === 'none' || !breakdown.style.display;
@@ -1570,6 +1584,7 @@ function initGradeTrackerToggle() {
     }
   });
 }
+
 
 // ============================================================================
 // Details View (Task Cards List)

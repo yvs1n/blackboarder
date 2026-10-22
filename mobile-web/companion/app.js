@@ -990,7 +990,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"8fa8fbb4850c","version":"1.1.0","shortCommit":"de1b4c5","timestamp":"2026-10-22T18:41:55.826Z"};
+const APP_BUILD = {"build":"1db0e37f86f5","version":"1.1.0","shortCommit":"20140f0","timestamp":"2026-10-22T18:52:57.116Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3404,9 +3404,28 @@ function renderGradeTracker() {
   const summary = BB.buildMarksSummary(state.tasks, DEFAULT_SYLLABUS_DATABASE);
   badge.textContent = BB.marksBadgeText(summary);
   breakdown.innerHTML = BB.marksSummaryHtml(summary, name => getCourseColor('', name));
+
+  // Syllabus Progress card
+  const sylBadge = document.getElementById('mobile-syllabus-tracker-badge');
+  const sylBody = document.getElementById('mobile-syllabus-tracker-breakdown');
+  if (sylBadge && sylBody) {
+    const progress = BB.buildSyllabusProgress(state.tasks, DEFAULT_SYLLABUS_DATABASE);
+    sylBadge.textContent = `${progress.overallPercent}% done`;
+    sylBody.innerHTML = BB.syllabusProgressHtml(progress, name => getCourseColor('', name));
+  }
 }
 
 function initGradeTracker() {
+  const sylBtn = document.getElementById('mobile-syllabus-tracker-toggle-btn');
+  const sylBody = document.getElementById('mobile-syllabus-tracker-breakdown');
+  const sylArrow = document.getElementById('mobile-syllabus-tracker-arrow');
+  sylBtn?.addEventListener('click', () => {
+    if (!sylBody) return;
+    const isHidden = sylBody.style.display === 'none' || !sylBody.style.display;
+    sylBody.style.display = isHidden ? 'flex' : 'none';
+    if (sylArrow) sylArrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+  });
+
   const toggleBtn = document.getElementById('mobile-grade-tracker-toggle-btn');
   const breakdown = document.getElementById('mobile-grade-tracker-breakdown');
   const arrow = document.getElementById('mobile-grade-arrow');

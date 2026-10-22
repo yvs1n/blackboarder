@@ -1534,7 +1534,7 @@ var BBCoreBundle = (function() {
 		return {};
 	}
 	// src/utils/marks.ts
-	var round1 = (n) => Math.round(n * 10) / 10;
+	var round1$1 = (n) => Math.round(n * 10) / 10;
 	/**
 	* Every mark in one place: graded and submitted tasks grouped by course, with each course's
 	* earned share of the grade. Courses are named after their syllabus when one matches.
@@ -1573,9 +1573,9 @@ var BBCoreBundle = (function() {
 				gradedCount++;
 				row.score = t.score;
 				row.maxScore = t.maxScore;
-				row.percent = round1(t.score / t.maxScore * 100);
+				row.percent = round1$1(t.score / t.maxScore * 100);
 				if (weight) {
-					row.earned = round1(t.score / t.maxScore * weight);
+					row.earned = round1$1(t.score / t.maxScore * weight);
 					course.gradedWeight += weight;
 					course.earnedWeight += t.score / t.maxScore * weight;
 				}
@@ -1584,10 +1584,10 @@ var BBCoreBundle = (function() {
 		}
 		const courses = Array.from(byCourse.values());
 		for (const c of courses) {
-			c.gradedWeight = round1(c.gradedWeight);
-			c.earnedWeight = round1(c.earnedWeight);
+			c.gradedWeight = round1$1(c.gradedWeight);
+			c.earnedWeight = round1$1(c.earnedWeight);
 			const pcts = c.marks.filter((m) => m.percent !== void 0).map((m) => m.percent);
-			if (pcts.length) c.averagePercent = round1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+			if (pcts.length) c.averagePercent = round1$1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
 			c.marks.sort((a, b) => (a.status === b.status ? 0 : a.status === "graded" ? -1 : 1) || String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
 		}
 		courses.sort((a, b) => a.courseName.localeCompare(b.courseName));
@@ -1599,10 +1599,10 @@ var BBCoreBundle = (function() {
 	}
 	/** "4.5 / 5" with trailing zeros dropped. */
 	function formatScore(score, max) {
-		const f = (n) => n === void 0 ? "-" : String(round1(n));
+		const f = (n) => n === void 0 ? "-" : String(round1$1(n));
 		return `${f(score)} / ${f(max)}`;
 	}
-	function esc(s) {
+	function esc$1(s) {
 		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
 			"&": "&amp;",
 			"<": "&lt;",
@@ -1627,13 +1627,68 @@ var BBCoreBundle = (function() {
 		return summary.courses.map((c) => {
 			const head = c.gradedWeight > 0 ? `<span class="marks-course-total" title="Course grade earned from graded items with a known weight">${c.earnedWeight}% of ${c.gradedWeight}% graded</span>` : c.averagePercent !== void 0 ? `<span class="marks-course-total">Avg ${c.averagePercent}%</span>` : "";
 			const rows = c.marks.map((m) => {
-				const right = m.status === "graded" ? `<span class="marks-score">${esc(formatScore(m.score, m.maxScore))}</span><span class="marks-pct">${m.percent}%</span>` : "<span class=\"marks-awaiting\">Submitted</span>";
+				const right = m.status === "graded" ? `<span class="marks-score">${esc$1(formatScore(m.score, m.maxScore))}</span><span class="marks-pct">${m.percent}%</span>` : "<span class=\"marks-awaiting\">Submitted</span>";
 				const sub = m.weight ? `<span class="marks-weight">${m.earned !== void 0 ? `${m.earned} of ${m.weight}%` : `worth ${m.weight}%`}</span>` : "";
-				return `<div class="marks-row"><span class="marks-title">${esc(m.title)}</span>${sub}<span class="marks-right">${right}</span></div>`;
+				return `<div class="marks-row"><span class="marks-title">${esc$1(m.title)}</span>${sub}<span class="marks-right">${right}</span></div>`;
 			}).join("");
 			return `<div class="marks-course">
-      <div class="marks-course-head"><span class="marks-dot" style="background:${esc(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc(c.courseName)}</span>${head}</div>
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc$1(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc$1(c.courseName)}</span>${head}</div>
       ${rows}
+    </div>`;
+		}).join("");
+	}
+	// src/utils/syllabusProgress.ts
+	var round1 = (n) => Math.round(n * 10) / 10;
+	/** How much of each course's syllabus weight is done, still pending, or not announced yet. */
+	function buildSyllabusProgress(tasks, syllabi) {
+		let done = 0;
+		let total = 0;
+		return {
+			courses: syllabi.map((s) => {
+				const totalWeight = s.totalWeight || 100;
+				let completed = 0;
+				let pending = 0;
+				for (const t of tasks || []) {
+					if (!t) continue;
+					if (!(s.courseCodePattern.test(t.courseName || "") || s.courseCodePattern.test(t.courseCode || "") || s.courseCodePattern.test(t.title || ""))) continue;
+					const w = Number(t.weight) || 0;
+					if (t.status === "completed") completed += w;
+					else pending += w;
+				}
+				completed = round1(Math.min(completed, totalWeight));
+				pending = round1(Math.min(pending, totalWeight - completed));
+				done += completed;
+				total += totalWeight;
+				return {
+					courseName: s.courseName,
+					totalWeight,
+					completedWeight: completed,
+					pendingWeight: pending,
+					upcomingWeight: round1(Math.max(0, totalWeight - completed - pending)),
+					percentDone: Math.round(completed / totalWeight * 100)
+				};
+			}),
+			overallPercent: total > 0 ? Math.round(done / total * 100) : 0
+		};
+	}
+	function esc(s) {
+		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#39;"
+		})[c]);
+	}
+	/** The Syllabus Progress list, shared by the popup and the phone app (same classes in both stylesheets). */
+	function syllabusProgressHtml(p, colorFor) {
+		if (!p.courses.length) return "<div class=\"marks-empty\">No courses configured yet.</div>";
+		return p.courses.map((c) => {
+			const pendingPct = Math.round(c.pendingWeight / c.totalWeight * 100);
+			return `<div class="marks-course">
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc(c.courseName)}</span><span class="marks-course-total">${c.percentDone}% done</span></div>
+      <div class="syl-bar" role="img" aria-label="${c.completedWeight}% done, ${c.pendingWeight}% pending, ${c.upcomingWeight}% not announced yet"><span class="syl-done" style="width:${c.percentDone}%"></span><span class="syl-pending" style="width:${Math.min(100 - c.percentDone, pendingPct)}%"></span></div>
+      <div class="syl-legend"><span>Done ${c.completedWeight}%</span><span>Pending ${c.pendingWeight}%</span><span>Not announced ${c.upcomingWeight}%</span></div>
     </div>`;
 		}).join("");
 	}
@@ -3780,6 +3835,8 @@ ${cleanBody}`;
 		marksSummaryHtml,
 		marksBadgeText,
 		formatScore,
+		buildSyllabusProgress,
+		syllabusProgressHtml,
 		extractExplicitPoints,
 		extractAssessmentNumber,
 		sanitizeDoctorAnnouncementText,
