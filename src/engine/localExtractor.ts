@@ -1,7 +1,7 @@
 import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../core/courseSchedule';
-import { sanitizeDoctorAnnouncementText } from '../core/courseHelper';
+import { sanitizeDoctorAnnouncementText, isBareTypeTitle } from '../core/courseHelper';
 
 interface DateMatchResult {
   date: Date;
@@ -488,7 +488,7 @@ function extractTaskTitle(sentence: string, taskType: TaskType): string {
   const clean = sentence.replace(/\s+/g, ' ').trim();
 
   // English title label like "Quiz 2", "Assignment 3", "Project Proposal"
-  const specificMatch = clean.match(/\b((?:Quiz|Assignment|HW|Homework|Exam|Midterm|Project|Lab)\s*(?:#?\d+|[A-Z]\b|Part\s*\d+|Phase\s*\d+|Proposal|Final)?)/i);
+  const specificMatch = clean.match(/\b((?:Final\s+Exam|Quiz|Assignment|HW|Homework|Exam|Midterm|Project|Lab)\s*(?:#?\d+|[A-Z]\b|Part\s*\d+|Phase\s*\d+|Proposal|Final)?)/i);
   if (specificMatch && specificMatch[1].length > 2) {
     return specificMatch[1].trim();
   }
@@ -562,6 +562,8 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
       }
     }
 
+    const sentenceType = matchedType;
+
     // If no explicit task keyword, check if announcement title had one
     if (!matchedType) {
       for (const pattern of TASK_TYPE_PATTERNS) {
@@ -593,7 +595,21 @@ export function extractDeadlinesLocally(announcement: Announcement): DeadlineTas
     }
     detectedKeys.add(dateKey);
 
-    const title = extractTaskTitle(sentence, effectiveType);
+    // Naming. A sentence that only has a date ("Date: Thursday 22 October", "Start date is
+    // Sept 4") borrows a specific name from the announcement heading, or is skipped. Office
+    // hours, class meetings, presentation schedules and unnamed "other" dates are skipped:
+    // they used to become tasks called "Meeting" or "Other".
+    let title = extractTaskTitle(sentence, effectiveType);
+    if (effectiveType === 'meeting') {
+      const isPresentation = /presentations?|عروض|عرض\s*تقديمي/i.test(sentence);
+      const yearsMentioned = (cleanContent.match(/\b20\d\d\b/g) || []).length;
+      if (!isPresentation || yearsMentioned >= 3) continue;
+      title = 'Presentation';
+    } else if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === 'other')) {
+      const fromHeading = extractTaskTitle(announcement.title || '', effectiveType);
+      if (isBareTypeTitle(fromHeading)) continue;
+      title = fromHeading;
+    }
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // Time adjustment: if teacher gave a specific time, preserve it.

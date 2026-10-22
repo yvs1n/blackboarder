@@ -325,6 +325,31 @@ export function mergeDuplicatePair(existing: DeadlineTask, incoming: DeadlineTas
   };
 }
 
+const normText = (t: DeadlineTask) => (t.sourceSnippet || t.description || '').replace(/\s+/g, ' ').trim().toLowerCase();
+const normTitle = (t: DeadlineTask) => (t.title || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
+
+/**
+ * Older stream scans could pair a card with another course's announcement text, filing
+ * e.g. Computer Eng's "Quiz 3" under Physics Lab on the wrong day. When a task has the same
+ * title and the same full announcement text as one read from Blackboard's announcement list
+ * (`ann_api_`), but a different course, the list copy is right and the other copy is dropped.
+ */
+function dropMisfiledCopies(tasks: DeadlineTask[]): DeadlineTask[] {
+  const fromApi = tasks.filter(t => t && (t.announcementId || '').startsWith('ann_api_') && normText(t).length >= 80);
+  if (fromApi.length === 0) return tasks;
+  return tasks.filter(t => {
+    if (!t || t.extractedBy === 'manual' || (t.announcementId || '').startsWith('ann_api_')) return true;
+    const text = normText(t);
+    if (text.length < 80) return true;
+    const course = resolveCourseInfo(t).courseName.toLowerCase();
+    return !fromApi.some(a =>
+      normText(a) === text &&
+      normTitle(a) === normTitle(t) &&
+      resolveCourseInfo(a).courseName.toLowerCase() !== course
+    );
+  });
+}
+
 /**
  * Deduplicates a list of tasks, merging duplicates and preserving chronological order.
  */
@@ -333,7 +358,7 @@ export function deduplicateTaskList(tasks: DeadlineTask[]): DeadlineTask[] {
 
   const result: DeadlineTask[] = [];
 
-  for (const incoming of tasks) {
+  for (const incoming of dropMisfiledCopies(tasks)) {
     if (!incoming || !incoming.title) continue;
 
     const existingIndex = result.findIndex(existing => areTasksDuplicates(existing, incoming));

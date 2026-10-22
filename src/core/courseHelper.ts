@@ -519,7 +519,37 @@ export function isValidTask(task: {
   if (isGenericTitle && isGenericCourse && isGenericCode) {
     return false;
   }
+
+  // 5b. Tasks called only "Meeting" or "Other": older scans made these from office hours,
+  // start dates and presentation schedules. Blackboard due-date items ("Due date: ...") stay.
+  if (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) && !/^due\s*date/i.test(snippet || desc)) {
+    return false;
+  }
   return true;
+}
+
+/**
+ * Ids of scanned tasks from before 1.1.x's naming fix whose title is only a type word
+ * ("Exam", "Assignment", "Lab", "quiz") and that came from announcement text rather than a
+ * Blackboard due-date item. The popup removes these once (see LEGACY_NAMELESS_CLEANUP_KEY).
+ */
+export function findLegacyNamelessTaskIds(tasks: Array<{
+  id: string;
+  title?: string;
+  description?: string;
+  sourceSnippet?: string;
+  userEdited?: boolean;
+  extractedBy?: string;
+}>): string[] {
+  return tasks
+    .filter(t => t && !t.userEdited && t.extractedBy !== 'manual' && isBareTypeTitle(t.title || ''))
+    .filter(t => !/^due\s*date/i.test((t.sourceSnippet || t.description || '').trim()))
+    .map(t => t.id);
+}
+
+/** True for titles that are only a task type word, such as "Exam", "Meeting" or "Other". */
+export function isBareTypeTitle(title: string): boolean {
+  return /^(?:assignment|homework|hw|exam|quiz|test|lab|meeting|other|project|presentation|task|event|deadline)$/i.test(title.trim());
 }
 
 /**

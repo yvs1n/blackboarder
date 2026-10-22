@@ -2,7 +2,7 @@ import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkC
 import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
-import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
+import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../core/syllabusWeights';
 import { findCourseSchedule, resolveTaskTimeWithSchedule, resolveTaskRoom, STUDENT_CLASS_SCHEDULE } from '../core/courseSchedule';
@@ -2199,6 +2199,22 @@ function removeTaskLocal(taskId: string): DeadlineTask[] {
   return currentTasks;
 }
 
+const LEGACY_NAMELESS_CLEANUP_KEY = 'bbs_cleanup_nameless_v1';
+function readLocalFlag(key: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const local = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+    if (!local) { resolve(true); return; }
+    try { local.get([key], res => resolve(Boolean(res?.[key]))); } catch { resolve(true); }
+  });
+}
+function writeLocalFlag(key: string): Promise<void> {
+  return new Promise(resolve => {
+    const local = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+    if (!local) { resolve(); return; }
+    try { local.set({ [key]: new Date().toISOString() }, () => resolve()); } catch { resolve(); }
+  });
+}
+
 let tombstoneChain: Promise<void> = Promise.resolve();
 function recordLocalTombstone(taskId: string): Promise<void> {
   tombstoneChain = tombstoneChain.then(() => writeLocalTombstone(taskId)).catch(() => {});
@@ -4276,6 +4292,18 @@ async function refreshDataInBackground() {
 
     currentTasks = deduplicateTaskList(currentTasks.filter(isValidTask));
     currentTasks.sort(compareTasksByTime);
+
+    // One-time removal of tasks older scans named only "Exam", "Assignment", "Lab" or "quiz".
+    // Each gets a delete record so the cloud copy and the phone do not bring it back.
+    if (!(await readLocalFlag(LEGACY_NAMELESS_CLEANUP_KEY))) {
+      const legacyIds = new Set(findLegacyNamelessTaskIds(currentTasks));
+      if (legacyIds.size > 0) {
+        currentTasks = currentTasks.filter(t => !legacyIds.has(t.id));
+        legacyIds.forEach(id => recordLocalTombstone(id));
+        updatedAny = true;
+      }
+      await writeLocalFlag(LEGACY_NAMELESS_CLEANUP_KEY);
+    }
     const rawLocalTasks = await getTasks();
     if (rawLocalTasks.length !== currentTasks.length) {
       updatedAny = true;

@@ -276,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (348 tests across 38 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (356 tests across 39 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -297,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **38 test files comprising 348 automated tests** running on Vitest:
+Blackboarder is covered by **39 test files comprising 356 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -315,8 +315,8 @@ Blackboarder is covered by **38 test files comprising 348 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 24 Test Suites* | 207 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **348** | **100% Passing** |
+| *Other 25 Test Suites* | 215 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **356** | **100% Passing** |
 
 ---
 
@@ -378,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 38 Vitest test suites (348 tests)
+├── tests/                            # 39 Vitest test suites (356 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -443,6 +443,14 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Junk tasks called "Exam", "Meeting", "Other" removed
+- Owner sent a task backup. 10 junk tasks: 9 scanned tasks titled only with a type word ("Exam", "Meeting", "Other", "Assignment", "Lab", "quiz") made from office hours, start dates, a lab-coat reminder, a presentation schedule and a date-only line, plus a Computer Eng "Quiz 3" filed under Physics 1 Lab on the wrong day.
+- Cause: `extractDeadlinesLocally()` fell back to the type word as the title when a dated sentence had no name (often with the type taken from the heading), and the local result kept the AI tier from naming it. The stray Quiz 3 was an old stream card paired with another course's announcement text.
+- Fix: a nameless sentence borrows a specific name from the heading or is skipped (so the AI can handle it); a bare type title is kept only when the sentence itself names the type ("The quiz will be held on..."). Meeting-type dates are kept only for presentations, titled "Presentation", and not for schedules that mention 3+ years. The title regex knows "Final Exam".
+- Cleanup: `isValidTask()` rule 5b drops scanned "Meeting"/"Other"/"Event"/"Task"/"Deadline" titles (not "Due date:" items). `deduplicateTaskList()` drops a non-API copy whose title and full text match an `ann_api_` task in another course (`dropMisfiledCopies`). The popup runs `findLegacyNamelessTaskIds()` once (flag `bbs_cleanup_nameless_v1`) and writes tombstones so the cloud and phone do not restore them.
+- Dry run on the owner's backup: removes exactly those 10 and keeps the other 30.
+- Still open: two "Midterm" tasks the owner edited (Oct 22 under Physics 1 with an "Added: Midterm Practice" snippet, Oct 25 English) stay, because edited tasks are never removed automatically.
 
 ### 2026-10-22 - Scans survive closing the popup
 - Owner confirmed after the CloudFront fix: a full re-scan read 40 announcements and added Quiz 3 and much more. Remaining report: closing the popup mid-scan lost the scan, and reopening showed no progress.

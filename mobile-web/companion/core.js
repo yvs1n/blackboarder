@@ -1192,7 +1192,12 @@ var BBCoreBundle = (function() {
 		const isGenericCourse = !task.courseName || task.courseName === "General Course" || task.courseName.toLowerCase() === "uos";
 		const isGenericCode = !task.courseCode || task.courseCode === "UOS";
 		if (isGenericTitle && isGenericCourse && isGenericCode) return false;
+		if (/^(?:meeting|other|event|task|deadline)$/i.test(titleLower) && !/^due\s*date/i.test(snippet || desc)) return false;
 		return true;
+	}
+	/** True for titles that are only a task type word, such as "Exam", "Meeting" or "Other". */
+	function isBareTypeTitle(title) {
+		return /^(?:assignment|homework|hw|exam|quiz|test|lab|meeting|other|project|presentation|task|event|deadline)$/i.test(title.trim());
 	}
 	/**
 	* Checks if a task matches the selected course filter (handles code, name, or regex pattern).
@@ -1631,13 +1636,32 @@ var BBCoreBundle = (function() {
 			updatedAt: new Date(Math.max(new Date(existing.updatedAt || existing.createdAt || 0).getTime(), new Date(incoming.updatedAt || incoming.createdAt || 0).getTime(), Date.now())).toISOString()
 		};
 	}
+	var normText = (t) => (t.sourceSnippet || t.description || "").replace(/\s+/g, " ").trim().toLowerCase();
+	var normTitle = (t) => (t.title || "").toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, "");
+	/**
+	* Older stream scans could pair a card with another course's announcement text, filing
+	* e.g. Computer Eng's "Quiz 3" under Physics Lab on the wrong day. When a task has the same
+	* title and the same full announcement text as one read from Blackboard's announcement list
+	* (`ann_api_`), but a different course, the list copy is right and the other copy is dropped.
+	*/
+	function dropMisfiledCopies(tasks) {
+		const fromApi = tasks.filter((t) => t && (t.announcementId || "").startsWith("ann_api_") && normText(t).length >= 80);
+		if (fromApi.length === 0) return tasks;
+		return tasks.filter((t) => {
+			if (!t || t.extractedBy === "manual" || (t.announcementId || "").startsWith("ann_api_")) return true;
+			const text = normText(t);
+			if (text.length < 80) return true;
+			const course = resolveCourseInfo(t).courseName.toLowerCase();
+			return !fromApi.some((a) => normText(a) === text && normTitle(a) === normTitle(t) && resolveCourseInfo(a).courseName.toLowerCase() !== course);
+		});
+	}
 	/**
 	* Deduplicates a list of tasks, merging duplicates and preserving chronological order.
 	*/
 	function deduplicateTaskList(tasks) {
 		if (!tasks || tasks.length <= 1) return tasks || [];
 		const result = [];
-		for (const incoming of tasks) {
+		for (const incoming of dropMisfiledCopies(tasks)) {
 			if (!incoming || !incoming.title) continue;
 			const existingIndex = result.findIndex((existing) => areTasksDuplicates(existing, incoming));
 			if (existingIndex === -1) result.push({ ...incoming });
@@ -2269,7 +2293,7 @@ var BBCoreBundle = (function() {
 	*/
 	function extractTaskTitle(sentence, taskType) {
 		const clean = sentence.replace(/\s+/g, " ").trim();
-		const specificMatch = clean.match(/\b((?:Quiz|Assignment|HW|Homework|Exam|Midterm|Project|Lab)\s*(?:#?\d+|[A-Z]\b|Part\s*\d+|Phase\s*\d+|Proposal|Final)?)/i);
+		const specificMatch = clean.match(/\b((?:Final\s+Exam|Quiz|Assignment|HW|Homework|Exam|Midterm|Project|Lab)\s*(?:#?\d+|[A-Z]\b|Part\s*\d+|Phase\s*\d+|Proposal|Final)?)/i);
 		if (specificMatch && specificMatch[1].length > 2) return specificMatch[1].trim();
 		const arTitleMatch = clean.match(/(?:(?:كويز|واجب|امتحان|مشروع|اختبار)(?:\s*(?:الأول|الثاني|الثالث|الرابع|النهائي|النصفي|\d+))?)/i);
 		if (arTitleMatch && arTitleMatch[0].length > 2) return arTitleMatch[0].trim();
@@ -2297,6 +2321,7 @@ var BBCoreBundle = (function() {
 				basePriority = pattern.priority;
 				break;
 			}
+			const sentenceType = matchedType;
 			if (!matchedType) {
 				for (const pattern of TASK_TYPE_PATTERNS) if (pattern.regex.test(announcement.title)) {
 					matchedType = pattern.type;
@@ -2311,7 +2336,17 @@ var BBCoreBundle = (function() {
 			const dateKey = `${announcement.courseCode}_${effectiveType}_${dateMatch.date.toDateString()}`;
 			if (detectedKeys.has(dateKey)) continue;
 			detectedKeys.add(dateKey);
-			const title = extractTaskTitle(sentence, effectiveType);
+			let title = extractTaskTitle(sentence, effectiveType);
+			if (effectiveType === "meeting") {
+				const isPresentation = /presentations?|عروض|عرض\s*تقديمي/i.test(sentence);
+				const yearsMentioned = (cleanContent.match(/\b20\d\d\b/g) || []).length;
+				if (!isPresentation || yearsMentioned >= 3) continue;
+				title = "Presentation";
+			} else if (isBareTypeTitle(title) && (sentenceType !== effectiveType || effectiveType === "other")) {
+				const fromHeading = extractTaskTitle(announcement.title || "", effectiveType);
+				if (isBareTypeTitle(fromHeading)) continue;
+				title = fromHeading;
+			}
 			const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 			const scheduleResult = resolveTaskTimeWithSchedule({
 				dueDate: dateMatch.date,
