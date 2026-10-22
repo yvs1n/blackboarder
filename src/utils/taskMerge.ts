@@ -203,7 +203,12 @@ export function getTaskSeriesInfo(
 export function areTasksDuplicates(a: DeadlineTask, b: DeadlineTask): boolean {
   if (!a || !b) return false;
   if (a.id === b.id) return true;
-  if (a.announcementId && b.announcementId && a.announcementId === b.announcementId) return true;
+  const cleanA = (a.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+  const cleanB = (b.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+
+  // One announcement can announce several deadlines, so a shared announcement only
+  // means "same task" when the titles also match.
+  if (a.announcementId && b.announcementId && a.announcementId === b.announcementId && cleanA === cleanB) return true;
 
   const courseA = resolveCourseInfo(a).courseName.toLowerCase();
   const courseB = resolveCourseInfo(b).courseName.toLowerCase();
@@ -216,9 +221,6 @@ export function areTasksDuplicates(a: DeadlineTask, b: DeadlineTask): boolean {
   const diffMs = Math.abs(timeA - timeB);
   const typeA = normalizeAssessmentType(a.type);
   const typeB = normalizeAssessmentType(b.type);
-
-  const cleanA = (a.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-  const cleanB = (b.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
 
   const isGenericA = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(a.title.trim());
   const isGenericB = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(b.title.trim());

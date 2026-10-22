@@ -28,6 +28,32 @@ export function hasAcademicKeywords(text: string): boolean {
   return ENGLISH_ACADEMIC.test(text) || ARABIC_ACADEMIC.test(text);
 }
 
+function cleanTitle(title: string | undefined): string {
+  return (title || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
+}
+
+function dayOf(iso: string): string {
+  const t = new Date(iso).getTime();
+  return isNaN(t) ? '' : new Date(t).toISOString().slice(0, 10);
+}
+
+/**
+ * Title + course key for spotting a re-announced task, or '' when the course is unknown.
+ * Without a known course, "Quiz 3" from two different courses would look like the same task
+ * and the newer one would be silently merged into the older one.
+ */
+export function titleCourseKeyFor(task: Pick<DeadlineTask, 'title' | 'courseCode' | 'courseName'>): string {
+  const code = (task.courseCode || '').trim();
+  const name = (task.courseName || '').trim();
+  const codeKnown = code !== '' && code.toUpperCase() !== 'UOS';
+  const nameKnown = name !== '' && name !== 'General Course' && name.toLowerCase() !== 'uos';
+  if (!codeKnown && !nameKnown) return '';
+  const cleanT = cleanTitle(task.title);
+  if (!cleanT) return '';
+  const cleanC = (codeKnown ? code : name).toLowerCase().replace(/[^a-z0-9؀-ۿ]/g, '');
+  return `${cleanC}_${cleanT}`;
+}
+
 export interface HybridExtractionResult {
   tasks: DeadlineTask[];
   /** Which stage produced the result, shown to the user in the web app */
@@ -169,12 +195,11 @@ export async function processAnnouncementsBatch(
     existingKeyMap.set(normalizeTaskKey(t), t);
     existingIdMap.set(t.id, t);
     if (t.announcementId) {
-      existingAnnIdMap.set(t.announcementId, t);
+      existingAnnIdMap.set(`${t.announcementId}|${cleanTitle(t.title)}`, t);
     }
-    const cleanT = (t.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-    const cleanC = (t.courseCode || t.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-    if (cleanT) {
-      existingTitleCourseMap.set(`${cleanC}_${cleanT}`, t);
+    const titleCourseKey = titleCourseKeyFor(t);
+    if (titleCourseKey) {
+      existingTitleCourseMap.set(titleCourseKey, t);
     }
   }
 
@@ -215,14 +240,16 @@ export async function processAnnouncementsBatch(
       }
 
       const key = normalizeTaskKey(task);
-      const cleanT = (task.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      const cleanC = (task.courseCode || task.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      const titleCourseKey = `${cleanC}_${cleanT}`;
+      const titleCourseKey = titleCourseKeyFor(task);
 
-      const existing = (task.announcementId ? existingAnnIdMap.get(task.announcementId) : undefined)
+      // One announcement can hold several deadlines, so its id only matches the same task
+      const sameAnnouncement = task.announcementId ? existingAnnIdMap.get(`${task.announcementId}|${cleanTitle(task.title)}`) : undefined;
+      const exactMatch = sameAnnouncement
         || existingIdMap.get(task.id)
-        || existingKeyMap.get(key)
-        || existingTitleCourseMap.get(titleCourseKey);
+        || existingKeyMap.get(key);
+      // Same title in the same (known) course on another day: the course moved the date
+      const rescheduledFrom = !exactMatch && titleCourseKey ? existingTitleCourseMap.get(titleCourseKey) : undefined;
+      const existing = exactMatch || rescheduledFrom;
 
       if (existing) {
         let changed = false;
@@ -267,7 +294,14 @@ export async function processAnnouncementsBatch(
             changed = true;
           }
 
-          // 4. Specific class time: if existing did not have specific time, but new does
+          // 4. Rescheduled: take the newly announced date
+          if (rescheduledFrom && dayOf(existing.dueDate) !== dayOf(task.dueDate)) {
+            existing.dueDate = task.dueDate;
+            existing.hasSpecificTime = task.hasSpecificTime;
+            changed = true;
+          }
+
+          // 5. Specific class time: if existing did not have specific time, but new does
           if (!existing.hasSpecificTime && task.hasSpecificTime) {
             existing.dueDate = task.dueDate;
             existing.hasSpecificTime = true;
@@ -275,7 +309,7 @@ export async function processAnnouncementsBatch(
           }
         }
 
-        // 5. If announcementId was not linked before, link it
+        // 6. If announcementId was not linked before, link it
         if (!existing.announcementId && task.announcementId) {
           existing.announcementId = task.announcementId;
           changed = true;
@@ -289,9 +323,9 @@ export async function processAnnouncementsBatch(
       } else {
         existingKeyMap.set(key, task);
         existingIdMap.set(task.id, task);
-        if (cleanT) existingTitleCourseMap.set(titleCourseKey, task);
+        if (titleCourseKey) existingTitleCourseMap.set(titleCourseKey, task);
         if (task.announcementId) {
-          existingAnnIdMap.set(task.announcementId, task);
+          existingAnnIdMap.set(`${task.announcementId}|${cleanTitle(task.title)}`, task);
         }
         newTasks.push(task);
       }

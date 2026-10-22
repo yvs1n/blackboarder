@@ -1559,7 +1559,9 @@ var BBCoreBundle = (function() {
 	function areTasksDuplicates(a, b) {
 		if (!a || !b) return false;
 		if (a.id === b.id) return true;
-		if (a.announcementId && b.announcementId && a.announcementId === b.announcementId) return true;
+		const cleanA = (a.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, "");
+		const cleanB = (b.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, "");
+		if (a.announcementId && b.announcementId && a.announcementId === b.announcementId && cleanA === cleanB) return true;
 		if (resolveCourseInfo(a).courseName.toLowerCase() !== resolveCourseInfo(b).courseName.toLowerCase()) return false;
 		const timeA = new Date(a.dueDate).getTime();
 		const timeB = new Date(b.dueDate).getTime();
@@ -1567,8 +1569,6 @@ var BBCoreBundle = (function() {
 		const diffMs = Math.abs(timeA - timeB);
 		const typeA = normalizeAssessmentType(a.type);
 		const typeB = normalizeAssessmentType(b.type);
-		const cleanA = (a.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, "");
-		const cleanB = (b.title || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, "");
 		const isGenericA = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(a.title.trim());
 		const isGenericB = /^(?:assignment|homework|hw|due|duedate|task|untitled)$/i.test(b.title.trim());
 		if (diffMs <= 3e5) {

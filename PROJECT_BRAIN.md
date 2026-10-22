@@ -275,7 +275,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (336 tests across 36 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (341 tests across 37 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -296,7 +296,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **36 test files comprising 336 automated tests** running on Vitest:
+Blackboarder is covered by **37 test files comprising 341 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -314,8 +314,8 @@ Blackboarder is covered by **36 test files comprising 336 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 22 Test Suites* | 195 | Regex extraction, Arabic AI gate, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **336** | **100% Passing** |
+| *Other 23 Test Suites* | 200 | Regex extraction, Arabic AI gate, announcement dedupe, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **341** | **100% Passing** |
 
 ---
 
@@ -377,7 +377,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 36 Vitest test suites (336 tests)
+├── tests/                            # 37 Vitest test suites (341 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -442,6 +442,14 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Deadlines no longer swallowed by older tasks
+- Owner report: "Quiz 3 - Thursday 29 October 2026" (plain English, clear date) never appeared. The local parser handles the exact text (Quiz 3, 2026-10-29), so it was lost while merging.
+- Cause 1: `processAnnouncementsBatch()` and `runScan()` matched a new task to an existing one by title + course even when the course was unknown (`UOS` / `General Course`). A new "Quiz 3" from one course merged into an older "Quiz 3" from another, and the older date was kept. Now `titleCourseKeyFor()` (exported from `hybridExtractor.ts`) returns no key for unknown courses. For a known course, the same title on another day is treated as a reschedule and the new date is taken (never for `userEdited` or manual tasks).
+- Cause 2: tasks sharing an `announcementId` counted as the same task, in the batch index and in `areTasksDuplicates()` (`src/utils/taskMerge.ts`), so an announcement with two deadlines kept only the first. The announcement id now matches only when the titles match too.
+- Tests: `tests/announcementDedup.test.ts` (5 tests; 3 failed before the fix).
+- Owner action: after updating, Shift+Click Scan. If an older "Quiz 3" had absorbed the new one, that old task keeps its old date; delete it if it is stale.
+- Still open: not checked against the live stream. If Quiz 3 still does not appear after a deep scan, the announcement is not being read from the page, and the next step is a console check on that card.
 
 ### 2026-10-22 - Arabic announcements reach the AI
 - Owner report: deep scans of `/ultra/stream` found no new deadlines. A console check on the live page showed the scanner does see the stream (80 card matches, top document, no frames, Scan pill injected), so the loss was in extraction.

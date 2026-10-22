@@ -1,5 +1,5 @@
 import { Announcement, DeadlineTask, TaskSubmissionUpdate } from '../types';
-import { processAnnouncementsBatch } from '../engine/hybridExtractor';
+import { processAnnouncementsBatch, titleCourseKeyFor } from '../engine/hybridExtractor';
 import { getSettings, getTasks, saveTasks, saveAnnouncements, getLastScanCheckpoint, saveLastScanCheckpoint, isExtensionContextValid, getUserCourses, autoRegisterDiscoveredCourses } from '../utils/storage';
 import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode } from '../core/courseHelper';
@@ -1174,11 +1174,8 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
 
     for (const t of mergedAnnTasks) {
       existingIdMap.set(t.id, t);
-      const cleanT = (t.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      const cleanC = (t.courseCode || t.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      if (cleanT) {
-        existingTitleCourseMap.set(`${cleanC}_${cleanT}`, t);
-      }
+      const tcKey = titleCourseKeyFor(t);
+      if (tcKey) existingTitleCourseMap.set(tcKey, t);
       try {
         existingDateKeySet.add(`${t.courseCode}_${t.title}_${new Date(t.dueDate).toISOString().slice(0, 10)}`);
       } catch {}
@@ -1187,16 +1184,15 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
     const newlyAddedDirect: DeadlineTask[] = [];
 
     for (const dt of directStreamTasks) {
-      const cleanT = (dt.title || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      const cleanC = (dt.courseCode || dt.courseName || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-      const titleCourseKey = `${cleanC}_${cleanT}`;
+      // '' when the course is unknown, so "Quiz 3" from two courses is never merged
+      const titleCourseKey = titleCourseKeyFor(dt);
       let dateKey = '';
       try {
         dateKey = `${dt.courseCode}_${dt.title}_${new Date(dt.dueDate).toISOString().slice(0, 10)}`;
       } catch {}
 
       const matched = existingIdMap.get(dt.id)
-        || (cleanT ? existingTitleCourseMap.get(titleCourseKey) : undefined)
+        || (titleCourseKey ? existingTitleCourseMap.get(titleCourseKey) : undefined)
         || (dateKey && existingDateKeySet.has(dateKey) ? true : undefined);
 
       if (matched && typeof matched === 'object') {
@@ -1211,7 +1207,7 @@ async function runScan(interactive: boolean = false, fullRescan: boolean = false
       } else if (!matched) {
         newlyAddedDirect.push(dt);
         existingIdMap.set(dt.id, dt);
-        if (cleanT) existingTitleCourseMap.set(titleCourseKey, dt);
+        if (titleCourseKey) existingTitleCourseMap.set(titleCourseKey, dt);
         if (dateKey) existingDateKeySet.add(dateKey);
       }
     }
