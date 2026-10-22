@@ -442,6 +442,9 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - Author credit
+- The owner is Yassin Ragab, a freshman at the University of Sharjah (https://yassinr.me). Credit added to the landing page footer (copyright line and an "About the author" link), the README, `LICENSE` (copyright holder, was "Blackboarder Team"), `package.json` author, and a one-line note under the update card in both Settings screens.
+
 ### 2026-10-22 - Two-tone colours back, Swiss Grid rules kept
 - Owner asked for the earlier two-tone colours with the rest of the design system ("as many shades as you want, but keep the same two colours"). The three stylesheets were rebuilt from their pre-Swiss-Grid versions (commit 2a7efe8) and the design system re-applied without the palette change: bundled Inter Tight / Inter, headings, flat gradients, transparent `--shadow-sm` / `--shadow-md`, other hues folded into zinc shades, and a closing "Design system" block. `--accent` now equals the primary tone (`#18181b` light / `#f4f4f6` dark), so the Scan, Save and primary buttons are solid black or white instead of red. The Blackboard Scan pill is the original dark pill. The landing page has its original colour blocks; its unused course markers are grey and the mockup's course stripe uses the text colour.
 - Follow-up the same day: owner rule "two tone everything except for the course colors". Red removed from the interface too (`--danger*` tokens, red rgba shades, the Disconnect button, the sync error message, the HIGH PRIORITY pill); overdue badges invert the two tones. Course colours (`--course-*`, course palettes in `src/core`, the colour picker, the landing mockup's Calc stripe) keep their colours. `src/content/blackboard-dark.css` (dark mode for Blackboard's own pages) was left as is.

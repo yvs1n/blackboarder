@@ -24,7 +24,7 @@
     "calendar",
     "tasks"
   ],
-  "author": "Blackboarder Team",
+  "author": "Yassin Ragab (https://yassinr.me)",
   "license": "MIT",
   "devDependencies": {
     "@types/chrome": "^0.2.9",

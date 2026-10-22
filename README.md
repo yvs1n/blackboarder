@@ -210,4 +210,6 @@ blackboarder/
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+Built by [Yassin Ragab](https://yassinr.me), a freshman at the University of Sharjah.
+
+This project is licensed under the [MIT License](LICENSE). Copyright (c) 2026 Yassin Ragab.

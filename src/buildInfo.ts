@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "f86456512030",
-  "commit": "c2886ed72a585fe8654bb802329cefaa0f44ed52",
-  "shortCommit": "c2886ed",
-  "timestamp": "2026-10-22T05:54:43.015Z",
-  "message": "Bring back two-tone colours, keep the rest of the design system",
+  "build": "50d0ab08400e",
+  "commit": "579c7378a49a7fcce486fee6b7a81d08fc66cebd",
+  "shortCommit": "579c737",
+  "timestamp": "2026-10-22T06:00:16.243Z",
+  "message": "Fix the line split in the no-red theme test",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
