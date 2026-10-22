@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Longer sync keys**: new keys have 10 random characters (50 bits) instead of 6 (30 bits). Existing keys keep working.
 
 ### Fixed
+- **Stats row colours**: the Urgent count is red and the This Week count is amber again, in light and dark.
 - **Marks**: a "Grade posted" card now attaches its mark to the matching deadline (the "Grade posted:" words in the title stopped it from matching), and a mark never lands on a same-named task in another course.
 - **Same-named posts in two courses**: when two courses post an announcement with the same title (for example "Quiz 3" in Physics 1 Lab and Intro to Computer Engineering), each deadline now keeps its own course's text instead of one course's text showing on both.
 - **Website on phones**: the landing page no longer scrolls sideways on small phones (the hero and footer grids were wider than the screen). The section links stay visible on phones and tablets as a swipeable row under the logo, and footer and step links are big enough to tap.

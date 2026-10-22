@@ -447,6 +447,11 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - Stats row colours back
+- Owner: bring back the colours in the stats row (Urgent / This Week / Total).
+- The two-tone change had turned `--danger` and `--warning` grey, so the numbers lost their colour. New tokens `--stat-urgent` (red #ef4444, dark #f87171) and `--stat-week` (amber #f59e0b, dark #fbbf24) are used only by the stat numbers in `src/popup/popup.css` and `mobile-web/companion/styles.css`; the rest of the interface stays two-tone. Total keeps the main text colour.
+- `tests/theme.test.ts`: the "no other hues" check had a stray backspace character in its regex, so it could never fail. Rewritten; it now allows colour only on `--course-` and `--stat-` lines.
+
 ### 2026-10-22 - Posted marks reach their tasks
 - Owner: no marks were being extracted onto tasks.
 - Causes: `parseSubmissionOrGradeCard` only stripped "Graded:"/"Due:" from the card title, so "Grade posted: HW1_..." kept its prefix and never matched the task title; and the task lookup let any course through when a code was blank, so "Quiz 1" could land on another course.

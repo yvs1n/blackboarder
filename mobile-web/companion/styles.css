@@ -21,6 +21,9 @@
 
   --warning: #71717a;
   --warning-light: #f4f4f5;
+  /* The stats row keeps its colours: red for urgent, amber for this week */
+  --stat-urgent: #ef4444;
+  --stat-week: #f59e0b;
 
   --success: #18181b;
   --success-light: #f4f4f5;
@@ -77,6 +80,8 @@
 
   --warning: #a1a1aa;
   --warning-light: rgba(113, 113, 122, 0.15);
+  --stat-urgent: #f87171;
+  --stat-week: #fbbf24;
 
   --success: #f4f4f6;
   --success-light: rgba(255, 255, 255, 0.08);
@@ -2169,8 +2174,8 @@ body {
   margin-top: 2px;
 }
 
-.stat-urgent .stat-num { color: var(--danger); }
-.stat-week .stat-num { color: var(--primary); }
+.stat-urgent .stat-num { color: var(--stat-urgent); }
+.stat-week .stat-num { color: var(--stat-week); }
 .stat-total .stat-num { color: var(--success); }
 
 /* Grade Tracker Progress Card */

@@ -15,6 +15,9 @@
   --danger-light: #f4f4f5;
   --warning: #71717a;
   --warning-light: #f4f4f5;
+  /* The stats row keeps its colours: red for urgent, amber for this week */
+  --stat-urgent: #ef4444;
+  --stat-week: #f59e0b;
   --success: #18181b;
   --success-light: #f4f4f5;
   --success-border: #e4e4e7;
@@ -57,6 +60,8 @@
 
   --warning: #a1a1aa;
   --warning-light: rgba(113, 113, 122, 0.15);
+  --stat-urgent: #f87171;
+  --stat-week: #fbbf24;
 
   --success: #f4f4f6;
   --success-light: rgba(255, 255, 255, 0.08);
@@ -1373,10 +1378,10 @@ body.is-standalone .header {
 }
 
 .stat-urgent .stat-number {
-  color: var(--danger);
+  color: var(--stat-urgent);
 }
 .stat-week .stat-number {
-  color: var(--warning);
+  color: var(--stat-week);
 }
 .stat-all .stat-number {
   color: var(--primary);
