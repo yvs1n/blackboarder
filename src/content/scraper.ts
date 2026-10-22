@@ -879,7 +879,11 @@ async function fetchCourseAnnouncementsApi(
  * makes: /learn/api/v1/users/me for the user id, then columns (names, max points) and grades
  * per course. A course that refuses is skipped.
  */
+/** What the last gradebook read found, for the scan message and the console line. */
+let lastGradebookRead = { signedIn: false, courses: 0, coursesRead: 0 };
+
 async function fetchGradebookUpdates(): Promise<TaskSubmissionUpdate[]> {
+  lastGradebookRead = { signedIn: false, courses: 0, coursesRead: 0 };
   const getJson = async (path: string) => {
     const res = await bbFetch(path, { headers: getBlackboardFetchHeaders(), credentials: 'same-origin' });
     return res.ok ? res.json() : null;
@@ -889,8 +893,10 @@ async function fetchGradebookUpdates(): Promise<TaskSubmissionUpdate[]> {
     userId = (await getJson('/learn/api/v1/users/me'))?.id || '';
   } catch {}
   if (!userId) return [];
+  lastGradebookRead.signedIn = true;
 
   const courseIds = await extractAllCourseIdsFromPage();
+  lastGradebookRead.courses = courseIds.length;
   const perCourse = await Promise.all(courseIds.map(async cid => {
     try {
       const [cols, grades] = await Promise.all([
@@ -898,6 +904,7 @@ async function fetchGradebookUpdates(): Promise<TaskSubmissionUpdate[]> {
         getJson(`/learn/api/v1/courses/${encodeURIComponent(cid)}/gradebook/grades?limit=200&userId=${encodeURIComponent(userId)}`)
       ]);
       if (!Array.isArray(cols?.results) || !Array.isArray(grades?.results)) return [];
+      lastGradebookRead.coursesRead++;
       // Blackboard's own course name first; the built-in list only when it is unknown
       const known = KNOWN_UOS_COURSE_IDS.find(k => k.courseId === cid);
       const apiName = courseNamesById.get(cid);
@@ -1307,6 +1314,20 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
     // Put marks and submissions on their tasks (only changed tasks are touched)
     const marksChanged = applySubmissionUpdates(finalTasks, submissionUpdates);
 
+    // Which gradebook marks found no deadline (shown in the scan message and the page console)
+    const gradebookMarks = submissionUpdates.filter(u => u.sourceId && u.submissionStatus === 'graded');
+    const unmatchedMarks = gradebookMarks.filter(u =>
+      !finalTasks.some(t => t.gradeSourceId === u.sourceId || (t.gradeSourcesBefore || []).includes(u.sourceId!))
+    );
+    console.info(
+      `[Blackboarder] Gradebook: ${lastGradebookRead.signedIn ? `${lastGradebookRead.coursesRead}/${lastGradebookRead.courses} courses read, ${gradebookMarks.length} marks` : 'not readable (signed out?)'}` +
+      (unmatchedMarks.length ? `; no matching deadline for: ${unmatchedMarks.map(u => `${u.courseName || '?'}: ${u.title}`).join(' | ')}` : '')
+    );
+    const gradebookNote = !lastGradebookRead.signedIn
+      ? ' Marks: gradebook not readable.'
+      : ` Marks: ${gradebookMarks.length - unmatchedMarks.length} of ${gradebookMarks.length} matched${
+        unmatchedMarks.length ? ` (no deadline for ${unmatchedMarks.slice(0, 4).map(u => u.title).join(', ')}${unmatchedMarks.length > 4 ? ', ...' : ''})` : ''}.`;
+
     // Correct weights and rooms saved by older rules (tasks the student edited are left alone)
     repairTaskWeightsAndRooms(finalTasks);
 
@@ -1358,11 +1379,11 @@ async function runScanInner(interactive: boolean, fullRescan: boolean) {
     if (interactive) {
       await setScanStatus({
         state: 'done',
-        message: totalNewCount > 0
+        message: (totalNewCount > 0
           ? `Added ${totalNewCount} new deadline${totalNewCount > 1 ? 's' : ''} to calendar!`
           : (marksChanged > 0
             ? `Up to date. Added or updated ${marksChanged} mark${marksChanged > 1 ? 's' : ''}.`
-            : `Up to date. Read ${announcements.length + directTasks.length} items with no new deadlines.`),
+            : `Up to date. Read ${announcements.length + directTasks.length} items with no new deadlines.`)) + gradebookNote,
         newCount: totalNewCount
       });
     }

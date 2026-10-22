@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "7ade0e1b64ad",
-  "commit": "261c5edb2245fa078ce4a7b579e837453da90216",
-  "shortCommit": "261c5ed",
-  "timestamp": "2026-10-22T19:18:03.983Z",
-  "message": "build: update generated files for 1e71490",
+  "build": "8a2ada35c555",
+  "commit": "9f130345840a044f675f73d6caf1bab68c4f48b5",
+  "shortCommit": "9f13034",
+  "timestamp": "2026-10-22T20:07:12.727Z",
+  "message": "Keep practice marks off real exams; match marks to hand-added tasks",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

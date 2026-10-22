@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Longer sync keys**: new keys have 10 random characters (50 bits) instead of 6 (30 bits). Existing keys keep working.
 
 ### Added
+- **Course picker**: when adding or editing a deadline, the course field lists your courses and narrows as you type.
+- **The popup remembers unfinished work**: closing it while adding or editing a deadline, or in Settings, reopens right there; otherwise it opens on the calendar.
+- **Scan reports marks**: the scan message says how many gradebook marks matched a deadline and names the ones that did not.
 - **Syllabus Progress**: the course-by-course tracker of how much of each syllabus is done is back, as its own card under Marks.
 - **Marks**: one card lists every mark by course (score, percent and the share of the grade it earned), in the extension and the phone app.
 - **Marks from the gradebook**: every scan now reads your marks straight from each course's Blackboard gradebook and shows them on the matching deadline (for example "4.5 / 5 (90%)"). Work waiting to be marked shows as submitted.

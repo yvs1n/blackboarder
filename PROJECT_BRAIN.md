@@ -141,6 +141,8 @@ graph TB
   - Tabs: Monthly Calendar, Deadlines List, Quick Links, Marks, Syllabus Progress, and Settings. The Marks card (Deadline Details view, and the phone's deadlines view) lists every graded and submitted item by course; both apps render it with `src/utils/marks.ts`.
   - Settings is split into pages by a tab strip (General, Courses, Scanning, Sync, Alerts, Data, Updates); every page lives in the one `#form-settings`, so a new setting goes in the card of the page it belongs to.
   - The header row holds only Scan, Add deadline and Settings. Phone sync, calendar (.ics) export, quick links and the theme live in Settings (Sync, Data, General, General).
+  - The Add and Edit course fields are pickers (`src/popup/coursePicker.ts`): the extension's courses, narrowed as you type; a picked course keeps its own name and code (`parsePickedCourse`).
+  - Closing the popup keeps unfinished work (`src/popup/popupDraft.ts`, key `bbs_popup_draft`, 12 hours): the Add form with what was typed, the Edit window with its changes, or the open Settings page. Otherwise it opens on the calendar.
   - Features real-time search, filters (All, Quizzes, Assignments, Exams), manual task creation, editing modals, JSON backup/restore, and GitHub auto-update checks.
   - **Scanning does not run in the popup.** The Scan button sends `TRIGGER_SCAN` to the Blackboard tab, which runs `runScan()` and saves the result; the popup only shows `bbs_scan_status` (`ScanStatus` in `src/utils/storage.ts`), on open and on change. Closing the popup no longer cancels a scan.
 - **Content Scripts (`src/content/`)**:
@@ -279,7 +281,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (410 tests across 49 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (416 tests across 50 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +302,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **49 test files comprising 410 automated tests** running on Vitest:
+Blackboarder is covered by **50 test files comprising 416 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +320,8 @@ Blackboarder is covered by **49 test files comprising 410 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 35 Test Suites* | 268 | Regex extraction, mark safety, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **410** | **100% Passing** |
+| *Other 36 Test Suites* | 274 | Regex extraction, course picker and popup drafts, mark safety, syllabus progress, marks list, weight and room repair, quiet logs, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **416** | **100% Passing** |
 
 ---
 
@@ -381,7 +383,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 49 Vitest test suites (410 tests)
+├── tests/                            # 50 Vitest test suites (416 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +448,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-23 - Course picker, popup keeps unfinished work, gradebook report
+- Owner: the course field when adding a deadline should offer the extension's courses and narrow as you type; the popup should reopen where it was when closed during an edit or scan, otherwise on the calendar; the Calculus "Assignment 1" mark and other marks still do not arrive.
+- Course picker: `attachCoursePicker` on `#add-course` and `#edit-course` (list under the field, arrow keys, Enter, click; free text still allowed). `filterCourses` ranks name prefix, then word prefix or code, then anywhere (name, code, keywords).
+- Unfinished work: `rememberDraft()` runs on view changes, settings page changes, the Edit window opening/closing and every input in the Add/Edit forms; `restoreDraft()` runs at start-up (the Edit window looks its task up in storage if the start-up cache is empty). Password fields are not stored. A running scan already showed its progress on open (`bbs_scan_status`).
+- Marks: not found yet. A typed name like "calculus" does match the Calculus gradebook marks in a test, so the likely cause is the gradebook not being read on the owner's install. Each scan now ends with "Marks: X of Y matched (no deadline for ...)" or "gradebook not readable", and logs `[Blackboarder] Gradebook: n/m courses read, k marks; no matching deadline for: ...` in the Blackboard tab console. Open: check live once the owner signs in to Blackboard in the browser pane (the session had expired).
+- Tests: `tests/coursePickerDraft.test.ts`. Checked in the built popup: typing "ph" lists Physics 1 Lab and Physics 1, arrow keys + Enter pick; Add form, Edit window and Settings page come back after a reload; Cancel or the calendar clears it.
 
 ### 2026-10-22 - Marks: practice runs kept apart, hand-added tasks matched
 - Owner: the English practice midterm's mark (gradebook "EAP Midterm Exam", 20/20) was put on the real midterm (Sunday Oct 25); and the Calculus "Assignment-1-Graded" mark did not reach "Assignment 1", which the owner added by hand.

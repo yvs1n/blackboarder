@@ -1,4 +1,6 @@
 import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
+import { loadDraft, saveDraft, clearDraft, collectFields, applyFields } from './popupDraft';
+import { attachCoursePicker, findPickedCourse } from './coursePicker';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
 import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY } from '../utils/storage';
@@ -251,10 +253,65 @@ const btnBackupJson = document.getElementById('btn-backup-json') as HTMLButtonEl
 const btnRestoreJsonTrigger = document.getElementById('btn-restore-json-trigger') as HTMLButtonElement;
 const inputRestoreJson = document.getElementById('input-restore-json') as HTMLInputElement;
 
+/** A course picked from the list keeps that course's own name and code; anything else is parsed as typed. */
+function parsePickedCourse(value: string): { name: string; code: string } {
+  const picked = findPickedCourse(currentUserCourses, value);
+  if (picked) return { name: picked.courseName, code: (picked.courseCode || '').trim() || 'UOS' };
+  return parseCourseDetails(value);
+}
+
 // ============================================================================
 // View Navigation
 // ============================================================================
 type AppView = 'calendar' | 'details' | 'add' | 'settings';
+
+// Unfinished work survives closing the popup (src/popup/popupDraft.ts). Off until the saved draft
+// has been restored on open, so the start-up calendar view does not wipe it.
+let draftReady = false;
+
+function currentSettingsPage(): string {
+  return document.querySelector<HTMLElement>('.settings-nav-tab.active')?.dataset.settingsPage || 'general';
+}
+
+function rememberDraft() {
+  if (!draftReady) return;
+  if (modalEditTask.style.display === 'flex' && editingTaskId) {
+    saveDraft({ view: 'edit', taskId: editingTaskId, fields: collectFields(formEditTask) });
+  } else if (viewAdd.classList.contains('active')) {
+    saveDraft({ view: 'add', fields: collectFields(formAddTask) });
+  } else if (viewSettings.classList.contains('active')) {
+    saveDraft({ view: 'settings', settingsPage: currentSettingsPage() });
+  } else {
+    clearDraft();
+  }
+}
+
+/** Reopens what was being done when the popup closed: adding or editing a deadline, or a settings page. */
+async function restoreDraft() {
+  try {
+    const d = await loadDraft();
+    if (!d) return;
+    if (d.view === 'add') {
+      switchView('add');
+      applyFields(d.fields);
+      updateAddRoomVisibility();
+    } else if (d.view === 'edit') {
+      // The quick start-up cache can be empty; fall back to the saved task list
+      const task = currentTasks.find(t => t.id === d.taskId) ||
+        (await getTasks().catch(() => [] as DeadlineTask[])).find(t => t.id === d.taskId);
+      if (!task) return;
+      openEditModal(task);
+      applyFields(d.fields);
+      updateEditRoomVisibility();
+    } else if (d.view === 'settings') {
+      switchView('settings');
+      showSettingsPage(d.settingsPage || 'general');
+    }
+  } finally {
+    draftReady = true;
+    rememberDraft();
+  }
+}
 
 function switchView(view: AppView) {
   closeDayExpandedDrawer();
@@ -285,6 +342,7 @@ function switchView(view: AppView) {
     renderUserCoursesManager();
     renderQuickLinksManager();
   }
+  rememberDraft();
 }
 
 // Settings pages: the tab strip shows one group of cards at a time. Every page
@@ -301,6 +359,7 @@ function showSettingsPage(page: string, focusTab = false) {
   document.querySelectorAll<HTMLElement>('.settings-page').forEach(panel => {
     panel.hidden = panel.id !== `settings-page-${page}`;
   });
+  rememberDraft();
   // A long page may have been scrolled; bring the tab strip back into view.
   const nav = document.querySelector<HTMLElement>('.settings-nav');
   if (nav && nav.getBoundingClientRect().top < 0) nav.scrollIntoView({ block: 'start' });
@@ -2400,11 +2459,13 @@ function openEditModal(task: DeadlineTask) {
   editWeightHint.textContent = task.syllabusNote || (task.weightDisplay ? `Saved weight: ${task.weightDisplay}` : '');
 
   modalEditTask.style.display = 'flex';
+  rememberDraft();
 }
 
 function closeEditModal() {
   modalEditTask.style.display = 'none';
   editingTaskId = null;
+  rememberDraft();
 }
 
 // ============================================================================
@@ -2781,6 +2842,16 @@ function setupEvents() {
   addTypeSelect?.addEventListener('change', updateAddRoomVisibility);
   editTypeSelect?.addEventListener('change', updateEditRoomVisibility);
 
+  // Course fields list the extension's courses and narrow as you type
+  attachCoursePicker(document.getElementById('add-course') as HTMLInputElement, () => currentUserCourses);
+  attachCoursePicker(editCourseInput, () => currentUserCourses);
+
+  // Keep what is typed into the Add / Edit forms if the popup closes
+  for (const form of [formAddTask, formEditTask]) {
+    form.addEventListener('input', rememberDraft);
+    form.addEventListener('change', rememberDraft);
+  }
+
   // Auto-suggest class meeting time and default room when user enters course in Add Task
   const addCourseInput = document.getElementById('add-course') as HTMLInputElement;
   addCourseInput?.addEventListener('input', () => {
@@ -2809,7 +2880,7 @@ function setupEvents() {
     const priority = (document.getElementById('add-priority') as HTMLSelectElement).value as TaskPriority;
     const notes = (document.getElementById('add-notes') as HTMLTextAreaElement).value;
 
-    const parsedCourse = parseCourseDetails(course);
+    const parsedCourse = parsePickedCourse(course);
 
     const [y, m, d] = dateVal.split('-').map(Number);
     let dueDate: Date;
@@ -2935,7 +3006,7 @@ function setupEvents() {
     const descVal = editDescInput ? editDescInput.value.trim() : '';
     const notesVal = editNotesInput ? editNotesInput.value.trim() : '';
 
-    const parsedCourse = parseCourseDetails(course);
+    const parsedCourse = parsePickedCourse(course);
 
     const [y, m, d] = dateVal.split('-').map(Number);
     let dueDate: Date;
@@ -4686,6 +4757,8 @@ function initApp() {
   // Render all views immediately so the popup appears instantly populated like on mobile
   refreshAllViews();
   switchView('calendar');
+  // Back to an unfinished add / edit / settings page, if the popup was closed during one
+  restoreDraft();
 
   // Initialize first-time setup walkthrough modal
   initWalkthroughModal();

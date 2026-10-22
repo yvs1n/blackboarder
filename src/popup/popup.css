@@ -4501,3 +4501,14 @@ h1, h2, h3 {
 .syl-done { background: var(--text-main); height: 100%; }
 .syl-pending { background: var(--text-muted); opacity: 0.55; height: 100%; }
 .syl-legend { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: var(--text-muted); }
+
+/* Course picker under the Add / Edit course field (src/popup/coursePicker.ts) */
+.course-picker { position: relative; }
+.course-picker-list { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 50; margin: 0; padding: 0; list-style: none; max-height: 196px; overflow-y: auto; background: var(--surface); border: 1px solid var(--text-muted); }
+.course-picker-list[hidden] { display: none; }
+.course-picker-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12.5px; color: var(--text-main); cursor: pointer; }
+.course-picker-list li + li { border-top: 1px solid var(--surface-border); }
+.course-picker-list li.active, .course-picker-list li:hover { background: var(--surface-border); }
+.course-picker-dot { width: 8px; height: 8px; flex: 0 0 8px; }
+.course-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-picker-code { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
