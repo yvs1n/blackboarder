@@ -416,29 +416,6 @@ function syncAllComponents(version) {
       console.log(`  ✓ Synced src/popup/index.html to v${version}`);
     }
   }
-
-  // 5. Sync PROJECT_BRAIN.md
-  const brainPath = r('PROJECT_BRAIN.md');
-  if (fs.existsSync(brainPath)) {
-    let brainText = readText(brainPath);
-    const testCount = countTests();
-    brainText = brainText.replace(
-      /\*Current Release: v[0-9.]+/g,
-      `*Current Release: v${version}`
-    );
-    brainText = brainText.replace(
-      /\*Document compiled and verified for Blackboarder v[0-9.]+\.\*/g,
-      `*Document compiled and verified for Blackboarder v${version}.*`
-    );
-    brainText = brainText.replace(
-      /34 test files comprising [0-9]+ automated tests/g,
-      `34 test files comprising ${testCount} automated tests`
-    );
-    if (writeIfChanged(brainPath, brainText)) {
-      console.log(`  ✓ Synced PROJECT_BRAIN.md (v${version}, ${testCount} passing tests)`);
-    }
-  }
-
 }
 
 async function main() {

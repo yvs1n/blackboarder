@@ -40,7 +40,10 @@ Data syncs through **Firebase**, each student under their own private sync key. 
 - **Finds deadlines automatically.** A local parser reads English and Arabic keywords (*quiz*, *assignment*, *midterm*, *كويز*, *واجب*, *امتحان*) and dates such as `Oct 15`, `18/10/2026` or `next Sunday`. Optional AI steps handle vague or long announcements (see Settings and AI Keys below).
 - **Monthly calendar and deadline list.** Monday-first grid, tasks sorted by time within each day, and a day view with the full announcement, room, grade weight and your notes.
 - **Course schedule matching.** When an announcement does not name a room or time, Blackboarder fills it in from your weekly class schedule.
-- **Grade weights.** Shows how much each deliverable counts (for example *Midterm 25%*) on cards and in the calendar.
+- **Grade weights.** Shows how much each deliverable counts (for example *Midterm 25%*) on cards and in the calendar. A percentage elsewhere in an announcement ("final exam out of 75%") is not taken as the weight.
+- **Marks from the Blackboard gradebook.** Every scan reads your gradebook and puts each mark on its deadline. A **Marks** card lists them by course, newest first, with the share of the grade each one earned. A practice or mock exam never takes the real exam's mark, and each scan says how many marks matched.
+- **Syllabus progress.** For each course, how much of the syllabus weight is done, pending, or not announced yet.
+- **Add deadlines quickly.** The course field lists your courses and narrows as you type. Closing the popup while adding or editing a deadline, or in Settings, reopens right there.
 - **Quick links.** One-tap links to marks, attendance, study plan, library and your own custom links, synced to the phone.
 - **Private sync.** Every install gets its own sync key (`BBS-` plus 10 random characters). Changes on the laptop show up on the phone and the other way round.
 - **Dark mode** for the extension, the phone app, and Blackboard itself.
@@ -108,7 +111,7 @@ Everything works without any keys; the local parser handles most announcements. 
 | **Hosted Web Dashboard URL** | Your site address. The phone app is at `/companion/` and the calendar feed at `/feed.ics` | `https://blackboarder.pages.dev` |
 | **Own Sync Server** | Only for a self-hosted server. Leave empty to sync through Firebase | Empty |
 | **Auto-scan** | Scans announcements when a Blackboard page loads | On |
-| **Theme** | Light, dark, or match the system | Light |
+| **Theme** | Light, dark, or match the system | Match the system |
 
 The two URL fields are under **Settings > Advanced Server & Endpoints**.
 
@@ -134,7 +137,7 @@ Pushing to `main` updates everything without a store:
 
 - **GitHub Actions** (`.github/workflows/build.yml`) builds, type-checks, lints and tests every push, then commits the generated files (`dist/`, `mobile-web/core.js`, the `version.json` files and the standalone worker).
 - **Phone app:** Cloudflare Pages deploys the push. The app notices the new build and reloads into it when you open it or come back to it, never while you are typing.
-- **Extension:** once `update.bat` / `update.sh` has run, the extension checks GitHub every hour. The helper downloads the new build into the extension folder, and the extension restarts once its popup and side panel are closed. **In a git clone** the helper runs `git pull --ff-only` instead, and only when the clone is on `main` with no uncommitted changes, so it never overwrites your work. Otherwise **Settings** shows why it skipped.
+- **Extension:** once `update.bat` / `update.sh` has run, the extension checks GitHub every 15 minutes. The helper downloads the new build into the extension folder, and the extension restarts once its popup and side panel are closed. **In a git clone** the helper runs `git pull --ff-only` instead, and only when the clone is on `main` with no uncommitted changes, so it never overwrites your work. Otherwise **Settings** shows why it skipped.
 
 Each build is identified by a hash of its files, so a push that does not change the extension does not update it (the same goes for the phone app).
 
@@ -153,7 +156,7 @@ npm run package    # build release zips into release/
 npm run server     # optional local server on http://localhost:3456
 ```
 
-Run `npm run lint` and `npm test` before every commit. [`PROJECT_BRAIN.md`](PROJECT_BRAIN.md) is the full technical reference and change log; read it before changing an area it covers, and update it in the same commit.
+Run `npm run lint` and `npm test` before every commit. [`AGENTS.md`](AGENTS.md) lists what is where and the rules to follow; update it in the same commit as any change that makes it wrong.
 
 ### Which files to edit
 
@@ -199,7 +202,7 @@ blackboarder/
 |-- docs/                 Install, hosting, walkthrough and design system guides
 |
 |-- CHANGELOG.md          Release notes
-`-- PROJECT_BRAIN.md      Full technical reference and progress log
+`-- AGENTS.md             Project map and rules for contributors and coding agents
 ```
 
 **Folders that cannot move:** installed extensions read `dist/` and the `version.json` files to update themselves, Cloudflare Pages serves `mobile-web/`, and Vercel looks for functions in `api/`.
