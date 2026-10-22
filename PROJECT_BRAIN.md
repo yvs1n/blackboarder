@@ -449,6 +449,9 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-23 - Marks list newest first
+- Owner: marks should run from most recent (top) to oldest. `buildMarksSummary` sorts each course's marks by the item's date, newest first (graded and submitted together; undated last). Courses stay in alphabetical order. Same list in the popup and the phone app.
+
 ### 2026-10-23 - Scan marks no longer overwritten by the popup
 - Owner signed in to Blackboard in the browser pane. Live check: `/learn/api/v1/users/me` and the gradebook of all 7 courses answer from the page (with the scan's own headers); `_84837_1` (Physics 1 section 02) has no columns, the marks are in `_88369_1`. Course names from Blackboard look like "Calculus I for Engineering- 02 - حسبان 1 للمهندسين" and parse to the plain name.
 - Dry run of the real gradebook through `gradebookToUpdates` + `findTaskForUpdate` against the backup tasks plus a hand-added Calculus "Assignment 1": every graded item lands on the right task (including Assignment-1-Graded); only Lab "Vectors" has no task; the English "EAP Midterm Exam" goes to the Oct 25 Midterm and is held back by the date rule. So matching was not the fault.

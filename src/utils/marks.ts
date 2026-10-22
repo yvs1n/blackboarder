@@ -89,11 +89,12 @@ export function buildMarksSummary(tasks: DeadlineTask[], syllabi: MarksSyllabus[
     c.earnedWeight = round1(c.earnedWeight);
     const pcts = c.marks.filter(m => m.percent !== undefined).map(m => m.percent!);
     if (pcts.length) c.averagePercent = round1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-    // Graded first, then by date
-    c.marks.sort((a, b) =>
-      (a.status === b.status ? 0 : a.status === 'graded' ? -1 : 1) ||
-      String(a.dueDate || '').localeCompare(String(b.dueDate || ''))
-    );
+    // Most recent first (by the item's date); items without a date go last
+    const time = (m: MarkRow) => {
+      const n = new Date(m.dueDate || '').getTime();
+      return isNaN(n) ? -Infinity : n;
+    };
+    c.marks.sort((a, b) => time(b) - time(a));
   }
   courses.sort((a, b) => a.courseName.localeCompare(b.courseName));
   return { courses, gradedCount, submittedCount };

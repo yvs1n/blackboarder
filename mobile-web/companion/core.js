@@ -1588,7 +1588,11 @@ var BBCoreBundle = (function() {
 			c.earnedWeight = round1$1(c.earnedWeight);
 			const pcts = c.marks.filter((m) => m.percent !== void 0).map((m) => m.percent);
 			if (pcts.length) c.averagePercent = round1$1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-			c.marks.sort((a, b) => (a.status === b.status ? 0 : a.status === "graded" ? -1 : 1) || String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
+			const time = (m) => {
+				const n = new Date(m.dueDate || "").getTime();
+				return isNaN(n) ? -Infinity : n;
+			};
+			c.marks.sort((a, b) => time(b) - time(a));
 		}
 		courses.sort((a, b) => a.courseName.localeCompare(b.courseName));
 		return {

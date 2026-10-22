@@ -11,16 +11,17 @@ const t = (o: any) => ({ id: o.title, status: 'completed', dueDate: '2026-10-01'
 describe('Marks summary', () => {
   it('groups graded and submitted items by course with the earned share', () => {
     const s = buildMarksSummary([
-      t({ title: 'Quiz 1', submissionStatus: 'graded', score: 4.5, maxScore: 5, weight: 5 }),
-      t({ title: 'Midterm', submissionStatus: 'graded', score: 20, maxScore: 20, weight: 20 }),
-      t({ title: 'Essay', submissionStatus: 'submitted' }),
+      t({ title: 'Quiz 1', submissionStatus: 'graded', score: 4.5, maxScore: 5, weight: 5, dueDate: '2026-09-24' }),
+      t({ title: 'Midterm', submissionStatus: 'graded', score: 20, maxScore: 20, weight: 20, dueDate: '2026-10-13' }),
+      t({ title: 'Essay', submissionStatus: 'submitted', dueDate: '2026-10-05' }),
       t({ title: 'HW1', courseName: 'Physics 1', submissionStatus: 'graded', score: 9, maxScore: 10 }),
       t({ title: 'Not graded', courseName: 'Physics 1' })
     ] as any, syllabi);
     expect(s.gradedCount).toBe(3);
     expect(s.submittedCount).toBe(1);
     const en = s.courses.find(c => c.courseName === 'English')!;
-    expect(en.marks.map(m => m.title)).toEqual(['Quiz 1', 'Midterm', 'Essay']);
+    // Most recent at the top
+    expect(en.marks.map(m => m.title)).toEqual(['Midterm', 'Essay', 'Quiz 1']);
     expect(en.gradedWeight).toBe(25);
     expect(en.earnedWeight).toBe(24.5);
     const ph = s.courses.find(c => c.courseName === 'Physics 1')!;
