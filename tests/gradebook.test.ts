@@ -66,3 +66,37 @@ describe('reading marks from the Blackboard gradebook', () => {
     expect(tasks[0].updatedAt).toBe(stamp);
   });
 });
+
+describe('gradebook names that differ from task titles', () => {
+  const lab = { courseName: 'Physics 1 Lab', courseCode: '1430 116' };
+  const col = (id: string, name: string, possible: number): GradebookColumn => ({ id, columnName: name, possible, calculationType: 'NON_CALCULATED' });
+  const graded = (id: string, score: number, possible: number): GradebookGrade => ({ columnId: id, status: 'GRADED', pointsPossible: possible, displayGrade: { score } });
+
+  it('decodes "&amp;" so the Physics homework matches its task', () => {
+    const ups = gradebookToUpdates([col('a', 'HW2_Phys.1_Cgaps 3 &amp; 4_Fall 2026-2027', 20)], [graded('a', 19.9, 20)], { courseName: 'Physics 1', courseCode: '1430 115' });
+    expect(ups[0].title).toBe('HW2_Phys.1_Cgaps 3 & 4_Fall 2026-2027');
+    const tasks = [task('hw2', 'HW2_Phys.1_Cgaps 3 & 4_Fall 2026-2027', 'Physics 1')];
+    expect(applySubmissionUpdates(tasks, ups)).toBe(1);
+    expect(tasks[0].score).toBe(19.9);
+    expect(tasks[0].maxScore).toBe(20);
+  });
+
+  it('matches lab reports and "2nd Quiz" by their identifying words within the same course', () => {
+    const tasks = [
+      task('ff', 'Free Fall Exp. - Lab Report', 'Physics 1 Lab', '1430 116'),
+      task('md', 'Measuring Density - Lab Report', 'Physics 1 Lab', '1430 116'),
+      task('q2', 'Quiz 2', 'Physics 1 Lab'),
+      task('calc-q2', 'Quiz 2', 'Calculus I for Engineering')
+    ];
+    const ups = gradebookToUpdates(
+      [col('a', "Free Fall Exp. Student's Lab Report", 10), col('b', "Measuring Density, Student's Lab. Report", 10), col('c', '2nd Quiz (Vector &amp; Free Fall)', 10)],
+      [graded('a', 10, 10), graded('b', 0, 10), graded('c', 6.5, 10)],
+      lab
+    );
+    expect(applySubmissionUpdates(tasks, ups)).toBe(3);
+    expect(tasks.find(t => t.id === 'ff')?.score).toBe(10);
+    expect(tasks.find(t => t.id === 'md')?.score).toBe(0);
+    expect(tasks.find(t => t.id === 'q2')?.score).toBe(6.5);
+    expect(tasks.find(t => t.id === 'calc-q2')?.score).toBeUndefined();
+  });
+});

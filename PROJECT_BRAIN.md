@@ -279,7 +279,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (384 tests across 44 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (386 tests across 44 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -300,7 +300,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **44 test files comprising 384 automated tests** running on Vitest:
+Blackboarder is covered by **44 test files comprising 386 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -318,8 +318,8 @@ Blackboarder is covered by **44 test files comprising 384 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 30 Test Suites* | 242 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **384** | **100% Passing** |
+| *Other 30 Test Suites* | 244 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, posted-mark matching, gradebook marks, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **386** | **100% Passing** |
 
 ---
 
@@ -381,7 +381,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 44 Vitest test suites (384 tests)
+├── tests/                            # 44 Vitest test suites (386 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -446,6 +446,14 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Gradebook marks: course ids, names and titles fixed
+- Owner: the grade tracker only showed Islamic Culture marks.
+- Checked live in the owner's session (all 7 courses): `KNOWN_UOS_COURSE_IDS` had three ids swapped. Correct: `_85276_1` Physics 1 Lab, `_84837_1` Physics 1 (section 02), `_87186_1` Islamic Culture; added `_88369_1` "Physics 1 - ALL" (the shared section that holds the homework marks). The wrong ids also fed the announcement card fallback that picks a course id.
+- `fetchGradebookUpdates` now prefers Blackboard's own course name (`courseNamesById`) over the built-in list. Gradebook names are HTML-escaped ("3 &amp; 4"), so `gradebookToUpdates` decodes entities.
+- `findTaskForUpdate` gained a looser title match, only inside a course known to match: `coreTitle` drops brackets and filler words (student's, exp., lab, report) and turns "2nd Quiz" into "quiz 2", so "Free Fall Exp. Student's Lab Report" finds "Free Fall Exp. - Lab Report".
+- Dry run of the owner's real gradebook against the backup tasks: every graded item with a matching deadline lands on the right task (CPE 3, Calculus 4, English 3 + 1 submitted, Physics HW 2, Lab 5 + 1 submitted, Islamic midterm). Calculus "Assignment-1-Graded" and Lab "Friction" have no task.
+- The grade tracker card is computed from tasks (weight x score / max), not hard-coded.
 
 ### 2026-10-22 - Marks read from the Blackboard gradebook
 - Owner: add reading marks from the gradebook (stream grade cards disappear quickly, so most marks never arrived).

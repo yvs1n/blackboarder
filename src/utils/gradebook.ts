@@ -25,6 +25,15 @@ export interface GradebookGrade {
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
+/** Gradebook names come HTML-escaped ("3 &amp; 4"); task titles do not. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+}
+
 /**
  * Turns a course's gradebook into mark updates for its deadlines. Totals, attendance and
  * hidden or unreleased columns are skipped; work waiting to be marked counts as submitted.
@@ -43,7 +52,7 @@ export function gradebookToUpdates(
     if (col.calculationType && col.calculationType !== 'NON_CALCULATED') continue;
     if ((col.scoreProviderHandle || '').includes('attendance')) continue;
     if (g.isExempt) continue;
-    const title = (col.effectiveColumnName || col.columnName || '').trim();
+    const title = decodeEntities(col.effectiveColumnName || col.columnName || '').trim();
     if (!title) continue;
 
     const base = {

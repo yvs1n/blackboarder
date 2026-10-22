@@ -12,13 +12,17 @@ import { mergeStreamAndCourseAnnouncements } from '../utils/announcementMerge';
  * Known University of Sharjah Blackboard Course IDs mapped to courses.
  * Used for instant, zero-click background API lookups when stream cards omit course parameters.
  */
+// Ids checked against the owner's Blackboard course list on 2026-10-22 (they were swapped for
+// Physics 1, Physics 1 Lab and Islamic Culture before). "Physics 1 - ALL" is the shared section
+// that posts the homework.
 export const KNOWN_UOS_COURSE_IDS = [
   { pattern: /(?:intro.*comp|comp(?:uter)?\s*eng|هندسة.*حاسوب|1502101|0402101)/i, courseId: '_87148_1', name: 'Introduction to Computer Eng.', code: '1502 101' },
   { pattern: /(?:calculus|calc\b|حسبان|1440133|1440131)/i, courseId: '_86929_1', name: 'Calculus I for Engineering', code: '1440 133' },
   { pattern: /(?:english|eap\b|academic\s*purposes|إنجليزي|0202112)/i, courseId: '_87240_1', name: 'English for Academic Purposes', code: '0202 112' },
-  { pattern: /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1(?!\s*عملي)|1430115)/i, courseId: '_85276_1', name: 'Physics 1', code: '1430 115' },
-  { pattern: /(?:physics.*lab|فيزياء.*عملي|مختبر.*فيزياء|1430116)/i, courseId: '_87186_1', name: 'Physics 1 Lab', code: '1430 116' },
-  { pattern: /(?:islamic|ثقافة\s*إسلامية|0104100)/i, courseId: '_84837_1', name: 'Islamic Culture', code: '0104 100' }
+  { pattern: /(?:physics.*lab|فيزياء.*عملي|مختبر.*فيزياء|1430116)/i, courseId: '_85276_1', name: 'Physics 1 Lab', code: '1430 116' },
+  { pattern: /(?:physics\s*1\s*-\s*all)/i, courseId: '_88369_1', name: 'Physics 1', code: '1430 115' },
+  { pattern: /(?:physics\s*1(?!\s*lab)|general\s*physics\s*1|فيزياء\s*1(?!\s*عملي)|1430115)/i, courseId: '_84837_1', name: 'Physics 1', code: '1430 115' },
+  { pattern: /(?:islamic|ثقافة\s*إسلامية|0104100)/i, courseId: '_87186_1', name: 'Islamic Culture', code: '0104 100' }
 ];
 
 /**
@@ -893,8 +897,13 @@ async function fetchGradebookUpdates(): Promise<TaskSubmissionUpdate[]> {
         getJson(`/learn/api/v1/courses/${encodeURIComponent(cid)}/gradebook/grades?limit=200&userId=${encodeURIComponent(userId)}`)
       ]);
       if (!Array.isArray(cols?.results) || !Array.isArray(grades?.results)) return [];
+      // Blackboard's own course name first; the built-in list only when it is unknown
       const known = KNOWN_UOS_COURSE_IDS.find(k => k.courseId === cid);
-      const course = known ? { name: known.name, code: known.code } : parseCourseDetails(courseNamesById.get(cid) || '');
+      const apiName = courseNamesById.get(cid);
+      const parsed = apiName ? parseCourseDetails(apiName) : null;
+      const course = parsed && parsed.name !== 'General Course'
+        ? { name: parsed.name, code: parsed.code || known?.code || '' }
+        : known ? { name: known.name, code: known.code } : { name: '', code: '' };
       return gradebookToUpdates(cols.results, grades.results, {
         courseName: course.name !== 'General Course' ? course.name : undefined,
         courseCode: course.code

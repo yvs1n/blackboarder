@@ -227,6 +227,18 @@ const cleanCode = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, 
 const cleanName = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, '');
 
 /**
+ * The words that identify an item, without filler: "Free Fall Exp. Student's Lab Report" and
+ * "Free Fall Exp. - Lab Report" both become "freefall"; "2nd Quiz (Vector & Free Fall)" becomes "quiz2".
+ */
+export function coreTitle(s?: string): string {
+  return (s || '').toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b(\d+)(?:st|nd|rd|th)\s+(quiz|exam|test|assignment|homework|hw|lab)\b/g, '$2 $1')
+    .replace(/\b(?:students?'?s?|student's|exp|experiment|lab|labs|report|the|of)\b\.?/g, ' ')
+    .replace(/[^a-z0-9\u0600-\u06ff]/g, '');
+}
+
+/**
  * Finds the task a posted mark or submission belongs to. The course must agree when both
  * sides know it, and an exact title wins over a partial one, so "Quiz 1" in Calculus never
  * takes the Quiz 1 mark of another course.
@@ -257,7 +269,11 @@ export function findTaskForUpdate(tasks: DeadlineTask[], update: import('../type
     const have = cleanTitle(t.title);
     if (have.length < 3) continue;
     const exact = have === want;
-    if (!exact && !have.includes(want) && !want.includes(have)) continue;
+    if (!exact && !have.includes(want) && !want.includes(have)) {
+      // Looser match on the identifying words, only inside a course known to be the same
+      const core = coreTitle(t.title);
+      if (!courseKnown || core.length < 4 || core !== coreTitle(update.title)) continue;
+    }
     scored.push({ task: t, rank: (courseExact ? 4 : 0) + (courseKnown ? 2 : 0) + (exact ? 1 : 0) });
   }
   if (scored.length === 0) return undefined;
