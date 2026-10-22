@@ -450,6 +450,7 @@ Newest first. Each entry says what changed, what is still open, and anything onl
 - `#view-settings` in `src/popup/index.html` now starts with a `.settings-nav` tab strip and wraps the existing cards, unchanged, in `.settings-page` panels: General (walkthrough replay, appearance), Courses, Scanning (AI engine, scanner maintenance), Sync, Alerts (notifications), Data (backup), Updates (updates and author credit). All panels stay inside `#form-settings`, so Save Settings and the instant-save fields behave as before; no ids or storage keys changed.
 - `showSettingsPage()` / `initSettingsNav()` in `src/popup/popup.ts` switch pages (click, arrow keys, Home/End; `role="tab"` / `tabpanel`). The open page is kept while the popup stays open.
 - Checked in the built popup with a stubbed `chrome`: 480px popup, a 340px side panel (tabs wrap to two rows, no sideways scroll), and dark mode.
+- Follow-up: the owner saw the width change between pages. `body` is the popup's scroller, so long pages showed a scrollbar and short ones (Alerts, Data) did not, making those 10px wider. `body` now has `scrollbar-gutter: stable`; every page measures the same width. (The browser pane's phone emulation uses overlay scrollbars, so check this at a viewport of 768px or wider.)
 
 ### 2026-10-22 - Lab Quiz 3 showed the CPE Quiz 3 text
 - Owner: the Physics 1 Lab "Quiz 3" carried the Intro to Computer Eng. "Quiz 3" announcement text.
