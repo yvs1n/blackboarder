@@ -444,6 +444,12 @@ For any human or AI assistant continuing work on Blackboarder:
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
 
+### 2026-10-22 - Landing page fits phones
+- Owner: make sure the landing page is fully mobile responsive.
+- Causes: `span 12` inside one-column grids (hero, footer) creates 11 empty columns whose gaps made a 320px page 369px wide; the nav section links were hidden under 640px and wrapped/overflowed at tablet width; footer links were 16px tall.
+- Fix (CSS block "Phones and tablets" at the end of `mobile-web/index.html`): one-column grids use `grid-column: 1 / -1` with `minmax(0, 1fr)`; footer is 2 columns under 960px and 1 under 640px; under 960px the section links become a swipeable row under the logo; tap targets are at least 40-44px.
+- Checked in the preview: no sideways scroll at 320, 340, 375, 414, 500, 600, 700, 768, 850, 960, 1000, 1100 and 1280px.
+
 ### 2026-10-22 - Update prompt shows up right away
 - Owner: the extension did not show an update promptly or prompt to restart.
 - Causes: the background checked GitHub hourly and the popup reused a check up to an hour old, so a new build could wait almost two hours; an open popup never noticed a check finishing; and for a git clone the helper's skip (`dev-checkout`, e.g. uncommitted changes) hid the banner entirely, and the restart happened silently when the popup closed.

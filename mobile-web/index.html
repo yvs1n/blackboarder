@@ -1200,6 +1200,53 @@
     }
     .btn-swiss-primary, .btn-swiss-primary:hover { border-color: var(--action-primary-bg); }
     :focus-visible { outline: 2px solid var(--text-main); outline-offset: 2px; }
+
+    /* ---- Phones and tablets ---- */
+    @media (max-width: 960px) {
+      /* One column. "span 12" in a one-column grid makes 11 empty columns whose gaps
+         push the page wider than a phone screen, so the halves take the single column. */
+      .hero-grid { grid-template-columns: minmax(0, 1fr); }
+      .hero-left, .hero-right { grid-column: 1 / -1; min-width: 0; }
+      .two-col, .steps-grid, .pipeline-grid { min-width: 0; }
+      .two-col > *, .steps-grid > *, .pipeline-grid > *, .bento-cell { min-width: 0; }
+      /* The 12-column footer's gaps alone are wider than a phone, so use 2 columns */
+      .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .footer-col-main { grid-column: 1 / -1; }
+      .footer-col { grid-column: auto; min-width: 0; }
+      /* Section links don't fit beside the logo below 960px: a swipeable row under it */
+      .nav-inner { --gutter: 32px; height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 10px; }
+      .nav-links {
+        display: flex;
+        order: 3;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin: 6px calc(-1 * var(--gutter)) 0;
+        padding: 0 var(--gutter);
+        width: calc(100% + 2 * var(--gutter));
+        border-top: 1px solid var(--surface-border);
+      }
+      .nav-links::-webkit-scrollbar { display: none; }
+      .nav-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; white-space: nowrap; }
+      .nav-links li:first-child .nav-link { padding-left: 0; }
+    }
+    @media (max-width: 640px) {
+      .footer-grid { grid-template-columns: minmax(0, 1fr); }
+      .footer-col-main, .footer-col { grid-column: 1 / -1; }
+      .nav-inner { --gutter: 16px; }
+      .nav-links { display: flex; }
+      /* Finger-sized links */
+      .footer-link { display: inline-flex; align-items: center; min-height: 40px; }
+      .footer-bottom .footer-link { display: inline; min-height: 0; }
+      .step-link { display: inline-flex; align-items: center; min-height: 44px; }
+      .hero-display { overflow-wrap: anywhere; }
+      pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    }
+    @media (max-width: 380px) {
+      .brand-tag { display: none; }
+      .nav-actions { gap: 8px; }
+      .hero-display { font-size: 1.95rem; }
+    }
   </style>
 </head>
 <body>
