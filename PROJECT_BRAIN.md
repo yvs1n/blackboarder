@@ -275,7 +275,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (341 tests across 37 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (346 tests across 38 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -296,7 +296,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **37 test files comprising 341 automated tests** running on Vitest:
+Blackboarder is covered by **38 test files comprising 346 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -314,8 +314,8 @@ Blackboarder is covered by **37 test files comprising 341 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 23 Test Suites* | 200 | Regex extraction, Arabic AI gate, announcement dedupe, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **341** | **100% Passing** |
+| *Other 24 Test Suites* | 205 | Regex extraction, Arabic AI gate, announcement dedupe, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **346** | **100% Passing** |
 
 ---
 
@@ -377,7 +377,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 37 Vitest test suites (341 tests)
+├── tests/                            # 38 Vitest test suites (346 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -442,6 +442,18 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Stream cards read correctly; no more tasks dated by posting time
+- Owner report: Quiz 3 still missing after the merge fix, and junk tasks such as "Exam" (Physics 1, overdue, announcement text "*Oct 18, 2026 2:20 PM").
+- Live card markup (from a console check on `/ultra/stream`): `div.element-card.stream-panel-activity-card` > `div.element-details` with `.timestamp .js-split-datetime` (`span.date` "23 hours" / "Oct 18, 2026", `span.time`), `.context a[analytics-id="stream.entry.course"]` (href `/ultra/courses/_ID_1/outline`, text is the course name), `.name a.js-title-link[analytics-id="stream.entry.title"]`, and an **empty `.content`**. The stream does not show announcement text. Copied into `tests/streamCards.test.ts`.
+- Causes and fixes in `src/content/scraper.ts`:
+  - With no body, `scrapeAnnouncements()` fell back to the raw card text; after stripping course and title only the timestamp was left, and the local parser took it as the due date. Removed the fallback; a card with no body uses its title as text.
+  - "Added: file" cards (course content, `bbcswebdav` links) are skipped; they are not announcements.
+  - The generic Strategy 3 fallback re-read skipped cards whole. It now runs only on pages with no stream cards.
+  - Course announcements fetched per course on the stream page took their course name from the page title ("Activity Stream"). They now use `courseNamesById`, filled from the stream's course links and `/users/me/courses?expand=course`. If the public `/learn/api/public/v1/.../announcements` is refused, the internal `/learn/api/v1/...` is tried (body may be `{ displayText, rawText }`).
+  - Each scan logs one `[Blackboarder] Scan read ...` line in the page console, with any courses whose announcements were refused.
+- `isValidTask()` (`src/core/courseHelper.ts`) drops non-edited tasks whose text is only a timestamp, so existing junk disappears on the next scan.
+- Still open: whether the UOS server lets students read either announcements endpoint is unconfirmed. If Quiz 3 is still missing, the console line says which courses were refused.
 
 ### 2026-10-22 - Deadlines no longer swallowed by older tasks
 - Owner report: "Quiz 3 - Thursday 29 October 2026" (plain English, clear date) never appeared. The local parser handles the exact text (Quiz 3, 2026-10-29), so it was lost while merging.

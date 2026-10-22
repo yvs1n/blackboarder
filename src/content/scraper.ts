@@ -310,6 +310,13 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
     const courseEl = card.querySelector('.course-name, .context-title, a[analytics-id="stream.entry.course"], a[href*="/courses/"], [data-course-id], .course-title, .context a');
 
     let title = titleEl?.textContent?.trim() || '';
+
+    // "Added: Friction.ppt" cards are course files, not announcements. They have no text,
+    // so reading them only ever produced tasks dated by their posting time.
+    if (/^(?:added|updated|edited|new\s+content)\s*:/i.test(title) || /\/bbcswebdav\//i.test(href)) {
+      continue;
+    }
+
     const titleLower = title.toLowerCase().trim();
     const candidateId = announcementId ? `ann_ultra_${announcementId}` : `ann_ultra_${index}_${title.slice(0, 15).replace(/\s+/g, '')}`;
 
@@ -430,7 +437,9 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
     }
 
     const cardCloneText = cardClone.textContent?.trim() || '';
-    let text = bestCandidateText.length >= 25 ? bestCandidateText : (cardCloneText || cardText);
+    // Never fall back to the raw card text: on the Ultra stream the body is empty, and the raw
+    // text is just the course, title and posting time, which then became the due date.
+    let text = bestCandidateText.length >= 25 ? bestCandidateText : cardCloneText;
     let fullHtml = bestCandidateHtml || bestBodyEl?.innerHTML || cardClone.innerHTML || '';
 
     const attrFullText = card.getAttribute('data-full-text') || card.getAttribute('data-content') || '';
@@ -465,6 +474,11 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
       }
     }
 
+    // No body anywhere: the title is all we know (often enough, e.g. "Quiz 3 - Thursday 29 October 2026")
+    if (text.trim().length <= 5 && titleEl) {
+      text = title;
+    }
+
     const postedAt = timeEl?.getAttribute('datetime') || extractDateStringFromText(timeEl?.textContent || '');
 
     const id = candidateId;
@@ -484,8 +498,9 @@ async function scrapeAnnouncements(knownAnnIds?: Set<string>, knownKeys?: Set<st
     }
   }
 
-  // Strategy 3: Generic Announcement/Post container heuristic fallback
-  if (results.length === 0) {
+  // Strategy 3: Generic Announcement/Post container heuristic fallback, only for pages with no
+  // stream cards at all. On the stream it re-read skipped cards whole, timestamp included.
+  if (results.length === 0 && ultraCards.length === 0) {
     const genericPosts = document.querySelectorAll(
       '[class*="announcement"], [class*="post"], [class*="notice"], [role="feed"] > article, [role="feed"] > li, [role="region"] article, main article, [class*="stream-container"] > *'
     );
@@ -541,6 +556,9 @@ function getBlackboardFetchHeaders(): Record<string, string> {
   return headers;
 }
 
+/** Course id -> course name, filled while collecting course ids. */
+const courseNamesById = new Map<string, string>();
+
 /**
  * Extracts all Blackboard course IDs from the URL, DOM elements, and student course API.
  */
@@ -560,16 +578,20 @@ async function extractAllCourseIdsFromPage(): Promise<string[]> {
     if (cid && cid.startsWith('_')) ids.add(cid);
   });
 
-  // 3. Links to courses on stream cards
+  // 3. Links to courses on stream cards (their text is the course name)
   document.querySelectorAll('a[href*="/courses/"], a[href*="course_id="], a[href*="launcher?type=Course"]').forEach(a => {
     const href = (a as HTMLAnchorElement).getAttribute('href') || '';
     const m = href.match(/(?:courses\/|course_id=|[?&]id=)(_\d+_\d+)/);
-    if (m) ids.add(m[1]);
+    if (m) {
+      ids.add(m[1]);
+      const name = a.textContent?.trim() || '';
+      if (name && !courseNamesById.has(m[1])) courseNamesById.set(m[1], name);
+    }
   });
 
   // 4. Blackboard Learn user enrolled courses REST API
   try {
-    const res = await fetch('/learn/api/public/v1/users/me/courses', {
+    const res = await fetch('/learn/api/public/v1/users/me/courses?expand=course', {
       headers: getBlackboardFetchHeaders(),
       credentials: 'same-origin'
     });
@@ -579,6 +601,10 @@ async function extractAllCourseIdsFromPage(): Promise<string[]> {
         for (const item of data.results) {
           if (item.courseId && typeof item.courseId === 'string' && item.courseId.startsWith('_')) {
             ids.add(item.courseId);
+            const name = item.course?.name;
+            if (typeof name === 'string' && name.trim() && !courseNamesById.has(item.courseId)) {
+              courseNamesById.set(item.courseId, name.trim());
+            }
           }
         }
       }
@@ -764,22 +790,38 @@ async function fetchCourseAnnouncementsApi(
   courseId: string,
   fallbackCourseName?: string,
   fallbackCourseCode?: string
-): Promise<Announcement[]> {
+): Promise<Announcement[] | null> {
   try {
-    const res = await fetch(`/learn/api/public/v1/courses/${encodeURIComponent(courseId)}/announcements`, {
-      headers: getBlackboardFetchHeaders(),
-      credentials: 'same-origin'
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data || !Array.isArray(data.results)) return [];
+    // The public REST API can refuse students; Ultra's own pages use the internal one
+    let results: any[] | null = null;
+    for (const base of ['/learn/api/public/v1', '/learn/api/v1']) {
+      try {
+        const res = await fetch(`${base}/courses/${encodeURIComponent(courseId)}/announcements`, {
+          headers: getBlackboardFetchHeaders(),
+          credentials: 'same-origin'
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data && Array.isArray(data.results)) {
+          results = data.results;
+          break;
+        }
+      } catch {}
+    }
+    if (!results) return null;
 
     let cName = fallbackCourseName || '';
     let cCode = fallbackCourseCode || '';
 
-    if (!cName || !cCode) {
+    const knownName = courseNamesById.get(courseId);
+    if (knownName) {
+      const parsed = parseCourseDetails(knownName);
+      cName = parsed.name;
+      cCode = parsed.code;
+    } else if ((!cName || !cCode) && window.location.href.includes(courseId)) {
+      // Only trust the page heading on that course's own page; on the stream it says "Activity Stream"
       const pageHeadingEl = document.querySelector('#courseMenuPalette_paletteTitleHeading, .course-title, header h1, [aria-label*="Course Name"], #course-title-header, .bb-course-title');
-      const rawCourseText = pageHeadingEl?.textContent?.trim() || (document.title !== 'Activity' ? document.title : '');
+      const rawCourseText = pageHeadingEl?.textContent?.trim() || '';
       if (rawCourseText) {
         const parsed = parseCourseDetails(rawCourseText);
         if (!cName) cName = parsed.name;
@@ -787,8 +829,11 @@ async function fetchCourseAnnouncementsApi(
       }
     }
 
-    return data.results.map((item: any, idx: number) => {
+    return results.map((item: any, idx: number) => {
       const temp = document.createElement('div');
+      // Public API: body is an HTML string. Internal API: { displayText, rawText }.
+      const bodyHtml = typeof item.body === 'string' ? item.body : (item.body?.displayText || item.body?.rawText || '');
+      item = { ...item, body: bodyHtml };
       temp.innerHTML = item.body || '';
       const text = temp.textContent?.trim() || temp.innerText?.trim() || '';
       const cleanCourseCode = (cCode && cCode !== 'UOS') ? cCode : '';
@@ -858,7 +903,7 @@ function scrapeOpenDrawerAnnouncement(): Announcement | null {
  * checks open drawers, and scrapes DOM cards with complete un-truncated text.
  * Supports incremental scanning by passing known checkpoint IDs.
  */
-async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }): Promise<Announcement[]> {
+export async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }): Promise<Announcement[]> {
   const checkpoint = options?.fullRescan
     ? { lastScannedAt: '', processedAnnouncementIds: [], processedDirectTaskIds: [], processedAnnouncementKeys: [] }
     : await getLastScanCheckpoint();
@@ -883,12 +928,19 @@ async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }): Prom
     const results = await Promise.all(
       courseIds.map(cid => {
         const matched = domAnnouncements.find(a => a.id.includes(cid) || a.sourceUrl.includes(cid));
-        return fetchCourseAnnouncementsApi(cid, matched?.courseName, matched?.courseCode).catch(() => [] as Announcement[]);
+        return fetchCourseAnnouncementsApi(cid, matched?.courseName, matched?.courseCode).catch(() => null);
       })
     );
     for (const arr of results) {
-      apiAnnouncements.push(...arr);
+      if (arr) apiAnnouncements.push(...arr);
     }
+    const refused = results.filter(r => r === null).length;
+    // One line in the page console so a missed deadline can be traced without a debugger
+    console.info(
+      `[Blackboarder] Scan read ${domAnnouncements.length} stream announcements and ${apiAnnouncements.length} course announcements ` +
+      `from ${courseIds.length - refused} of ${courseIds.length} courses` +
+      (refused ? ` (${refused} refused: ${courseIds.filter((_, i) => results[i] === null).join(', ')})` : '')
+    );
   }
 
   // 4. Scrape any currently open side drawer/modal

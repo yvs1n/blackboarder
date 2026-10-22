@@ -1182,6 +1182,8 @@ var BBCoreBundle = (function() {
 		if (/(?:grade\s+posted|score\s+posted|graded|new\s+grade|grades\s+available|grades\s+released|تم\s+نشر\s+الدرجة|تم\s+رصد\s+الدرجة|درجة\s+جديدة|تم\s+تقييم)/i.test(titleLower)) return false;
 		const isFractionOnly = (text) => /^["']?\s*\.?\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*["']?$/.test(text);
 		if (isFractionOnly(desc) || isFractionOnly(snippet)) return false;
+		const isTimestampOnly = (text) => text !== "" && /^[*\s]*(?:(?:\d+\s+(?:seconds?|minutes?|mins?|hours?|days?)|an?\s+(?:minute|hour|day)|yesterday|today|[A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4}|\d{1,2}\s+[A-Za-z]{3,9},?\s*\d{4})\s*)?(?:\d{1,2}:\d{2}\s*(?:AM|PM)?)?\s*$/i.test(text);
+		if (isTimestampOnly(desc) && (snippet === "" || isTimestampOnly(snippet))) return false;
 		if (/(?:^|[^\p{L}\p{N}])(?:درجات|درجة|علامات|علامة|نتائج|النتائج|العلامات|الدرجات|grades?|marks?|scores?|results?|feedback)(?:$|[^\p{L}\p{N}])/iu.test(titleLower)) {
 			const combinedContext = `${titleLower} ${desc} ${snippet}`;
 			if (!/(?:submit\s+by|due\s+on|due\s+date|submission\s+deadline|makeup\s+exam|make-up\s+exam|تسليم\s+في|آخر\s+موعد|امتحان\s+تعويضي|اختبار\s+تعويضي)/iu.test(combinedContext)) return false;

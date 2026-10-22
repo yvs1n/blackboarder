@@ -493,6 +493,14 @@ export function isValidTask(task: {
     return false;
   }
 
+  // 3b. Drop tasks made from a stream card's posting time alone (e.g. "*Oct 18, 2026 2:20 PM",
+  // "23 hours 3:00 PM"): older scans read the timestamp as the announcement and its due date.
+  const isTimestampOnly = (text: string) => text !== '' &&
+    /^[*\s]*(?:(?:\d+\s+(?:seconds?|minutes?|mins?|hours?|days?)|an?\s+(?:minute|hour|day)|yesterday|today|[A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4}|\d{1,2}\s+[A-Za-z]{3,9},?\s*\d{4})\s*)?(?:\d{1,2}:\d{2}\s*(?:AM|PM)?)?\s*$/i.test(text);
+  if (isTimestampOnly(desc) && (snippet === '' || isTimestampOnly(snippet))) {
+    return false;
+  }
+
   // 4. Drop announcements reporting grades/marks without future deadlines
   // e.g. "درجة الكويز الأول", "درجات الاختبار", "Results of Midterm"
   const isGradeReportTitle = /(?:^|[^\p{L}\p{N}])(?:درجات|درجة|علامات|علامة|نتائج|النتائج|العلامات|الدرجات|grades?|marks?|scores?|results?|feedback)(?:$|[^\p{L}\p{N}])/iu.test(titleLower);
