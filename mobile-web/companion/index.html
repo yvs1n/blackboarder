@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=200376763f85">
+  <link rel="stylesheet" href="./styles.css?v=3ccaafe03c8e">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -278,16 +278,7 @@
         <button id="btn-web-settings" class="btn-icon header-action-desktop" aria-label="Settings" title="Settings">
           <span class="action-icon"><svg class="ui-icon"><use href="#icon-settings"></use></svg></span>
         </button>
-        <button id="btn-web-quick-links" class="btn-icon" aria-label="Academic Quick Links" title="Academic Quick Links (Attendance, Study Plan, Marks)">
-          <span class="action-icon"><svg class="ui-icon"><use href="#icon-link"></use></svg></span>
-        </button>
-        <button id="btn-open-onboarding" class="btn-setup-guide" aria-label="Setup Guide &amp; Pairing Tutorial" title="Setup Guide &amp; Pairing Tutorial">
-          <svg class="ui-icon"><use href="#icon-book"></use></svg>
-          <span class="setup-guide-label">Setup Guide</span>
-        </button>
-        <button id="btn-web-theme-toggle" class="btn-icon" aria-label="Toggle Dark or Light Mode" title="Toggle Dark or Light Mode">
-          <span class="theme-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
-        </button>
+        <!-- Quick Links, Setup Guide and Theme live in the page (Quick Links bar "+ Manage") and in Settings, as in the extension -->
         <button id="btn-refresh" class="btn-icon" aria-label="Refresh Deadlines" title="Refresh Deadlines">
           <span class="refresh-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
         </button>
@@ -299,7 +290,8 @@
       <button class="nav-item active" id="tab-calendar" role="tab" aria-selected="true" data-view="view-calendar">
         <span class="nav-icon"><svg class="ui-icon"><use href="#icon-calendar"></use></svg></span>
         <span class="nav-label nav-label-mobile">Calendar</span>
-        <span class="nav-label nav-label-desktop">Monthly Calendar</span>
+        <span class="nav-label nav-label-desktop nav-label-not-wide">Monthly Calendar</span>
+        <span class="nav-label nav-label-wide">Calendar &amp; Deadlines</span>
       </button>
       <button class="nav-item" id="tab-deadlines" role="tab" aria-selected="false" data-view="view-deadlines">
         <span class="nav-icon"><svg class="ui-icon"><use href="#icon-clipboard"></use></svg></span>
@@ -319,7 +311,7 @@
   </header>
 
   <!-- Main Container -->
-  <main class="app-main">
+  <main class="app-main is-dashboard">
     
     <!-- VIEW 1: Interactive Monthly Calendar -->
     <section id="view-calendar" class="view-section active" role="tabpanel">
@@ -624,9 +616,9 @@
           <div>
             <label class="form-label" for="web-setting-theme" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Theme Preference</label>
             <select id="web-setting-theme" class="mobile-select" style="width: 100%;">
+              <option value="system">Match System Theme (Default)</option>
               <option value="light">Light Mode (Classic Academic)</option>
               <option value="dark">Dark Mode (Focused Night)</option>
-              <option value="system">Match System Theme</option>
             </select>
           </div>
         </div>
@@ -1458,7 +1450,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=200376763f85"></script>
-  <script src="./app.js?v=200376763f85"></script>
+  <script src="./core.js?v=3ccaafe03c8e"></script>
+  <script src="./app.js?v=3ccaafe03c8e"></script>
 </body>
 </html>

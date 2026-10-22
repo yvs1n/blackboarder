@@ -152,7 +152,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoSyncOnScan: true,
   syncKey: '',
   hostedWebUrl: 'https://blackboarder.pages.dev',
-  theme: 'light',
+  theme: 'system',
   blackboardDarkMode: true
 };
 

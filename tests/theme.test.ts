@@ -27,8 +27,8 @@ function expectSwissGridTokens(css: string) {
 }
 
 describe('Dark Mode / Light Mode Theme System', () => {
-  it('DEFAULT_SETTINGS specifies theme: "light"', () => {
-    expect(DEFAULT_SETTINGS.theme).toBe('light');
+  it('DEFAULT_SETTINGS follows the system theme by default', () => {
+    expect(DEFAULT_SETTINGS.theme).toBe('system');
   });
 
   it('UserSettings type supports light, dark, and system themes', () => {
@@ -96,13 +96,14 @@ describe('Dark Mode / Light Mode Theme System', () => {
     expect(css).toContain('.kbd-badge');
   });
 
-  it('Mobile Web index.html includes theme toggle button, sun/moon icons, and settings selector', () => {
+  it('Mobile Web index.html includes sun/moon icons, the Settings theme toggle and selector (none in the header)', () => {
     const htmlPath = path.resolve('mobile-web/companion/index.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toContain('id="icon-sun"');
     expect(html).toContain('id="icon-moon"');
-    expect(html).toContain('id="btn-web-theme-toggle"');
+    expect(html).not.toContain('id="btn-web-theme-toggle"');
+    expect(html).toContain('id="btn-settings-theme-toggle"');
     expect(html).toContain('id="web-setting-theme"');
   });
 

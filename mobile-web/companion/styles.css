@@ -1054,12 +1054,7 @@ body {
     border-radius: 6px !important;
   }
 
-  /* Header: keep only wifi dot, add, and refresh. Theme and Setup Guide live in Settings; Quick Links has its own Manage button. */
-  .header-actions #btn-web-quick-links,
-  .header-actions #btn-open-onboarding,
-  .header-actions #btn-web-theme-toggle {
-    display: none !important;
-  }
+  /* Header: only the wifi dot, add, and refresh (Schedule and Settings are bottom tabs). */
   .wifi-status-badge {
     padding: 0 !important;
     width: 28px !important;
@@ -5078,4 +5073,81 @@ h1, h2, h3 {
   background: var(--primary);
   color: var(--on-accent);
   border-color: var(--primary);
+}
+
+/* ==========================================================================
+   Wide desktop dashboard (900px+): calendar on the left with Up Next and
+   Quick Links under it, the deadline list on the right. Phones and narrow
+   windows keep their layouts. app.js uses the same breakpoint (DASHBOARD_MEDIA).
+   ========================================================================== */
+.nav-label-wide {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .header-content,
+  .app-main {
+    max-width: 1180px;
+  }
+  .app-nav {
+    max-width: 1180px;
+  }
+
+  /* Nav: one "Calendar & Deadlines" tab plus Schedule; Settings stays the header gear */
+  #tab-deadlines {
+    display: none !important;
+  }
+  #tab-schedule {
+    display: flex !important;
+  }
+  #btn-web-schedule {
+    display: none !important;
+  }
+  .nav-label-not-wide {
+    display: none !important;
+  }
+  .nav-label-wide {
+    display: inline !important;
+    font-size: 12px;
+  }
+
+  .app-main.is-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .app-main.is-dashboard > #view-calendar,
+  .app-main.is-dashboard > #view-deadlines {
+    display: block;
+  }
+  /* The list column stays in view while the page scrolls */
+  .app-main.is-dashboard > #view-deadlines {
+    position: sticky;
+    top: 132px;
+    max-height: calc(100vh - 148px);
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  /* Up Next replaces the selected-day panel; a day click opens the day sheet */
+  #selected-day-container {
+    display: none !important;
+  }
+  #up-next-container,
+  .up-next-card {
+    display: block !important;
+  }
+
+  /* Day sheet opens as a centred dialog instead of a bottom drawer */
+  .day-sheet-drawer {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    border: 1px solid var(--surface-border);
+    max-height: 70vh;
+  }
+  .day-sheet-drawer.hidden {
+    transform: translateY(-50%);
+  }
 }

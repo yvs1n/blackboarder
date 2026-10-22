@@ -170,8 +170,23 @@ async function setThemeNow(newTheme: 'light' | 'dark' | 'system') {
   } catch {}
 }
 
+// One-time switch to "Match System Theme" (the new default). Saved light/dark values
+// came from the old 'light' default or the removed header toggle, so everyone starts
+// on System once; picking Light or Dark afterwards sticks.
+const THEME_SYSTEM_DEFAULT_FLAG = 'bbs_theme_system_default_v1';
+async function migrateThemeToSystemDefault() {
+  try {
+    const flags = await chrome.storage.local.get(THEME_SYSTEM_DEFAULT_FLAG);
+    if (flags[THEME_SYSTEM_DEFAULT_FLAG]) return;
+    await saveSettings({ theme: 'system' });
+    try { localStorage.setItem('bbs_theme', 'system'); } catch {}
+    applyTheme('system');
+    await chrome.storage.local.set({ [THEME_SYSTEM_DEFAULT_FLAG]: true });
+  } catch {}
+}
+
 function initThemeSync() {
-  let theme: 'light' | 'dark' | 'system' = 'light';
+  let theme: 'light' | 'dark' | 'system' = 'system';
   try {
     const localTheme = localStorage.getItem('bbs_theme') as any;
     if (localTheme) {
@@ -2518,7 +2533,7 @@ async function loadSettingsForm() {
   (document.getElementById('setting-badge-notif') as HTMLInputElement).checked = settings.badgeNotification;
   (document.getElementById('setting-reminder-hours') as HTMLSelectElement).value = String(settings.reminderHoursBefore || 24);
   const settingTheme = document.getElementById('setting-theme') as HTMLSelectElement | null;
-  if (settingTheme) settingTheme.value = settings.theme || 'light';
+  if (settingTheme) settingTheme.value = settings.theme || 'system';
 
   const settingBbDark = document.getElementById('setting-blackboard-dark-mode') as HTMLInputElement | null;
   if (settingBbDark) settingBbDark.checked = settings.blackboardDarkMode !== false;
@@ -2757,7 +2772,7 @@ function setupEvents() {
   btnSettingsToggle.addEventListener('click', () => switchView('settings'));
   const themeSelect = document.getElementById('setting-theme') as HTMLSelectElement | null;
   themeSelect?.addEventListener('change', () => {
-    setThemeNow((themeSelect.value || 'light') as 'light' | 'dark' | 'system');
+    setThemeNow((themeSelect.value || 'system') as 'light' | 'dark' | 'system');
   });
   btnCancelAdd.addEventListener('click', () => switchView('calendar'));
   btnCancelSettings.addEventListener('click', () => switchView('calendar'));
@@ -3206,7 +3221,7 @@ function setupEvents() {
 
     const syncKey = (document.getElementById('setting-sync-key') as HTMLInputElement)?.value?.trim().toUpperCase() || '';
     const hostedUrl = (document.getElementById('setting-hosted-url') as HTMLInputElement)?.value?.trim() || 'https://blackboarder.pages.dev';
-    const selectedTheme = ((document.getElementById('setting-theme') as HTMLSelectElement)?.value || 'light') as 'light' | 'dark' | 'system';
+    const selectedTheme = ((document.getElementById('setting-theme') as HTMLSelectElement)?.value || 'system') as 'light' | 'dark' | 'system';
     const bbDark = (document.getElementById('setting-blackboard-dark-mode') as HTMLInputElement)?.checked ?? true;
 
     const prevSettings = await getSettings();
@@ -4696,6 +4711,7 @@ function initApp() {
   }
 
   initThemeSync();
+  migrateThemeToSystemDefault();
 
   const now = new Date();
   calendarYear = now.getFullYear();

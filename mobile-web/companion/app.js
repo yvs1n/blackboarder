@@ -446,9 +446,15 @@ function toggleTheme() {
 }
 
 function initTheme() {
-  let saved = 'light';
+  // Default is "Match System Theme". Older installs saved light/dark from the old
+  // default or the removed header toggle, so switch everyone to System once.
+  let saved = 'system';
   try {
-    saved = localStorage.getItem('bbs_theme') || 'light';
+    if (!localStorage.getItem('bbs_theme_system_default_v1')) {
+      localStorage.setItem('bbs_theme', 'system');
+      localStorage.setItem('bbs_theme_system_default_v1', '1');
+    }
+    saved = localStorage.getItem('bbs_theme') || 'system';
   } catch (e) {}
 
   applyTheme(saved);
@@ -984,7 +990,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"200376763f85","version":"1.1.0","shortCommit":"cfda0b9","timestamp":"2026-10-22T11:31:28.813Z"};
+const APP_BUILD = {"build":"3ccaafe03c8e","version":"1.1.0","shortCommit":"bbdded6","timestamp":"2026-10-22T17:14:41.404Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1426,10 +1432,21 @@ async function checkUpcomingDeadlines(isInteractive = false) {
   }
 }
 
+// Wide desktop (900px+): the calendar and the deadline list sit side by side as one
+// "dashboard" view, with Up Next under the calendar. Matches the CSS breakpoint.
+const DASHBOARD_MEDIA = '(min-width: 900px)';
+function isDashboardLayout() {
+  return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(DASHBOARD_MEDIA).matches;
+}
+
 // Switch Active View
 function switchView(targetViewId) {
+  if (targetViewId === 'view-deadlines' && isDashboardLayout()) {
+    targetViewId = 'view-calendar';
+  }
   const tabButtons = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.view-section');
+  document.querySelector('.app-main')?.classList.toggle('is-dashboard', targetViewId === 'view-calendar');
 
   tabButtons.forEach(b => {
     const isTarget = b.getAttribute('data-view') === targetViewId;
@@ -1458,6 +1475,15 @@ function initTabs() {
       }
     });
   });
+
+  // Widening the window while the deadline list is open folds it into the dashboard
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia(DASHBOARD_MEDIA).addEventListener('change', (e) => {
+      if (e.matches && document.getElementById('view-deadlines')?.classList.contains('active')) {
+        switchView('view-calendar');
+      }
+    });
+  }
 
   // Desktop action button shortcuts
   document.getElementById('btn-web-schedule')?.addEventListener('click', () => {
@@ -2287,7 +2313,8 @@ function renderCalendar() {
       cell.classList.add('is-selected');
       state.selectedDate = dateStr;
       renderSelectedDay(dateStr, dayTasks);
-      if (window.innerWidth <= 640) {
+      // Phones and the wide dashboard have no inline day panel, so they open the day sheet
+      if (window.innerWidth <= 640 || isDashboardLayout()) {
         openDaySheet(dateStr, dayTasks);
       }
     });

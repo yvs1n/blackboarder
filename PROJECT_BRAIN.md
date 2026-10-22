@@ -153,6 +153,7 @@ graph TB
 ### 3.2 Mobile Web Companion PWA (`mobile-web/companion/`, served at `/companion/`)
 - `mobile-web/` is the whole site: the landing page (`index.html`) at `/`, the companion at `/companion/`, and `_worker.js`. The worker redirects `/?key=...` to `/companion/`; the landing page also forwards installed (standalone) launches. `mobile-web/sw.js` retires the service worker the app registered at the root before the move.
 - Fully responsive progressive web app designed for mobile Safari (iOS) and mobile Chrome (Android).
+- Layouts: phones (up to 640px) use a bottom tab bar; 641-899px is a single column with Calendar / Deadlines tabs; 900px and wider is a dashboard with the calendar, Up Next and Quick Links on the left and the deadline list on the right (`.app-main.is-dashboard`, `DASHBOARD_MEDIA` in `app.js`).
 - **Offline Resilience (`sw.js`)**: Caches all UI assets (`core.js`, `styles.css`, icons, webmanifest) using cache-first strategies with dynamic `?v=buildId` cache busting.
 - **Feature Parity**: Provides full calendar grid, day drawer sheets, deadline lists, syllabus progress, custom room editors, and live sync pairing with the desktop extension.
 
@@ -445,6 +446,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - System theme by default; companion desktop dashboard
+- Owner: theme should follow the system by default (Light and Dark still selectable); the companion on desktop should get the slimmer header and a side-by-side layout with the calendar on the left, Up Next under it instead of the selected day's deadlines, and Quick Links kept; the phone layout stays.
+- **Theme default**: `DEFAULT_SETTINGS.theme` is `'system'` and both dropdowns list "Match System Theme (Default)" first. Both apps follow `prefers-color-scheme` live. One-time switch for existing installs: the popup's `migrateThemeToSystemDefault()` (flag `bbs_theme_system_default_v1` in `chrome.storage.local`) and the companion's `initTheme()` (same flag name in `localStorage`) set the theme to System once, because saved light/dark values came from the old default or the removed toggles. The owner's saved `dark` therefore becomes System; choosing Light or Dark afterwards sticks.
+- **Companion header**: the Quick Links, Setup Guide and theme buttons are gone (the phone already hid them). Quick Links: the bar's "+ Manage" and the Schedule page; Setup Guide and theme: Settings > Appearance & Help. The header now shows the status badge, Add, Schedule (641-899px only), Settings and Refresh.
+- **Companion dashboard (900px+)**: `.app-main.is-dashboard` is a two-column grid: `#view-calendar` (calendar, Up Next, Quick Links) on the left, `#view-deadlines` on the right (sticky, scrolls on its own). The nav shows "Calendar & Deadlines" and Schedule; `switchView('view-deadlines')` folds into the dashboard (`isDashboardLayout()`, `DASHBOARD_MEDIA` in `app.js`, same breakpoint as the CSS block at the end of `styles.css`). The selected-day panel is hidden there and a day click opens the day sheet, shown as a centred dialog. 641-899px and phones are unchanged.
+- Checked in the browser with sample deadlines: 1280px light and dark (live OS switch), day dialog, Schedule/Settings/back, 800px (unchanged layout), 375px light and dark (unchanged, Up Next shown); and the popup's one-time switch with a stubbed `chrome` holding `theme: 'dark'`.
 
 ### 2026-10-22 - Popup header decluttered
 - Owner asked to free up the header row now that Settings has pages, keeping only what is worth quick access.
