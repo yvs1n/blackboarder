@@ -4,10 +4,10 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 describe('Mobile Web App Sorting Verification', () => {
-  // Extract STUDENT_CLASS_SCHEDULE, getTaskSortTimestamp, and compareTasksByTime from mobile-web/app.js
-  const appJsCode = fs.readFileSync(path.resolve('mobile-web/app.js'), 'utf-8');
+  // Extract STUDENT_CLASS_SCHEDULE, getTaskSortTimestamp, and compareTasksByTime from mobile-web/companion/app.js
+  const appJsCode = fs.readFileSync(path.resolve('mobile-web/companion/app.js'), 'utf-8');
 
-  // Create a sandboxed context to evaluate the helper functions from mobile-web/app.js
+  // Create a sandboxed context to evaluate the helper functions from mobile-web/companion/app.js
   const sandbox: any = {
     console,
     Date,
@@ -27,12 +27,12 @@ describe('Mobile Web App Sorting Verification', () => {
   };
   vm.createContext(sandbox);
 
-  // Sorting lives in the shared core (mobile-web/core.js); the app's course block feeds it the schedule
-  vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
+  // Sorting lives in the shared core (mobile-web/companion/core.js); the app's course block feeds it the schedule
+  vm.runInContext(fs.readFileSync(path.resolve('mobile-web/companion/core.js'), 'utf-8'), sandbox);
   const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
 
   if (!matchCourseBlock) {
-    throw new Error('Could not extract the course block from mobile-web/app.js');
+    throw new Error('Could not extract the course block from mobile-web/companion/app.js');
   }
 
   vm.runInContext(matchCourseBlock[0], sandbox);

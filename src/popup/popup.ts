@@ -646,8 +646,8 @@ function createDaySummaryCard(task: DeadlineTask): HTMLDivElement {
     ` : ''}
 
     ${task.notes ? `
-      <div class="day-card-student-notes" style="margin-top: 6px; padding: 6px 10px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px;">
-        <span style="font-size: 10px; font-weight: 700; color: #2563eb; display: inline-flex; align-items: center; gap: 4px;">
+      <div class="day-card-student-notes" style="margin-top: 6px; padding: 6px 10px; background: var(--surface-hover); border-left: 3px solid var(--text-main); border-radius: 4px;">
+        <span style="font-size: 10px; font-weight: 700; color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
           ${getSvgIcon('pencil')}
           <span>Student Notes:</span>
         </span>
@@ -1797,8 +1797,8 @@ function renderTasks() {
     let studentNotesHtml = '';
     if (task.notes && task.notes.trim()) {
       studentNotesHtml = `
-        <div class="student-notes-box" style="margin-top: 6px; padding: 6px 10px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: 4px;">
-          <div style="font-size: 11px; font-weight: 700; color: #2563eb; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+        <div class="student-notes-box" style="margin-top: 6px; padding: 6px 10px; background: var(--surface-hover); border-left: 3px solid var(--text-main); border-radius: 4px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-main); display: inline-flex; align-items: center; gap: 4px; margin-bottom: 2px;">
             ${getSvgIcon('pencil')}
             <span>Student Notes:</span>
           </div>
@@ -2030,8 +2030,8 @@ function openReadingSheet(task: DeadlineTask) {
     </div>
 
     ${task.notes && task.notes.trim() ? `
-      <div class="reading-notes-box" style="margin-top: 8px; padding: 10px 12px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: var(--radius-sm);">
-        <div style="font-size: 11px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+      <div class="reading-notes-box" style="margin-top: 8px; padding: 10px 12px; background: var(--surface-hover); border-left: 3px solid var(--text-main); border-radius: var(--radius-sm);">
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
           ${getSvgIcon('pencil')}
           <span>Student Personal Notes</span>
         </div>
@@ -2531,7 +2531,7 @@ async function loadSettingsForm() {
       if (res.skipped) {
         statusEl.textContent = '';
       } else if (res.success) {
-        statusEl.innerHTML = `<span style="color: #16a34a; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Server Online (${res.count || 0} tasks synced)</span></span>`;
+        statusEl.innerHTML = `<span style="color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Server Online (${res.count || 0} tasks synced)</span></span>`;
       } else {
         statusEl.innerHTML = `<span style="color: #d97706; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('urgent')} <span>Your sync server is not responding (Firebase sync still works)</span></span>`;
       }
@@ -2738,17 +2738,17 @@ async function scanActiveTab(fullRescan: boolean = false) {
     // Display clear visual results on the compact button and in the extended banner
     if (totalFound > 0 && totalUpdated > 0) {
       btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
-      btnScanTab.style.background = '#16a34a';
+      btnScanTab.style.background = 'var(--text-main)';
       showScanBanner(`Found ${totalFound} new deadline${totalFound > 1 ? 's' : ''}, updated ${totalUpdated}!`, 'success', 5000);
       switchView('calendar');
     } else if (totalFound > 0) {
       btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>+${totalFound}</span>`;
-      btnScanTab.style.background = '#16a34a';
+      btnScanTab.style.background = 'var(--text-main)';
       showScanBanner(`Added ${totalFound} new deadline${totalFound > 1 ? 's' : ''} to calendar!`, 'success', 5000);
       switchView('calendar');
     } else if (totalUpdated > 0) {
       btnScanTab.innerHTML = `${getSvgIcon('check', 'mr-1')}<span>Updated</span>`;
-      btnScanTab.style.background = '#0284c7';
+      btnScanTab.style.background = 'var(--text-main)';
       showScanBanner(`Updated ${totalUpdated} existing deadline${totalUpdated > 1 ? 's' : ''}!`, 'success', 5000);
       switchView('calendar');
     } else {
@@ -3305,12 +3305,12 @@ function setupEvents() {
   btnTriggerFullRescan?.addEventListener('click', async () => {
     if (rescanStatusMsg) {
       rescanStatusMsg.textContent = 'Triggering Full Re-scan on active tab...';
-      rescanStatusMsg.style.color = '#3b82f6';
+      rescanStatusMsg.style.color = 'var(--text-muted)';
     }
     await scanActiveTab(true);
     if (rescanStatusMsg) {
       rescanStatusMsg.textContent = 'Full Re-scan completed!';
-      rescanStatusMsg.style.color = '#16a34a';
+      rescanStatusMsg.style.color = 'var(--text-main)';
     }
   });
 
@@ -3323,7 +3323,7 @@ function setupEvents() {
     });
     if (rescanStatusMsg) {
       rescanStatusMsg.textContent = 'Scan cache cleared! Next scan will evaluate all announcements.';
-      rescanStatusMsg.style.color = '#16a34a';
+      rescanStatusMsg.style.color = 'var(--text-main)';
     }
     alert('Scan cache has been cleared. Your next scan will examine all announcements from scratch and update existing tasks in place without resetting your data.');
   });
@@ -3360,12 +3360,21 @@ function setupEvents() {
     }
   });
 
+  // The setting holds the site address; the phone app is at /companion/ and the feed at the site root.
+  // Either form (with or without /companion) is accepted.
+  function siteUrl(hosted?: string): string {
+    return (hosted || 'https://blackboarder.pages.dev').trim().replace(/\/+$/, '').replace(/\/companion$/, '');
+  }
+  function companionUrl(hosted?: string): string {
+    return `${siteUrl(hosted)}/companion/`;
+  }
+
   // Copy Phone Pairing Link
   btnCopyPairingLink?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
+    const appBase = companionUrl(settings.hostedWebUrl);
     const syncKey = settings.syncKey || '';
-    const pairUrl = syncKey ? `${hostedBase}/?key=${encodeURIComponent(syncKey)}` : hostedBase;
+    const pairUrl = syncKey ? `${appBase}?key=${encodeURIComponent(syncKey)}` : appBase;
     try {
       await navigator.clipboard.writeText(pairUrl);
       alert(`Copied Mobile Pairing Link to clipboard:\n${pairUrl}\n\nOpen this link on your phone (or send it via WhatsApp) to instantly view and sync your deadlines!`);
@@ -3379,7 +3388,7 @@ function setupEvents() {
     const statusEl = document.getElementById('sync-status-msg');
     if (statusEl) {
       statusEl.textContent = 'Syncing deadlines with cloud (bidirectional)...';
-      statusEl.style.color = '#3b82f6';
+      statusEl.style.color = 'var(--text-muted)';
     }
 
     // 1. Proactively pull freshest updates from phone / cloud first so mobile edits are preserved
@@ -3396,7 +3405,7 @@ function setupEvents() {
 
     if (fbRes.success || serverRes.success) {
       if (statusEl) {
-        statusEl.innerHTML = `<span style="color: #16a34a; display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Synced ${currentTasks.length} deadlines with Firebase Cloud!</span></span>`;
+        statusEl.innerHTML = `<span style="color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">${getSvgIcon('check')} <span>Synced ${currentTasks.length} deadlines with Firebase Cloud!</span></span>`;
       }
       alert(`Successfully synchronized ${currentTasks.length} deadlines with Firebase Realtime Database!\n\nBoth laptop and mobile devices are now up to date.`);
     } else {
@@ -3412,9 +3421,9 @@ function setupEvents() {
 
   btnOpenMobileWeb?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
+    const appBase = companionUrl(settings.hostedWebUrl);
     const syncKey = settings.syncKey || '';
-    const targetUrl = syncKey ? `${hostedBase}/?key=${encodeURIComponent(syncKey)}` : hostedBase;
+    const targetUrl = syncKey ? `${appBase}?key=${encodeURIComponent(syncKey)}` : appBase;
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.create({ url: targetUrl });
     } else {
@@ -3424,7 +3433,7 @@ function setupEvents() {
 
   btnCopyWebcalLink?.addEventListener('click', async () => {
     const settings = await getSettings();
-    const hostedBase = (settings.hostedWebUrl || 'https://blackboarder.pages.dev').replace(/\/+$/, '');
+    const hostedBase = siteUrl(settings.hostedWebUrl);
     const syncKey = settings.syncKey || '';
     const webcalUrl = hostedBase.replace(/^https?:/, 'webcal:') + `/feed.ics${syncKey ? `?key=${encodeURIComponent(syncKey)}` : ''}`;
     try {
@@ -3550,11 +3559,11 @@ function setupEvents() {
 function getQuickLinkCategoryMeta(category: QuickLinkCategory): { label: string; icon: string; badgeClass: string; color: string; bg: string } {
   switch (category) {
     case 'attendance':
-      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: '#0284c7', bg: '#e0f2fe' };
+      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'study_plan':
       return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'marks':
-      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: '#7c3aed', bg: '#ede9fe' };
+      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'portal':
       return { label: 'Portal', icon: '🌐', badgeClass: 'ql-cat-portal', color: '#d97706', bg: '#fef3c7' };
     case 'other':

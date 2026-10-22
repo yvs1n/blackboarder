@@ -415,7 +415,7 @@ function applyTheme(theme = 'light') {
   // Update meta theme-color for mobile address bar
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
-    metaTheme.setAttribute('content', isDark ? '#090d16' : '#2563eb');
+    metaTheme.setAttribute('content', isDark ? '#0a0a0a' : '#000000');
   }
 
   const btnToggle = document.getElementById('btn-web-theme-toggle');
@@ -512,11 +512,11 @@ function initTheme() {
 function getQuickLinkCategoryMeta(category) {
   switch (category) {
     case 'attendance':
-      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: '#0284c7', bg: '#e0f2fe' };
+      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'study_plan':
-      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: '#2563eb', bg: '#eff6ff' };
+      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'marks':
-      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: '#7c3aed', bg: '#ede9fe' };
+      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
     case 'portal':
       return { label: 'Portal', icon: '🌐', badgeClass: 'ql-cat-portal', color: '#d97706', bg: '#fef3c7' };
     case 'other':
@@ -984,7 +984,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"4f8fd6ddc7b9","version":"1.1.0","shortCommit":"c3b6ff7","timestamp":"2026-10-21T20:02:12.953Z"};
+const APP_BUILD = {"build":"8486835e1263","version":"1.1.0","shortCommit":"2a7efe8","timestamp":"2026-10-22T05:26:44.007Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3249,8 +3249,8 @@ function renderReadingPane(task) {
 
       <!-- Student Personal Notes -->
       ${task.notes && task.notes.trim() ? `
-        <div class="reading-notes-box" style="margin-top: 12px; padding: 12px 14px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: var(--radius-sm);">
-          <div style="font-size: 12px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <div class="reading-notes-box" style="margin-top: 12px; padding: 12px 14px; background: var(--surface-hover); border-left: 3px solid var(--text-main); border-radius: var(--radius-sm);">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
             ${getSvgIcon('pencil')}
             <span>Student Personal Notes</span>
           </div>
@@ -4811,8 +4811,8 @@ function openReadingSheet(task) {
 
     <!-- Student Personal Notes -->
     ${task.notes && task.notes.trim() ? `
-      <div class="reading-notes-box" style="margin-top: 12px; padding: 12px 14px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; border-radius: var(--radius-sm);">
-        <div style="font-size: 12px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+      <div class="reading-notes-box" style="margin-top: 12px; padding: 12px 14px; background: var(--surface-hover); border-left: 3px solid var(--text-main); border-radius: var(--radius-sm);">
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
           ${getSvgIcon('pencil')}
           <span>Student Personal Notes</span>
         </div>

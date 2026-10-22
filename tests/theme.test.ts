@@ -3,6 +3,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_SETTINGS, UserSettings } from '../src/types';
 
+
+/** The Swiss Grid design system, shared by the extension, the companion and the landing page. */
+function expectSwissGridTokens(css: string) {
+  // Light: neutral page, white surfaces, black text, grey metadata, one red for the main action
+  for (const token of ['--bg: #f5f5f5;', '--surface: #ffffff;', '--text-main: #000000;', '--text-muted: #555555;',
+    '--accent: #dc2626;', '--on-accent: #ffffff;', '--radius-md: 0px;']) {
+    expect(css).toContain(token);
+  }
+  // Dark variant keeps the same red
+  expect(css).toContain('[data-theme="dark"]');
+  for (const token of ['--bg: #0a0a0a;', '--surface: #141414;', '--text-main: #f5f5f5;', '--text-muted: #a3a3a3;']) {
+    expect(css).toContain(token);
+  }
+  expect(css).toMatch(/font-family: "Inter Tight"/);
+  expect(css).not.toMatch(/linear-gradient\((135deg|90deg)/);
+}
+
 describe('Dark Mode / Light Mode Theme System', () => {
   it('DEFAULT_SETTINGS specifies theme: "light"', () => {
     expect(DEFAULT_SETTINGS.theme).toBe('light');
@@ -24,37 +41,16 @@ describe('Dark Mode / Light Mode Theme System', () => {
 
     // Light root variables
     expect(css).toContain(':root');
-    expect(css).toContain('--bg: #f8fafc;');
-    expect(css).toContain('--surface: #ffffff;');
-    expect(css).toContain('--text-main: #0f172a;');
-
-    // Dark theme token overrides
-    expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain('--bg: #121215;');
-    expect(css).toContain('--surface: #1a1a1f;');
-    expect(css).toContain('--surface-hover: #24242b;');
-    expect(css).toContain('--surface-border: #2c2c36;');
-    expect(css).toContain('--text-main: #f4f4f6;');
-    expect(css).toContain('--text-muted: #a1a1aa;');
-    expect(css).toContain('--primary: #f4f4f6;');
+    expectSwissGridTokens(css);
   });
 
   it('Mobile Web styles.css defines full dark theme tokens matching extension', () => {
-    const cssPath = path.resolve('mobile-web/styles.css');
+    const cssPath = path.resolve('mobile-web/companion/styles.css');
     const css = fs.readFileSync(cssPath, 'utf8');
 
     // Light root variables
     expect(css).toContain(':root');
-    expect(css).toContain('--bg: #f8fafc;');
-    expect(css).toContain('--surface: #ffffff;');
-
-    // Dark theme token overrides
-    expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain('--bg: #121215;');
-    expect(css).toContain('--surface: #1a1a1f;');
-    expect(css).toContain('--text-main: #f4f4f6;');
-    expect(css).toContain('--text-muted: #a1a1aa;');
-    expect(css).toContain('--primary: #f4f4f6;');
+    expectSwissGridTokens(css);
 
     // Fixed scuffed dark mode overrides for calendar day cells and badges
     expect(css).toContain('[data-theme="dark"] .cal-day-cell');
@@ -95,7 +91,7 @@ describe('Dark Mode / Light Mode Theme System', () => {
   });
 
   it('Mobile Web index.html includes theme toggle button, sun/moon icons, and settings selector', () => {
-    const htmlPath = path.resolve('mobile-web/index.html');
+    const htmlPath = path.resolve('mobile-web/companion/index.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toContain('id="icon-sun"');
@@ -105,7 +101,7 @@ describe('Dark Mode / Light Mode Theme System', () => {
   });
 
   it('Mobile Web app.js implements theme initialization, toggling, and persistence', () => {
-    const jsPath = path.resolve('mobile-web/app.js');
+    const jsPath = path.resolve('mobile-web/companion/app.js');
     const js = fs.readFileSync(jsPath, 'utf8');
 
     expect(js).toContain('function applyTheme');
@@ -143,5 +139,14 @@ describe('Dark Mode / Light Mode Theme System', () => {
     const popupCss = fs.readFileSync(popupCssPath, 'utf8');
     expect(popupCss).toContain('.ucc-action-btn.edit');
   });
-});
 
+  it('Landing page uses the same Swiss Grid palette and red primary action', () => {
+    const html = fs.readFileSync(path.resolve('mobile-web/index.html'), 'utf8');
+    for (const token of ['--bg: #f5f5f5;', '--surface: #ffffff;', '--text-main: #000000;', '--text-muted: #555555;',
+      '--action-primary-bg: #dc2626;', '--bg: #0a0a0a;', '--text-main: #f5f5f5;']) {
+      expect(html).toContain(token);
+    }
+    expect(html).toContain('/companion/fonts/inter-tight.woff2');
+    expect(html).not.toContain('linear-gradient');
+  });
+});

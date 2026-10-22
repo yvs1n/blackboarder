@@ -43,7 +43,7 @@ try {
 // 2. Swiss Grid 0px border-radius check
 console.log('\n--- Checking Swiss Grid 0px Compliance ---');
 const popupCss = fs.readFileSync(path.join(ROOT, 'src/popup/popup.css'), 'utf8');
-const mobileCss = fs.readFileSync(path.join(ROOT, 'mobile-web/styles.css'), 'utf8');
+const mobileCss = fs.readFileSync(path.join(ROOT, 'mobile-web/companion/styles.css'), 'utf8');
 
 if (popupCss.includes('*, *::before, *::after') && popupCss.includes('border-radius: 0 !important;')) {
   pass('src/popup/popup.css enforces universal 0px border-radius');
@@ -52,9 +52,9 @@ if (popupCss.includes('*, *::before, *::after') && popupCss.includes('border-rad
 }
 
 if (mobileCss.includes('*, *::before, *::after') && mobileCss.includes('border-radius: 0 !important;')) {
-  pass('mobile-web/styles.css enforces universal 0px border-radius');
+  pass('mobile-web/companion/styles.css enforces universal 0px border-radius');
 } else {
-  fail('mobile-web/styles.css is missing universal 0px border-radius rule');
+  fail('mobile-web/companion/styles.css is missing universal 0px border-radius rule');
 }
 
 // 3. Two-Tone theme compliance (prohibited neon green in UI styles)
@@ -107,7 +107,7 @@ docsFiles.forEach(rel => {
 console.log('\n--- Checking Universal Multi-Component Version Synchronization ---');
 const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 const manifestVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/manifest.json'), 'utf8')).version;
-const landingHtml = fs.readFileSync(path.join(ROOT, 'landing/index.html'), 'utf8');
+const landingHtml = fs.readFileSync(path.join(ROOT, 'mobile-web/index.html'), 'utf8');
 const readmeContent = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 
 if (manifestVersion !== pkgVersion) {
@@ -117,9 +117,9 @@ if (manifestVersion !== pkgVersion) {
 }
 
 if (!landingHtml.includes(`Blackboarder v${pkgVersion}`)) {
-  fail(`landing/index.html does not display current version (expected "Blackboarder v${pkgVersion}")`);
+  fail(`mobile-web/index.html (landing page) does not display current version (expected "Blackboarder v${pkgVersion}")`);
 } else {
-  pass(`landing/index.html displays matching version (v${pkgVersion})`);
+  pass(`mobile-web/index.html (landing page) displays matching version (v${pkgVersion})`);
 }
 
 if (!readmeContent.includes(`badge/Version-v${pkgVersion}-blue`)) {
@@ -155,17 +155,17 @@ if (fs.existsSync(distVersionPath)) {
   }
 }
 
-const webVersionPath = path.join(ROOT, 'mobile-web/version.json');
+const webVersionPath = path.join(ROOT, 'mobile-web/companion/version.json');
 if (fs.existsSync(webVersionPath)) {
   try {
     const webVer = JSON.parse(fs.readFileSync(webVersionPath, 'utf8')).version;
     if (webVer !== pkgVersion) {
-      fail(`mobile-web/version.json version (${webVer}) does not match package.json (${pkgVersion})`);
+      fail(`mobile-web/companion/version.json version (${webVer}) does not match package.json (${pkgVersion})`);
     } else {
-      pass(`mobile-web/version.json matches package.json (v${pkgVersion})`);
+      pass(`mobile-web/companion/version.json matches package.json (v${pkgVersion})`);
     }
   } catch (e) {
-    fail('mobile-web/version.json could not be parsed');
+    fail('mobile-web/companion/version.json could not be parsed');
   }
 }
 

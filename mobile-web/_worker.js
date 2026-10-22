@@ -552,18 +552,24 @@ export default {
       });
     }
 
-    // 7. Pass all other static requests (HTML, CSS, JS, icons) to Cloudflare Pages Assets
+    // 7. The landing page lives at /, the companion at /companion/. Pairing links made before the
+    //    move (/?key=...) and the old installed app's start page go to the companion.
+    if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html') &&
+        (url.searchParams.has('key') || url.searchParams.has('sync') || url.searchParams.has('code'))) {
+      return Response.redirect(`${url.origin}/companion/${url.search}`, 302);
+    }
+
+    // 8. Pass all other static requests (HTML, CSS, JS, icons) to Cloudflare Pages Assets
     if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
       const assetRes = await env.ASSETS.fetch(request);
-      const isSw = pathname === '/sw.js';
-      const isHtml = pathname === '/' || pathname === '/index.html';
+      const isSw = pathname === '/sw.js' || pathname === '/companion/sw.js';
+      const isHtml = pathname === '/' || pathname === '/index.html' || pathname === '/companion/' || pathname === '/companion/index.html';
       const isCode = pathname.endsWith('.js') || pathname.endsWith('.css');
 
       if (isSw || isHtml || isCode) {
         const newHeaders = new Headers(assetRes.headers);
         if (isSw) {
           newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          newHeaders.set('Service-Worker-Allowed', '/');
         } else if (isHtml) {
           newHeaders.set('Cache-Control', 'no-cache, must-revalidate');
         } else if (isCode) {

@@ -134,7 +134,11 @@ describe('Live HTTP Server & Sync Bridge Integration', () => {
 
   it('serves static PWA files correctly (index.html, styles.css, app.js, manifest.json)', async () => {
     // HTML
-    const htmlRes = await fetch(`${baseUrl}/`);
+    const landingRes = await fetch(`${baseUrl}/`);
+    expect(landingRes.status).toBe(200);
+    expect(await landingRes.text()).toContain('Never miss a Blackboard deadline');
+
+    const htmlRes = await fetch(`${baseUrl}/companion/`);
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers.get('content-type')).toContain('text/html');
     const html = await htmlRes.text();
@@ -142,17 +146,17 @@ describe('Live HTTP Server & Sync Bridge Integration', () => {
     expect(html).toContain('id="calendar-grid"');
 
     // CSS
-    const cssRes = await fetch(`${baseUrl}/styles.css`);
+    const cssRes = await fetch(`${baseUrl}/companion/styles.css`);
     expect(cssRes.status).toBe(200);
     expect(cssRes.headers.get('content-type')).toContain('text/css');
 
     // JS
-    const jsRes = await fetch(`${baseUrl}/app.js`);
+    const jsRes = await fetch(`${baseUrl}/companion/app.js`);
     expect(jsRes.status).toBe(200);
     expect(jsRes.headers.get('content-type')).toContain('application/javascript');
 
     // Manifest
-    const manifestRes = await fetch(`${baseUrl}/manifest.json`);
+    const manifestRes = await fetch(`${baseUrl}/companion/manifest.json`);
     expect(manifestRes.status).toBe(200);
     const manifest = await manifestRes.json();
     expect(manifest.short_name).toBe('Blackboarder');

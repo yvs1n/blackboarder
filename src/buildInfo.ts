@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "acb931c68581",
-  "commit": "8e2f2f8e6cc67c64c16aa45137835c2305f20fb8",
-  "shortCommit": "8e2f2f8",
-  "timestamp": "2026-10-21T20:58:13.665Z",
-  "message": "Tighten month title spacing next to the calendar arrows",
+  "build": "82da79e918e4",
+  "commit": "2a7efe85c114aff935559ffd1bac52c059ec969d",
+  "shortCommit": "2a7efe8",
+  "timestamp": "2026-10-22T05:27:22.873Z",
+  "message": "Rewrite landing page with current info and make it hostable",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

@@ -8,7 +8,7 @@ const read = (rel: string) => fs.readFileSync(path.resolve(rel), 'utf8').replace
 
 describe('generated files match their sources', () => {
   it('serves the same widget script the repository ships', () => {
-    expect(read('mobile-web/widget.js')).toBe(read('widgets/blackboarder-widget.js'));
+    expect(read('mobile-web/companion/widget.js')).toBe(read('widgets/blackboarder-widget.js'));
   });
 
   it('copies the calendar feed from the Pages worker into the Node server', () => {
@@ -24,19 +24,20 @@ describe('generated files match their sources', () => {
     const standalone = read('self-hosted/cloudflare-worker/worker.js');
     expect(standalone).toContain('const pagesWorker = {');
     expect(standalone).toContain('EMBEDDED_ASSETS');
-    expect(standalone).toContain(JSON.stringify('/core.js'));
+    expect(standalone).toContain(JSON.stringify('/companion/core.js'));
+    expect(standalone).toContain(JSON.stringify('/index.html'));
   });
 
   it('exposes the shared core to the web app', () => {
     const ctx: any = {};
     vm.createContext(ctx);
-    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf8'), ctx);
+    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/companion/core.js'), 'utf8'), ctx);
     const core = ctx.BBCore;
     for (const name of ['sanitizeCloudTasks', 'resolveCourseInfo', 'resolveTaskWeight', 'deduplicateTaskList', 'generateIcsContent', 'extractFromText']) {
       expect(typeof core[name], name).toBe('function');
     }
     // Every helper the app takes from the core must exist there
-    const app = read('mobile-web/app.js');
+    const app = read('mobile-web/companion/app.js');
     const destructure = /const \{([\s\S]*?)\} = BB;/.exec(app);
     expect(destructure).not.toBeNull();
     const names = destructure![1].split(',').map(n => n.replace(/\/\/.*$/gm, '').trim()).filter(Boolean);

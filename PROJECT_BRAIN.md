@@ -147,7 +147,8 @@ graph TB
   - `serviceWorker.ts`: Handles extension alarms (midnight sync, hourly GitHub update checks), badge counts (`updateBadge`), CORS-bypassing API requests for Jev/OpenRouter, and context messaging.
   - `autoUpdate.ts`: Automatically polls GitHub repository releases and downloads updated assets into `dist/`.
 
-### 3.2 Mobile Web Companion PWA (`mobile-web/`)
+### 3.2 Mobile Web Companion PWA (`mobile-web/companion/`, served at `/companion/`)
+- `mobile-web/` is the whole site: the landing page (`index.html`) at `/`, the companion at `/companion/`, and `_worker.js`. The worker redirects `/?key=...` to `/companion/`; the landing page also forwards installed (standalone) launches. `mobile-web/sw.js` retires the service worker the app registered at the root before the move.
 - Fully responsive progressive web app designed for mobile Safari (iOS) and mobile Chrome (Android).
 - **Offline Resilience (`sw.js`)**: Caches all UI assets (`core.js`, `styles.css`, icons, webmanifest) using cache-first strategies with dynamic `?v=buildId` cache busting.
 - **Feature Parity**: Provides full calendar grid, day drawer sheets, deadline lists, syllabus progress, custom room editors, and live sync pairing with the desktop extension.
@@ -244,15 +245,16 @@ To prevent modern generic "AI slop" interfaces characterized by exaggerated roun
 }
 ```
 
-### 6.2 Flat Two-Tone Palette
-All neon greens (`#10b981`, `#34d399`) were replaced with neutral monochrome tokens:
-- **Light Theme**: Surface `#ffffff`, Text `#18181b`, Muted `#71717a`, Border `#e4e4e7`, Highlight `#f4f4f5`.
-- **Dark Theme**: Surface `#18181b`, Text `#f4f4f6`, Muted `#a1a1aa`, Border `#27272a`, Highlight `#242427`.
-- **Accent**: Deliberate, single-accent blue (`#2563eb` light / `#3b82f6` dark) used exclusively for active navigation or verified status.
+### 6.2 Swiss Grid Palette (since 2026-10-22)
+The full specification is `docs/DESIGN_SYSTEM.md`; `tests/theme.test.ts` checks that the extension, companion and landing page tokens match it.
+- **Light**: page `#f5f5f5`, cards `#ffffff`, text `#000000`, metadata and borders `#555555` / `#e5e5e5`.
+- **Dark**: page `#0a0a0a`, cards `#141414`, text `#f5f5f5`, metadata `#a3a3a3`, borders `#262626`.
+- **Accent**: one red, `#dc2626` (`--accent`), for the main action on each screen (Scan, Save, Install, Download) and overdue deadlines. No blue, green, purple or amber in the interface; course colours chosen by the student are data and stay.
+- **Flat**: no gradients, no decorative shadows (`--shadow-sm` / `--shadow-md` are transparent).
 
 ### 6.3 Typography & Punctuation Rules
-- Universal font stack: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif.
-- **Strict Prohibition of Em-Dashes**: Em-dashes (`-` / `\u2014`) are strictly banned across all UI text, labels, documentation, and code comments in favor of standard hyphens (`-`).
+- Headings: Inter Tight 700 with negative tracking; body: Inter, 1.55 line height. Both fonts are bundled (`public/fonts/` for the extension, `mobile-web/companion/fonts/` for the companion and landing page).
+- **Strict Prohibition of Em-Dashes**: Em-dashes are banned across all UI text, labels, documentation, and code comments in favor of standard hyphens (`-`).
 
 ---
 
@@ -265,7 +267,7 @@ graph LR
     Pkg[package.json<br/>v1.1.0] --> Script[scripts/build.js<br/>syncAllComponents]
     Script --> Ext[Extension<br/>manifest.json & buildInfo.ts]
     Script --> PWA[Companion PWA<br/>version.json & app.js APP_BUILD]
-    Script --> Landing[Landing Page<br/>landing/index.html Mockup]
+    Script --> Landing[Landing Page<br/>mobile-web/index.html Mockup]
     Script --> Readme[GitHub README<br/>Version & Vitest Badges]
     Script --> Lint[scripts/lint-check.js<br/>Check 6 Verification Guard]
 ```
@@ -275,9 +277,9 @@ graph LR
 2. Inspects `tests/` and dynamically counts passing test cases (329 tests across 35 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
-5. Updates `landing/index.html` mockup header: `<span>Blackboarder v${version}</span>`.
+5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
 6. Updates `README.md` Version badge (`badge/Version-v${version}-blue`) and Vitest badge (`badge/Tests-${count}_Passing-success`).
-7. Stamps `mobile-web/app.js` (`const APP_BUILD = {...}`), `mobile-web/sw.js` (`const BUILD_ID = '...'`), and `mobile-web/version.json`.
+7. Stamps `mobile-web/companion/app.js` (`const APP_BUILD = {...}`), `mobile-web/companion/sw.js` (`const BUILD_ID = '...'`), and `mobile-web/companion/version.json`.
 8. Recompiles all bundles via Vite and bundles the standalone Cloudflare Worker.
 
 ### 7.2 The Lint & Hygiene Guard (`scripts/lint-check.js`)
@@ -287,7 +289,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 3. **Two-Tone Compliance**: Verifies zero prohibited neon green hex codes.
 4. **JSON File Integrity**: Validates syntax of `package.json`, `manifest.json`, and `database.rules.json`.
 5. **Typography Check**: Scans docs for prohibited em-dashes (`-`).
-6. **Universal Synchronization Check**: Asserts that `package.json`, `public/manifest.json`, `landing/index.html`, `README.md`, `dist/version.json`, and `mobile-web/version.json` match identically.
+6. **Universal Synchronization Check**: Asserts that `package.json`, `public/manifest.json`, `mobile-web/index.html`, `README.md`, `dist/version.json`, and `mobile-web/companion/version.json` match identically.
 
 ---
 
@@ -336,17 +338,19 @@ blackboard_sidekick/
 │   ├── INSTALL_EXTENSION.md          # 60-second Chrome extension installation guide
 │   ├── WALKTHROUGH.md                # Feature walkthrough and user guide
 │   └── syllabus/README.md            # Privacy syllabus guide
-├── landing/                          # Standalone product landing page
-│   └── index.html                    # Responsive Swiss Grid landing page and live mockup
-├── mobile-web/                       # Mobile Web Companion PWA
-│   ├── app.js                        # PWA state machine, views, calendar, and sync
-│   ├── core.js                       # Bundled shared core logic (from src/mobile/core.ts)
-│   ├── index.html                    # PWA application shell
-│   ├── styles.css                    # PWA Swiss Grid CSS (0px border-radius, two-tone)
-│   ├── sw.js                         # Offline cache-first Service Worker
-│   ├── version.json                  # PWA build metadata and hash
-│   ├── widget.js                     # Scriptable iOS widget script
-│   └── _worker.js                    # Cloudflare Pages worker (sync API + ICS feed)
+├── mobile-web/                       # The website (Cloudflare Pages output folder)
+│   ├── index.html                    # Landing page at / (Swiss Grid, live mockup)
+│   ├── sw.js                         # Retires the pre-move root service worker
+│   ├── _worker.js                    # Pages worker (sync API + ICS feed + /?key= redirect)
+│   └── companion/                    # Phone app at /companion/
+│       ├── app.js                    # PWA state machine, views, calendar, and sync
+│       ├── core.js                   # Bundled shared core logic (from src/mobile/core.ts)
+│       ├── index.html                # PWA application shell
+│       ├── styles.css                # PWA Swiss Grid CSS
+│       ├── sw.js                     # Offline Service Worker (scope /companion/)
+│       ├── fonts/                    # Inter and Inter Tight (also used by the landing page)
+│       ├── version.json              # PWA build metadata and hash
+│       └── widget.js                 # Scriptable iOS widget script
 ├── public/                           # Static assets copied into dist/
 │   ├── icons/                        # 16px, 32px, 48px, 128px icons
 │   └── manifest.json                 # Source Chromium Manifest V3
@@ -413,11 +417,11 @@ Thanks to the universal synchronization engine, bumping a version requires editi
 2. Run `npm run build`.
 3. The build script automatically updates:
    - `public/manifest.json` (`"version": "1.2.0"`)
-   - `landing/index.html` (`Blackboarder v1.2.0`)
+   - `mobile-web/index.html` (`Blackboarder v1.2.0`)
    - `README.md` (`Version-v1.2.0` badge and latest test count)
    - `src/popup/index.html` static version tags
    - `src/buildInfo.ts`
-   - `mobile-web/version.json` and `dist/version.json`
+   - `mobile-web/companion/version.json` and `dist/version.json`
 4. Run `npm run lint` to verify that all components are in lockstep.
 5. Add changes to `CHANGELOG.md` under `## [1.2.0]`.
 6. Commit and push: `git commit -am "chore: release v1.2.0"` and `git push origin main`.
@@ -436,6 +440,13 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Swiss Grid design system everywhere; landing page at /, companion at /companion/
+- **Design system**: `docs/DESIGN_SYSTEM.md` holds the owner's Swiss Grid spec. Applied to `src/popup/popup.css`, `src/content/content.css`, `mobile-web/companion/styles.css` and the landing page: token values (section 6.2), every hard-coded cool grey mapped to a true neutral, blue/green/purple/amber UI colours folded into the neutral scale (CSS, inline icon colours in both `index.html` files, and status colours set from `popup.ts` / `app.js`), gradients on the brand icon, scan progress bar and update banner made flat, and a closing "Swiss Grid design system" block in each stylesheet for fonts, headings, red primary buttons (`.btn-scan-main`, `.btn-primary`, `.btn-primary-action`, `.btn-save-action`) and focus outlines. Course colour palettes in `src/core` are untouched. The two quote fade-outs still use a transparent-to-background gradient, as a truncation cue.
+- **Fonts**: Inter and Inter Tight variable woff2 files (OFL) in `public/fonts/` and `mobile-web/companion/fonts/`; the companion service worker precaches them; the landing page no longer calls Google Fonts.
+- **Site layout**: landing page moved from `landing/index.html` to `mobile-web/index.html`; companion files moved to `mobile-web/companion/`. Updated `scripts/build.js`, `lint-check.js`, `bundle-worker.js` (embeds the site recursively, companion paths fall back to the companion shell), `self-hosted/server/server.js`, `vercel.json`, the Pages worker (redirect `/?key=` to `/companion/`), the widget's launch URL, and tests. The extension's pairing and "open app" links use `/companion/` and accept the setting with or without it; the feed stays at the site root.
+- Checked in the browser: landing page and popup load both fonts and use the red primary action; `/?key=...` lands on `/companion/` with the key saved and a service worker scoped to `/companion/`; dark tokens apply.
+- Owner action: nothing in Cloudflare changes (the output folder is still `mobile-web`). The separate landing Pages project from the previous entry is no longer needed.
 
 ### 2026-10-22 - Landing page rewrite
 - `landing/index.html` body rewritten: hero, 8 feature cells (finding deadlines, calendar, grades, sync, phone, calendar feed, updates, side panel and dark mode), install steps (ZIP or clone, load `dist`, run `update.bat` / `update.sh`, scan), phone and calendar setup, an announcement example, FAQ, CTA. Removed stale content: 6-character key examples, "cryptographic", the 4-tab showcase.

@@ -90,7 +90,7 @@ describe('cloud sanitizers', () => {
 });
 
 describe('mobile web app behaviours', () => {
-  const appJs = fs.readFileSync(path.resolve('mobile-web/app.js'), 'utf-8');
+  const appJs = fs.readFileSync(path.resolve('mobile-web/companion/app.js'), 'utf-8');
   let sandbox: any;
 
   beforeEach(() => {
@@ -101,7 +101,7 @@ describe('mobile web app behaviours', () => {
     sandbox.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
     sandbox.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
     // The app's helpers come from the shared core, which index.html loads before app.js
-    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
+    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/companion/core.js'), 'utf-8'), sandbox);
     vm.runInContext(region[0], sandbox);
     vm.runInContext(appJs.match(/function localDateKey\(input\) \{[\s\S]*?\n\}/)![0], sandbox);
   });

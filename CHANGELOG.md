@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **One design system everywhere**: the extension, the companion and the landing page now share the Swiss Grid system in `docs/DESIGN_SYSTEM.md`: a `#F5F5F5` page, white cards, black text, `#555555` metadata, Inter Tight headings and Inter body text (bundled, no Google requests), square corners, no gradients, and a single red (`#DC2626`) for the main action (Scan, Save, Install). Blue, green, purple and amber were removed from the interface; course colours you pick stay as they are. Dark mode uses the same system with black and white swapped.
+- **Landing page at the root, phone app at `/companion/`**: `blackboarder.pages.dev` now shows the landing page and the phone app moved to `blackboarder.pages.dev/companion/`. Old pairing links and phones that installed the app from the root are sent to `/companion/` automatically, and their saved key and deadlines carry over. The calendar feed and API addresses did not change. The extension builds pairing links with `/companion/` and accepts the site address with or without it.
+
 ### Security
 - **Sync key required everywhere**: `/api/tasks`, `/api/sync`, `/api/task-status` and `/feed.ics` now return `400` without a valid key instead of falling back to the shared default bucket. `/api/status` no longer reads data without a key or exposes the database URL.
 - **Rate limits per IP and per key**: counting only per key let anyone guessing keys use a new key each time. The calendar feed is limited per key, since calendar services share IPs. The in-memory map is capped so it cannot grow without bound.

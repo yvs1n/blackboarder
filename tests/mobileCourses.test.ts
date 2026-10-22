@@ -4,7 +4,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 describe('Mobile Web App Custom Courses Dynamic Engine', () => {
-  const appJsCode = fs.readFileSync(path.resolve('mobile-web/app.js'), 'utf-8');
+  const appJsCode = fs.readFileSync(path.resolve('mobile-web/companion/app.js'), 'utf-8');
 
   let sandbox: any;
 
@@ -38,13 +38,13 @@ describe('Mobile Web App Custom Courses Dynamic Engine', () => {
     vm.createContext(sandbox);
 
     // The app takes its course helpers from the shared core, which index.html loads first
-    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/core.js'), 'utf-8'), sandbox);
+    vm.runInContext(fs.readFileSync(path.resolve('mobile-web/companion/core.js'), 'utf-8'), sandbox);
 
     const matchCourseBlock = appJsCode.match(/\/\/ =+\s*\n\/\/ Dynamic Course Configurations[\s\S]*?recompileDynamicCourseData\(initialMobileCourses\);/);
     const matchResolveRoom = appJsCode.match(/function resolveTaskRoom\(task\) \{[\s\S]*?\n\}/);
 
     if (!matchCourseBlock || !matchResolveRoom) {
-      throw new Error('Could not extract required dynamic course functions from mobile-web/app.js');
+      throw new Error('Could not extract required dynamic course functions from mobile-web/companion/app.js');
     }
 
     vm.runInContext(matchCourseBlock[0], sandbox);

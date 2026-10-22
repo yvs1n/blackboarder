@@ -58,7 +58,8 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
-  '.ics': 'text/calendar; charset=utf-8'
+  '.ics': 'text/calendar; charset=utf-8',
+  '.woff2': 'font/woff2'
 };
 
 /**
@@ -378,22 +379,22 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // 7. Static File Serving for Mobile Web App (mobile-web/)
+    // 7. Static files: landing page at /, companion app at /companion/ (both in mobile-web/)
     let reqFilePath = pathname;
-    if (reqFilePath === '/' || reqFilePath === '') {
-      reqFilePath = '/index.html';
-    }
+    if (reqFilePath === '' || reqFilePath.endsWith('/')) reqFilePath += 'index.html';
+    if (reqFilePath === '/companion') reqFilePath = '/companion/index.html';
+    const shellFile = reqFilePath.startsWith('/companion/') ? path.join(STATIC_DIR, 'companion', 'index.html') : path.join(STATIC_DIR, 'index.html');
 
     const safeSuffix = path.normalize(reqFilePath).replace(/^(\.\.[\/\\])+/, '');
     let fullFilePath = path.join(STATIC_DIR, safeSuffix);
     // Never serve anything outside the static directory
     if (fullFilePath !== STATIC_DIR && !fullFilePath.startsWith(STATIC_DIR + path.sep)) {
-      fullFilePath = path.join(STATIC_DIR, 'index.html');
+      fullFilePath = shellFile;
     }
 
     // If file doesn't exist or is a directory, fallback to index.html for SPA routing
     if (!fs.existsSync(fullFilePath) || fs.statSync(fullFilePath).isDirectory()) {
-      fullFilePath = path.join(STATIC_DIR, 'index.html');
+      fullFilePath = shellFile;
     }
 
     if (fs.existsSync(fullFilePath) && !fs.statSync(fullFilePath).isDirectory()) {

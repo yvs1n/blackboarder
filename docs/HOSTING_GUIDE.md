@@ -1,6 +1,6 @@
 # Hosting the Blackboarder Web Dashboard
 
-The `mobile-web` folder is a self-contained, standalone Progressive Web App (PWA) with built-in Firebase synchronization, responsive mobile UI, and live `.ics` WebCal calendar feeds.
+The `mobile-web` folder is the whole website: the landing page at `/`, the phone app (a Progressive Web App with Firebase sync) at `/companion/`, and the backend with live `.ics` calendar feeds.
 
 You can host it on any free modern edge/static platform in under 2 minutes.
 
@@ -64,15 +64,19 @@ Netlify does not run `mobile-web/_worker.js`, so the app syncs through Firebase 
 
 ---
 
-## Hosting the Landing Page
+## What the Site Serves
 
-`landing/index.html` is the project's public page: features, install steps, phone and calendar setup, and FAQ. It is one static HTML file with no build step and no backend.
+One deployment of `mobile-web/` serves everything:
 
-- **Cloudflare Pages (Git):** create a second Pages project from the same repository. Framework preset `None`, build command blank, build output directory **`landing`**. Every push to `main` redeploys it, and the version shown in its mockup is kept current by `npm run build`.
-- **Direct upload:** drag the `landing` folder into Cloudflare Pages > Upload assets, Netlify Drop or any static host.
-- **Custom domain:** add it under the Pages project's **Custom domains** tab.
+| Address | File | What it is |
+| :--- | :--- | :--- |
+| `/` | `mobile-web/index.html` | Landing page: features, install steps, FAQ |
+| `/companion/` | `mobile-web/companion/` | Phone app (PWA) that syncs with the extension |
+| `/api/*`, `/feed.ics` | `mobile-web/_worker.js` | Sync API, calendar feed, AI proxy |
 
-The page links to `blackboarder.pages.dev` for the phone app. If you host your own phone app, change those links (search for `blackboarder.pages.dev` in `landing/index.html`).
+Pairing links made before the phone app moved (`/?key=...`) and phones that installed the app from the site root are sent to `/companion/` automatically, by the worker and by a small script on the landing page. `mobile-web/sw.js` retires the service worker the old app registered at the root, so the landing page shows up there again.
+
+To use your own domain, add it under the Pages project's **Custom domains** tab.
 
 ---
 
@@ -97,7 +101,7 @@ To run the dashboard locally and connect your phone over your home or dorm Wi-Fi
 ## Pairing the Extension with Your Hosted Website
 
 1. In the Chrome Extension popup, go to **Settings**.
-2. Under **Hosted Web Dashboard URL**, enter your deployed URL (e.g. `https://my-deadlines.pages.dev`).
+2. Under **Hosted Web Dashboard URL**, enter your site address (e.g. `https://my-deadlines.pages.dev`). The extension adds `/companion/` for the phone app itself.
 3. Click **"Save Settings"**.
 4. Click **"Copy Phone Pairing Link"**.
 5. Send that link to your phone (via WhatsApp, Telegram, or Email) and tap it.

@@ -3,14 +3,13 @@
   "public": false,
   "headers": [
     {
-      "source": "/sw.js",
+      "source": "/(companion/)?sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/(companion/)?(index.html)?",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
@@ -20,6 +19,8 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/feed.ics", "destination": "/api/feed" },
     { "source": "/cal.ics", "destination": "/api/feed" },
+    { "source": "/companion", "destination": "/mobile-web/companion/index.html" },
+    { "source": "/companion/", "destination": "/mobile-web/companion/index.html" },
     { "source": "/(.*)", "destination": "/mobile-web/$1" }
   ]
 }

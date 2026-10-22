@@ -12,7 +12,7 @@
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-330_Passing-success?logo=vitest&logoColor=white" alt="Vitest 330 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-331_Passing-success?logo=vitest&logoColor=white" alt="Vitest 331 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -83,7 +83,7 @@ This registers a small helper that lets the extension update itself whenever a n
 
 ## 📱 Phone App and Calendar
 
-The phone app is hosted at **`https://blackboarder.pages.dev`**.
+The phone app is at **`https://blackboarder.pages.dev/companion/`**. The site root, `blackboarder.pages.dev`, is the project's landing page.
 
 1. In the extension, open **Settings** and click **Copy Phone Pairing Link**.
 2. Open that link on your phone. The app pairs with your sync key and loads your deadlines.
@@ -105,7 +105,7 @@ Everything works without any keys; the local parser handles most announcements. 
 | **OpenRouter API key** | AI extraction for long or vague announcements | Empty (optional) |
 | **AI model** | Model used through OpenRouter | `google/gemini-3.8-flash` |
 | **Jev API key** | Fast check that skips AI calls for announcements with no deadline | Empty (optional) |
-| **Hosted Web Dashboard URL** | Where your phone app is hosted | `https://blackboarder.pages.dev` |
+| **Hosted Web Dashboard URL** | Your site address. The phone app is at `/companion/` and the calendar feed at `/feed.ics` | `https://blackboarder.pages.dev` |
 | **Own Sync Server** | Only for a self-hosted server. Leave empty to sync through Firebase | Empty |
 | **Auto-scan** | Scans announcements when a Blackboard page loads | On |
 | **Theme** | Light, dark, or match the system | Light |
@@ -122,7 +122,7 @@ You only need this to run your own phone app and backend instead of `blackboarde
 2. **Firebase.** Create a Realtime Database, then paste [`database.rules.json`](database.rules.json) into **Realtime Database > Rules** and click **Publish**. The rules only take effect once published. They allow each sync key to read and write only its own `users/<key>` folder. If you use your own database, change the URL in `src/utils/firebaseSync.ts`, `mobile-web/app.js` and `mobile-web/_worker.js`.
 3. **Point the extension at it.** Set **Hosted Web Dashboard URL** in Settings to your Pages address.
 4. **Optional:** add a Cloudflare rate limiting rule for `/api/*`. The built-in limit (60 requests a minute per IP and per key) slows abuse down but does not stop it.
-5. **Landing page (optional).** `landing/index.html` is a single static page with no build step. Create a second Cloudflare Pages project from the same repository with no build command and **`landing`** as the output folder (or drag the `landing` folder into Pages > Upload assets, or Netlify Drop).
+5. **What gets served.** The one Pages project serves the landing page at `/` (`mobile-web/index.html`), the phone app at `/companion/` (`mobile-web/companion/`), and the API and calendar feed from `mobile-web/_worker.js`. Old pairing links (`/?key=...`) and phones that installed the app from the old address are sent on to `/companion/` automatically.
 
 Other hosts: **Vercel** (deploy from the repository root; `api/[...path].js` runs the same backend) or a **local server** for your own Wi-Fi (`npm run server`).
 
@@ -146,7 +146,7 @@ Each build is identified by a hash of its files, so a push that does not change 
 
 ```bash
 npm install        # install dependencies
-npm run build      # build dist/, mobile-web/core.js and the workers; sync versions
+npm run build      # build dist/, mobile-web/companion/core.js and the workers; sync versions
 npm run lint       # type-check plus style, JSON and version-sync checks
 npm test           # run the Vitest suite
 npm run package    # build release zips into release/
@@ -157,10 +157,12 @@ Run `npm run lint` and `npm test` before every commit. [`PROJECT_BRAIN.md`](PROJ
 
 ### Which files to edit
 
-The TypeScript in `src/` is the single source of course, deadline, weighting, sorting and calendar logic. The build bundles what the phone app needs into `mobile-web/core.js`.
+The TypeScript in `src/` is the single source of course, deadline, weighting, sorting and calendar logic. The build bundles what the phone app needs into `mobile-web/companion/core.js`.
 
-- **Edit:** `src/`, the hand-written files in `mobile-web/` (`app.js`, `index.html`, `styles.css`, `sw.js`, `manifest.json`, `_worker.js`), `widgets/`, `updater/`, `public/`, `landing/`.
-- **Never edit (generated):** `dist/`, `mobile-web/core.js`, `mobile-web/widget.js`, the `version.json` files, `src/buildInfo.ts`, `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js`. The build rewrites them and CI rebuilds them on every push.
+All three interfaces (extension, companion, landing page) follow one design system, described in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): black, white and grey, Inter Tight and Inter, square corners, no gradients, and one red for the main action.
+
+- **Edit:** `src/`, `mobile-web/index.html` (landing page), `mobile-web/_worker.js` (backend), the hand-written files in `mobile-web/companion/` (`app.js`, `index.html`, `styles.css`, `sw.js`, `manifest.json`), `widgets/`, `updater/`, `public/`.
+- **Never edit (generated):** `dist/`, `mobile-web/companion/core.js`, `mobile-web/companion/widget.js`, the `version.json` files, `src/buildInfo.ts`, `self-hosted/server/calendarFeed.js` and `self-hosted/cloudflare-worker/worker.js`. The build rewrites them and CI rebuilds them on every push.
 
 ---
 
@@ -175,9 +177,12 @@ blackboarder/
 |   |-- engine/           Deadline detection: local parser, Jev check, AI
 |   |-- core/             Logic shared with the phone app: courses, weights, schedules
 |   |-- utils/            Storage, Firebase sync, calendar, task merging
-|   `-- mobile/core.ts    Bundled into mobile-web/core.js
+|   `-- mobile/core.ts    Bundled into mobile-web/companion/core.js
 |
-|-- mobile-web/           Phone app (PWA), served as-is by Cloudflare Pages
+|-- mobile-web/           The website, served as-is by Cloudflare Pages
+|   |-- index.html        Landing page (/)
+|   |-- companion/        Phone app (PWA) at /companion/
+|   |-- sw.js             Retires the old root service worker
 |   `-- _worker.js        Backend: sync API, calendar feed, AI proxy
 |-- dist/                 Built extension; load this folder (generated)
 |
@@ -187,12 +192,11 @@ blackboarder/
 |
 |-- api/                  Vercel entry point (runs mobile-web/_worker.js)
 |-- self-hosted/          Standalone Cloudflare Worker and local Node server
-|-- landing/              Project landing page
 |-- widgets/              iOS Scriptable widget source
 |-- public/               Extension manifest template and icons
 |-- scripts/              Build, lint and packaging scripts
 |-- tests/                Automated tests
-|-- docs/                 Install, hosting and walkthrough guides
+|-- docs/                 Install, hosting, walkthrough and design system guides
 |
 |-- CHANGELOG.md          Release notes
 `-- PROJECT_BRAIN.md      Full technical reference and progress log

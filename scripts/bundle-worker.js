@@ -24,9 +24,10 @@ const CONTENT_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
-  '.webmanifest': 'application/manifest+json'
+  '.webmanifest': 'application/manifest+json',
+  '.woff2': 'font/woff2'
 };
-const BINARY = new Set(['.png', '.ico']);
+const BINARY = new Set(['.png', '.ico', '.woff2']);
 
 const readText = file => fs.readFileSync(file, 'utf8').replace(/\r\n?/g, '\n');
 
@@ -70,15 +71,19 @@ if (!/^export default \{/m.test(workerSource)) {
 const pagesWorkerCode = workerSource.replace(/^export default \{/m, 'const pagesWorker = {');
 
 const assets = {};
-for (const name of fs.readdirSync(WEB_DIR).sort()) {
-  const full = path.join(WEB_DIR, name);
-  if (name === '_worker.js' || !fs.statSync(full).isFile()) continue;
-  const ext = path.extname(name).toLowerCase();
-  if (!CONTENT_TYPES[ext]) continue;
-  assets[`/${name}`] = BINARY.has(ext)
-    ? { contentType: CONTENT_TYPES[ext], base64: fs.readFileSync(full).toString('base64') }
-    : { contentType: CONTENT_TYPES[ext], content: readText(full) };
+function embedDir(dir, prefix) {
+  for (const name of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) { embedDir(full, `${prefix}${name}/`); continue; }
+    if (name === '_worker.js') continue;
+    const ext = path.extname(name).toLowerCase();
+    if (!CONTENT_TYPES[ext]) continue;
+    assets[`${prefix}${name}`] = BINARY.has(ext)
+      ? { contentType: CONTENT_TYPES[ext], base64: fs.readFileSync(full).toString('base64') }
+      : { contentType: CONTENT_TYPES[ext], content: readText(full) };
+  }
 }
+embedDir(WEB_DIR, '/');
 
 const output = `/**
  * Cloudflare Worker for Blackboarder: the Pages worker (mobile-web/_worker.js) with the web app's
@@ -101,9 +106,11 @@ function decodeBase64(b64) {
 const embeddedAssetsBinding = {
   async fetch(request) {
     let pathname = new URL(request.url).pathname;
-    if (pathname === '/' || pathname === '') pathname = '/index.html';
-    // Unknown paths get the app shell, like a single-page app
-    const asset = EMBEDDED_ASSETS[pathname] || EMBEDDED_ASSETS['/index.html'];
+    if (pathname === '' || pathname.endsWith('/')) pathname += 'index.html';
+    if (pathname === '/companion') pathname = '/companion/index.html';
+    // Unknown companion paths get the companion shell; anything else gets the landing page
+    const shell = pathname.startsWith('/companion/') ? '/companion/index.html' : '/index.html';
+    const asset = EMBEDDED_ASSETS[pathname] || EMBEDDED_ASSETS[shell];
     const body = asset.base64 !== undefined ? decodeBase64(asset.base64) : asset.content;
     return new Response(body, {
       status: 200,

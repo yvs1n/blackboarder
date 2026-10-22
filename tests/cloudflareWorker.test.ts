@@ -94,15 +94,19 @@ describe('Cloudflare Worker Serverless Edge Endpoint', () => {
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers.get('content-type')).toContain('text/html');
     const htmlText = await htmlRes.text();
-    expect(htmlText).toContain('Blackboarder');
+    expect(htmlText).toContain('Never miss a Blackboard deadline'); // landing page at the root
 
-    const cssReq = new Request('https://sidekick.workers.dev/styles.css', { method: 'GET' });
+    const appReq = new Request('https://sidekick.workers.dev/companion/', { method: 'GET' });
+    const appText = await (await worker.fetch(appReq, mockEnv, {} as any)).text();
+    expect(appText).toContain('id="calendar-grid"'); // companion app
+
+    const cssReq = new Request('https://sidekick.workers.dev/companion/styles.css', { method: 'GET' });
     const cssRes = await worker.fetch(cssReq, mockEnv, {} as any);
     expect(cssRes.status).toBe(200);
     expect(cssRes.headers.get('content-type')).toContain('text/css');
     const cssText = await cssRes.text();
-    expect(cssText).toContain('--bg: #f8fafc;'); // extension light theme
-    expect(cssText).toContain('--primary: #18181b;');
+    expect(cssText).toContain('--bg: #f5f5f5;'); // Swiss Grid palette, same as the extension
+    expect(cssText).toContain('--accent: #dc2626;');
   });
 
   it('POST /api/task-status marks task as completed in Cloudflare KV', async () => {

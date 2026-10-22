@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import vm from 'vm';
 
-const webDir = join(__dirname, '..', 'mobile-web');
+const webDir = join(__dirname, '..', 'mobile-web', 'companion');
 const sw = readFileSync(join(webDir, 'sw.js'), 'utf8');
 const app = readFileSync(join(webDir, 'app.js'), 'utf8');
 const html = readFileSync(join(webDir, 'index.html'), 'utf8');

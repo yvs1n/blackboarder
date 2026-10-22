@@ -8,9 +8,9 @@ import { fileURLToPath } from 'node:url';
 /*
  * Builds every generated file in the repository:
  *   - dist/                   the Chrome extension (load this folder unpacked)
- *   - mobile-web/core.js      the extension's shared logic, bundled for the web app
- *   - mobile-web/widget.js    copy of widgets/blackboarder-widget.js served by the web app
- *   - version.json files and the build stamps in mobile-web/app.js, sw.js and index.html
+ *   - mobile-web/companion/core.js    the extension's shared logic, bundled for the web app
+ *   - mobile-web/companion/widget.js  copy of widgets/blackboarder-widget.js served by the web app
+ *   - version.json files and the build stamps in mobile-web/companion/app.js, sw.js and index.html
  *   - self-hosted/cloudflare-worker/worker.js (via scripts/bundle-worker.js)
  *
  * Each app gets a "build id": a hash of the files that make it up. Running the build twice on the
@@ -124,10 +124,10 @@ function versionInfo(buildId, previous, git) {
 }
 
 // ---------------------------------------------------------------------------
-// Web app (mobile-web/)
+// Web app (mobile-web/companion/). mobile-web/ itself is the site root: the landing page and the worker.
 // ---------------------------------------------------------------------------
 
-const WEB_DIR = r('mobile-web');
+const WEB_DIR = r('mobile-web', 'companion');
 // Server-side or generated-by-this-script files that are not part of the app the browser runs
 const WEB_HASH_EXCLUDE = new Set(['version.json', '_worker.js']);
 
@@ -143,14 +143,14 @@ function normalizeWebStamps(rel, text) {
 }
 
 async function buildWebCore(viteDefines) {
-  console.log('Bundling shared logic for the web app (mobile-web/core.js)...');
+  console.log('Bundling shared logic for the web app (mobile-web/companion/core.js)...');
   await build({
     root: ROOT,
     configFile: false,
     publicDir: false,
     logLevel: 'warn',
     build: {
-      outDir: 'mobile-web',
+      outDir: 'mobile-web/companion',
       emptyOutDir: false,
       minify: false,
       lib: {
@@ -182,13 +182,13 @@ function stampWebApp(git) {
 
   const appPath = path.join(WEB_DIR, 'app.js');
   const app = readText(appPath);
-  if (!APP_STAMP.test(app)) throw new Error('mobile-web/app.js is missing its "const APP_BUILD = {...};" line');
+  if (!APP_STAMP.test(app)) throw new Error('mobile-web/companion/app.js is missing its "const APP_BUILD = {...};" line');
   const appStamp = { build: info.build, version: info.version, shortCommit: info.shortCommit, timestamp: info.timestamp };
   writeIfChanged(appPath, app.replace(APP_STAMP, `const APP_BUILD = ${JSON.stringify(appStamp)};`));
 
   const swPath = path.join(WEB_DIR, 'sw.js');
   const sw = readText(swPath);
-  if (!SW_STAMP.test(sw)) throw new Error("mobile-web/sw.js is missing its \"const BUILD_ID = '...';\" line");
+  if (!SW_STAMP.test(sw)) throw new Error("mobile-web/companion/sw.js is missing its \"const BUILD_ID = '...';\" line");
   writeIfChanged(swPath, sw.replace(SW_STAMP, `const BUILD_ID = '${info.build}';`));
 
   const htmlPath = path.join(WEB_DIR, 'index.html');
@@ -353,8 +353,8 @@ function syncAllComponents(version) {
     }
   }
 
-  // 2. Sync landing/index.html
-  const landingPath = r('landing/index.html');
+  // 2. Sync the landing page (mobile-web/index.html)
+  const landingPath = r('mobile-web', 'index.html');
   if (fs.existsSync(landingPath)) {
     let landingHtml = readText(landingPath);
     const updated = landingHtml.replace(
@@ -362,7 +362,7 @@ function syncAllComponents(version) {
       `<span>Blackboarder v${version}</span>`
     );
     if (writeIfChanged(landingPath, updated)) {
-      console.log(`  ✓ Synced landing/index.html to v${version}`);
+      console.log(`  ✓ Synced mobile-web/index.html (landing page) to v${version}`);
     }
   }
 
@@ -467,7 +467,7 @@ async function main() {
 
   execSync('node scripts/bundle-worker.js', { cwd: ROOT, stdio: 'inherit' });
 
-  console.log('Build complete: dist/ (extension), mobile-web/ (web app), self-hosted/cloudflare-worker/worker.js');
+  console.log('Build complete: dist/ (extension), mobile-web/ (landing page + companion), self-hosted/cloudflare-worker/worker.js');
 }
 
 main().catch(err => {

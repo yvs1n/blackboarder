@@ -197,7 +197,7 @@ function getPendingTypeSummary(taskList) {
 // Widget Construction
 // ----------------------------------------------------------------------------
 const widget = new ListWidget();
-const WEB_APP_BASE = "https://blackboarder.pages.dev";
+const WEB_APP_BASE = "https://blackboarder.pages.dev/companion";
 widget.url = SYNC_KEY ? `${WEB_APP_BASE}/?key=${encodeURIComponent(SYNC_KEY)}` : WEB_APP_BASE;
 widget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000); // 15-min auto refresh
 
