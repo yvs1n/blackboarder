@@ -5,6 +5,7 @@ import { setActiveUserCourses } from '../core/userCourses';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, isBlackboardSystemNoise, hasValidAcademicCourseCode, isValidTask } from '../core/courseHelper';
 import { parseDirectStreamCard, parseSubmissionOrGradeCard } from '../utils/streamParser';
 import { deduplicateTaskList } from '../utils/taskMerge';
+import { mergeStreamAndCourseAnnouncements } from '../utils/announcementMerge';
 
 /**
  * Known University of Sharjah Blackboard Course IDs mapped to courses.
@@ -955,69 +956,8 @@ export async function scrapeAnnouncementsFull(options?: { fullRescan?: boolean }
   // 4. Scrape any currently open side drawer/modal
   const drawerAnn = scrapeOpenDrawerAnnouncement();
 
-  // 5. Merge and deduplicate, preferring API announcements or drawer because they have 100% unabridged text
-  const mergedMap = new Map<string, Announcement>();
-
-  for (const ann of domAnnouncements) {
-    const key = `${ann.courseCode}_${ann.title.toLowerCase().trim()}`;
-    mergedMap.set(key, ann);
-  }
-
-  for (const apiAnn of apiAnnouncements) {
-    const apiTitleNorm = apiAnn.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-    let matchedKey: string | null = null;
-    let matchedExisting: Announcement | null = null;
-
-    // Check direct key
-    const directKey = `${apiAnn.courseCode}_${apiAnn.title.toLowerCase().trim()}`;
-    if (mergedMap.has(directKey)) {
-      matchedKey = directKey;
-      matchedExisting = mergedMap.get(directKey)!;
-    } else {
-      // Fuzzy find by normalized title or ID
-      for (const [key, existing] of mergedMap.entries()) {
-        const existingTitleNorm = existing.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
-        const idMatches = existing.id.includes(apiAnn.id.replace('ann_api_', ''));
-        const titleMatches = apiTitleNorm.length >= 4 && (
-          existingTitleNorm === apiTitleNorm ||
-          (apiTitleNorm.length >= 6 && (existingTitleNorm.includes(apiTitleNorm) || apiTitleNorm.includes(existingTitleNorm)))
-        );
-
-        if (idMatches || titleMatches) {
-          matchedKey = key;
-          matchedExisting = existing;
-          break;
-        }
-      }
-    }
-
-    if (matchedExisting && matchedKey) {
-      const isExistingTruncated = /(?:…|\.\.\.)\s*$/.test(matchedExisting.contentText) || matchedExisting.contentText.includes('…');
-      // If API announcement is longer or existing is truncated, replace body with complete API body
-      if (isExistingTruncated || apiAnn.contentText.length >= matchedExisting.contentText.length) {
-        matchedExisting.contentText = apiAnn.contentText;
-        matchedExisting.contentHtml = apiAnn.contentHtml || matchedExisting.contentHtml;
-        if (apiAnn.title && apiAnn.title.length > matchedExisting.title.length) {
-          matchedExisting.title = apiAnn.title;
-        }
-        if (!matchedExisting.courseCode && apiAnn.courseCode) {
-          matchedExisting.courseCode = apiAnn.courseCode;
-        }
-        if ((!matchedExisting.courseName || matchedExisting.courseName === 'General Course') && apiAnn.courseName) {
-          matchedExisting.courseName = apiAnn.courseName;
-        }
-      }
-    } else {
-      mergedMap.set(directKey, apiAnn);
-    }
-  }
-
-  if (drawerAnn) {
-    const key = `${drawerAnn.courseCode}_${drawerAnn.title.toLowerCase().trim()}`;
-    mergedMap.set(key, drawerAnn);
-  }
-
-  return Array.from(mergedMap.values());
+  // 5. Merge: full course bodies replace cut-short stream cards of the same course only
+  return mergeStreamAndCourseAnnouncements(domAnnouncements, apiAnnouncements, drawerAnn);
 }
 
 /**

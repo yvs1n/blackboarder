@@ -276,7 +276,7 @@ graph LR
 
 ### 7.1 Automated Actions on Every Build (`npm run build`)
 1. Reads the canonical version from `package.json`.
-2. Inspects `tests/` and dynamically counts passing test cases (370 tests across 41 suites).
+2. Inspects `tests/` and dynamically counts passing test cases (374 tests across 42 suites).
 3. Updates `public/manifest.json` and `dist/manifest.json`.
 4. Updates `src/buildInfo.ts` with source file SHA256 hashes, git commit, and timestamp.
 5. Updates the landing page (`mobile-web/index.html`) mockup header: `<span>Blackboarder v${version}</span>`.
@@ -297,7 +297,7 @@ Executed via `npm run lint` and `npm run check`. It executes 6 critical checks:
 
 ## 8. Comprehensive Testing & Quality Assurance
 
-Blackboarder is covered by **41 test files comprising 370 automated tests** running on Vitest:
+Blackboarder is covered by **42 test files comprising 374 automated tests** running on Vitest:
 
 | Test Suite File | Test Count | Scope of Verification |
 | :--- | :---: | :--- |
@@ -315,8 +315,8 @@ Blackboarder is covered by **41 test files comprising 370 automated tests** runn
 | `tests/bidirectionalSync.test.ts` | 10 | Timestamp conflict resolution (`updatedAt`), field merging, and note retention. |
 | `tests/mobileSorting.test.ts` | 4 | Chronological time sorting (earliest first) and immediate re-sort on time edit. |
 | `tests/generatedFiles.test.ts` | 4 | Verifies built bundles match sources byte-for-byte. |
-| *Other 27 Test Suites* | 229 | Regex extraction, Arabic AI gate, announcement dedupe, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
-| **Total** | **370** | **100% Passing** |
+| *Other 28 Test Suites* | 233 | Regex extraction, Arabic AI gate, announcement dedupe, stream/course announcement merge, junk task titles, Firebase sync fixes, update banner, live stream card markup, course colors, schedule slots, dark mode CSS, updater logic. |
+| **Total** | **374** | **100% Passing** |
 
 ---
 
@@ -378,7 +378,7 @@ blackboard_sidekick/
 │   ├── popup/                        # Extension popup UI (index.html, popup.ts, popup.css)
 │   ├── utils/                        # Storage, Firebase sync, and context guards
 │   └── buildInfo.ts                  # Auto-generated build stamp (hash, commit, version)
-├── tests/                            # 41 Vitest test suites (370 tests)
+├── tests/                            # 42 Vitest test suites (374 tests)
 ├── widgets/                          # Scriptable iOS widget source
 ├── CHANGELOG.md                      # Keep-a-Changelog revision history
 ├── database.rules.json               # Firebase Realtime Database multi-tenant security rules
@@ -443,6 +443,12 @@ For any human or AI assistant continuing work on Blackboarder:
 ## 11. Progress Log
 
 Newest first. Each entry says what changed, what is still open, and anything only the project owner can do.
+
+### 2026-10-22 - Lab Quiz 3 showed the CPE Quiz 3 text
+- Owner: the Physics 1 Lab "Quiz 3" carried the Intro to Computer Eng. "Quiz 3" announcement text.
+- Cause: `scrapeAnnouncementsFull` merged stream cards with full course bodies by a `courseCode_title` key and a title-only fuzzy match. Course codes are usually blank, so both courses' "Quiz 3" got the same key and the longer body overwrote the other course's post (both lab copies, `ann_ultra__596674_1` and `ann_api__596674_1`, had the CPE text of `_597049_1`).
+- Fix: the merge moved to `src/utils/announcementMerge.ts` (`mergeStreamAndCourseAnnouncements`). Posts with Blackboard ids match only on the same id; otherwise a match needs the same course (`sameCourse` compares codes, then names) and title. Tests: `tests/announcementMerge.test.ts`.
+- Owner data: a copy of the backup with the lab task's copied text removed was written next to the original (`blackboarder_backup_2026-10-22_fixed.json`). The real lab announcement text is unknown; a rescan fills new tasks correctly but does not rewrite the user-edited task.
 
 ### 2026-10-22 - Landing page fits phones
 - Owner: make sure the landing page is fully mobile responsive.
