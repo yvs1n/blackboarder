@@ -178,6 +178,18 @@ describe('push tick', () => {
     expect(again.sent).toBe(0);
   });
 
+  it('ignores a line break pasted at the end of the secrets', async () => {
+    const { env, kv } = kvEnv();
+    const messy = { ...env, VAPID_PUBLIC_KEY: vapid.publicKey + '\n', VAPID_PRIVATE_KEY: ' ' + vapid.privateKey + '\n', PUSH_TICK_SECRET: 'made-up-tick-secret-1234\n' };
+    expect((await (await call(messy, '/api/push/key')).json()).publicKey).toBe(vapid.publicKey);
+    await post(messy, '/api/push/subscribe?key=BBS-PUSHTEST01', { subscription: subscription() });
+    kv.set('bbs_tasks_BBS-PUSHTEST01', JSON.stringify({ tasks: [{ id: 'q1', title: 'Quiz 1', dueDate: inHours(1), status: 'pending' }] }));
+    const sent = stubPushService();
+    const result = await (await post(messy, '/api/push/tick', {}, { 'x-tick-secret': 'made-up-tick-secret-1234' })).json();
+    expect(result).toMatchObject({ ok: true, sent: 1, failed: 0 });
+    expect(sent[0].headers.get('authorization')).toMatch(new RegExp(`k=${vapid.publicKey}$`));
+  });
+
   it('drops a subscription the push service says is gone', async () => {
     const { env, kv } = await setup();
     stubPushService(410);

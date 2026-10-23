@@ -463,6 +463,15 @@ const concatBytes = (...parts) => {
   return out;
 };
 
+// Secrets pasted into a dashboard often carry a line break or space; one in a header breaks every push
+const TRIMMED_SECRETS = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT', 'PUSH_TICK_SECRET', 'FIREBASE_AUTH'];
+function withTrimmedSecrets(env) {
+  if (!env || !TRIMMED_SECRETS.some(k => typeof env[k] === 'string' && env[k] !== env[k].trim())) return env;
+  const out = { ...env };
+  for (const k of TRIMMED_SECRETS) if (typeof out[k] === 'string') out[k] = out[k].trim();
+  return out;
+}
+
 function isPushConfigured(env) {
   return Boolean(env && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
 }
@@ -726,6 +735,7 @@ const KEY_REQUIRED_MESSAGE = 'A sync key is required. Pair this device from Sett
 
 export default {
   async fetch(request, env, ctx) {
+    env = withTrimmedSecrets(env);
     const url = new URL(request.url);
     const pathname = url.pathname;
 
