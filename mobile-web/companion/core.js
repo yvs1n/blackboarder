@@ -2474,8 +2474,60 @@ var BBCoreBundle = (function() {
 				};
 			}
 		}
+		const EN_DAY = "(sunday|sun|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat)";
+		const AR_DAY = "(الأحد|الاحد|الاثنين|الإثنين|الثلاثاء|الأربعاء|الاربعاء|الخميس|الجمعة|السبت)";
+		const AR_NEXT = "(?:القادم|القادمة|المقبل|المقبلة)";
+		const AR_WEEK = "(?:الأسبوع|الاسبوع)";
+		const furtherOut = [
+			{
+				re: new RegExp(`\\b(?:the\\s+)?${EN_DAY}\\s+after\\s+next\\b`, "i"),
+				mode: "afterNext"
+			},
+			{
+				re: new RegExp(`\\ba\\s+week\\s+(?:from|on)\\s+(?:this\\s+)?${EN_DAY}\\b`, "i"),
+				mode: "weekFrom"
+			},
+			{
+				re: new RegExp(`\\bnext\\s+week(?:'s)?\\s+(?:on\\s+)?${EN_DAY}\\b`, "i"),
+				mode: "nextWeek"
+			},
+			{
+				re: new RegExp(`\\b${EN_DAY}\\s+(?:of\\s+)?next\\s+week\\b`, "i"),
+				mode: "nextWeek"
+			},
+			{
+				re: new RegExp(`(?:يوم\\s*)?${AR_DAY}\\s*(?:${AR_NEXT}\\s*)?(?:الذي\\s*)?بعد\\s*${AR_NEXT}`),
+				mode: "afterNext"
+			},
+			{
+				re: new RegExp(`${AR_WEEK}\\s*${AR_NEXT}\\s*(?:في\\s*)?(?:يوم\\s*)?${AR_DAY}`),
+				mode: "nextWeek"
+			},
+			{
+				re: new RegExp(`(?:يوم\\s*)?${AR_DAY}\\s*(?:من\\s*|في\\s*)?${AR_WEEK}\\s*${AR_NEXT}`),
+				mode: "nextWeek"
+			}
+		];
+		for (const { re, mode } of furtherOut) {
+			const m = clean.match(re);
+			if (!m) continue;
+			const targetDayIndex = DAY_OF_WEEK_MAP[m[1].toLowerCase()] ?? DAY_OF_WEEK_MAP[m[1]];
+			if (targetDayIndex === void 0) continue;
+			const d = new Date(baseDate);
+			if (mode === "weekFrom") {
+				let diff = targetDayIndex - baseDate.getDay();
+				if (diff <= 0) diff += 7;
+				d.setDate(d.getDate() + diff + 7);
+			} else d.setDate(d.getDate() - d.getDay() + 7 + targetDayIndex + (mode === "afterNext" ? 7 : 0));
+			d.setHours(timeInfo.hour, timeInfo.minute, 0, 0);
+			return {
+				date: d,
+				hasSpecificTime: timeInfo.hasTime,
+				matchedText: m[0]
+			};
+		}
 		const engDayRegex = /\b(next|this|on)?\s*(sunday|sun|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat)\b/i;
-		const arDayRegex = /(?:يوم\s*)?(الأحد|الاحد|الاثنين|الإثنين|الثلاثاء|الأربعاء|الاربعاء|الخميس|الجمعة|السبت)(?:\s*(القادم))?/i;
+		const arDayRegex = /(?:يوم\s*)?(الأحد|الاحد|الاثنين|الإثنين|الثلاثاء|الأربعاء|الاربعاء|الخميس|الجمعة|السبت)(?:\s*(القادم|القادمة|المقبل|المقبلة))?/i;
 		const engMatch = clean.match(engDayRegex);
 		const arMatch = clean.match(arDayRegex);
 		if (engMatch || arMatch) {

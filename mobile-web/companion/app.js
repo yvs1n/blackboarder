@@ -962,7 +962,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"7657182103ab","version":"1.1.0","shortCommit":"572187a","timestamp":"2026-10-23T10:13:19.940Z"};
+const APP_BUILD = {"build":"bfad33145570","version":"1.1.0","shortCommit":"f95ac94","timestamp":"2026-10-23T10:34:01.104Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 

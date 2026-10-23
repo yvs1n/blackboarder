@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Choose your AI provider.** Settings has an AI Provider dropdown under the API key: OpenRouter (as before), IFM K2 Horizon with a free key from platform.ifm.ai, or any OpenAI-compatible API with your own base URL and model. Each provider keeps its own key, and a Test connection button checks the key before a scan needs it.
 - **The web app uses the extension's AI model, with the key kept off the phone.** The extension hands its key to your Blackboarder server, which stores it encrypted (with a server secret, `AI_KEY_SECRET`, plus your sync key). Pasting an announcement on the phone runs the extension's own pipeline, and the server adds the key. Models and keys are set only in the extension; the web app says so. No key, or no `AI_KEY_SECRET`? The built-in parser is used automatically. Old keys stored in the phone's browser are removed and left out of backups.
 
+### Fixed
+
+- **"The Sunday after next" no longer lands on the coming Sunday.** The built-in parser now understands "<day> after next", "a week from <day>", "<day> next week" / "next week on <day>", and the Arabic "الأحد بعد القادم", "الأسبوع القادم يوم ..." and "المقبل".
+
 ### Removed
 
 - **Jev classifier.** It only skipped announcements without a deadline and guessed a category before the AI ran. Code now does both: a keyword check, and the wording sets the type, time and room hints. The Jev key, setting, server route and SDK dependency are gone.

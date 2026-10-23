@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "c801c4f5e0b5",
-  "commit": "ad3b687c3f930e98faef6e0da13f046800caff70",
-  "shortCommit": "ad3b687",
-  "timestamp": "2026-10-23T10:27:09.518Z",
-  "message": "Web app uses the extension's AI model through a server key locker; remove Jev",
+  "build": "4bca914394c4",
+  "commit": "f95ac945c8d0b0674905327d97f4db779614f3d8",
+  "shortCommit": "f95ac94",
+  "timestamp": "2026-10-23T10:34:00.929Z",
+  "message": "AI key locker: Save Settings always re-sends the key, and it is re-sent daily",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
