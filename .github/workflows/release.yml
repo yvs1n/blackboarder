@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.1.0)'
+        required: true
+        default: 'v1.1.0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Verify types and lint
+        run: |
+          npx tsc --noEmit -p .
+          npm run lint
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Package release archives
+        run: node scripts/package.js
+
+      - name: Determine tag name
+        id: tag_info
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag_info.outputs.tag }}
+          name: Blackboarder ${{ steps.tag_info.outputs.tag }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Blackboarder ${{ steps.tag_info.outputs.tag }}
+
+            Student companion for Blackboard Learn Ultra at the University of Sharjah (`elearning.sharjah.ac.ae`). Reads announcements and gradebooks, extracts deadlines and marks, provides an offline-first calendar and phone companion syncing via Firebase.
+
+            ### Quick 60-Second Installation Guide
+
+            1. Download **`blackboarder-extension.zip`** from the Assets below.
+            2. Extract/unzip the file on your computer (keep the extracted folder in a safe place like Documents or Desktop).
+            3. Open your Chromium browser extensions page:
+               - **Google Chrome**: `chrome://extensions`
+               - **Microsoft Edge**: `edge://extensions`
+               - **Brave**: `brave://extensions`
+               - **Opera**: `opera://extensions`
+            4. Turn on the **Developer mode** toggle (top right).
+            5. Click **Load unpacked** and select the unzipped folder.
+            6. Pin Blackboarder to your toolbar, open [University of Sharjah Blackboard](https://elearning.sharjah.ac.ae/ultra/stream), and click the floating **Scan Blackboard** pill!
+
+            ### Included Assets
+
+            - **`blackboarder-extension.zip`**: The ready-to-load browser extension (Chrome, Edge, Brave, Opera, Vivaldi).
+            - **`blackboarder-website.zip`**: The web companion app and landing page ready to host on Cloudflare Pages or Vercel.
+            - **`blackboarder-full-product.zip`**: Full bundle containing extension, web app, and documentation.
+            - **`INSTALL_EXTENSION.md`**: Step-by-step setup documentation.
+
+            ### Features & Updates in v1.1.0
+
+            - **Gradebook Marks & Submission Tracking**: Reads posted marks directly from Blackboard gradebook columns and highlights submitted work.
+            - **Multi-Tenant Sync Isolation**: Fully private sync scoping with unique 10-character `BBS-` Pairing Keys and strict Firebase rules.
+            - **Live Calendar Subscription**: RFC 5545 `.ics` feed subscribable on iPhone, Android, Google Calendar, and Outlook.
+            - **Two-Tone Swiss Grid Design**: Strict monochrome high-contrast theme with 0px sharp geometry.
+            - **SEO & Discoverability**: Full Schema.org JSON-LD structured data and fast edge caching.
+          files: |
+            release/blackboarder-extension.zip
+            release/blackboarder-website.zip
+            release/blackboarder-full-product.zip
+            docs/INSTALL_EXTENSION.md
