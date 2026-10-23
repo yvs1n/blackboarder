@@ -146,6 +146,10 @@
       if (q.has('key') || q.has('sync') || q.has('code') || standalone) {
         location.replace('/companion/' + location.search + location.hash);
       }
+      // Lets a home screen app that opens here reach the offline copy at /companion/ (see /sw.js)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+      }
     })();
 
     // Set the theme before the page paints, so there is no flash of the wrong one

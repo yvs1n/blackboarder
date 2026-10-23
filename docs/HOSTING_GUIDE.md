@@ -75,7 +75,7 @@ One deployment of `mobile-web/` serves everything:
 | `/companion/` | `mobile-web/companion/` | Phone app (PWA) that syncs with the extension |
 | `/api/*`, `/feed.ics` | `mobile-web/_worker.js` | Sync API, calendar feed, AI proxy |
 
-Pairing links made before the phone app moved (`/?key=...`) and phones that installed the app from the site root are sent to `/companion/` automatically, by the worker and by a small script on the landing page. `mobile-web/sw.js` retires the service worker the old app registered at the root, so the landing page shows up there again.
+Pairing links made before the phone app moved (`/?key=...`) and phones that installed the app from the site root are sent to `/companion/` automatically, by the worker and by a small script on the landing page. `mobile-web/sw.js` is the root service worker: online it leaves everything to the network, so the landing page shows up as usual; offline it sends a launch at the root to the saved app at `/companion/`, so home screen apps installed from the root keep working without internet.
 
 To use your own domain, add it under the Pages project's **Custom domains** tab.
 

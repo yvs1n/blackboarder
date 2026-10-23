@@ -1001,11 +1001,13 @@ if (document.readyState === 'loading') {
 }
 
 async function refreshDataInBackground() {
+  // Changes made while offline go up first, then the latest copy comes down
+  await flushOfflineMutations();
   await fetchTasksFromServer(false);
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"77101f96fcc8","version":"1.1.0","shortCommit":"6ae479a","timestamp":"2026-10-23T11:23:19.299Z"};
+const APP_BUILD = {"build":"ebd49ba133ca","version":"1.1.0","shortCommit":"cfef666","timestamp":"2026-10-23T11:33:33.618Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1187,6 +1189,10 @@ function initServiceWorker() {
       .catch(err => {
         console.warn('[SW] Registration failed:', err);
       });
+    // Home screen apps that open at the site root reach this app's offline copy through /sw.js
+    if (window.location.pathname.startsWith('/companion/')) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    }
 
     // Handle clicks from Service Worker notifications
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -1959,6 +1965,14 @@ function updateSyncBanner() {
   const metricLastSync = document.getElementById('metric-last-sync');
   if (!syncBanner) return;
 
+  const waiting = getSyncKey() ? getOfflineMutations().length : 0;
+  if (isOffline() || waiting > 0) {
+    const countStr = state.tasks.length === 1 ? '1 deadline' : `${state.tasks.length} deadlines`;
+    const head = isOffline() ? `Offline · ${countStr} saved on this device` : `${countStr}`;
+    syncBanner.textContent = waiting > 0 ? `${head} · changes sync when online` : head;
+    return;
+  }
+
   if (!state.lastSync) {
     syncBanner.textContent = 'No sync record yet';
     if (metricLastSync) metricLastSync.textContent = 'Never';
@@ -2025,29 +2039,37 @@ function initOnlineListeners() {
   const wifiText = document.getElementById('wifi-status-text');
   const metricNet = document.getElementById('metric-network-status');
 
-  function updateStatus(isOnline) {
+  function updateStatus(isOnline, announce = true) {
     if (isOnline) {
       if (wifiBadge) {
         wifiBadge.className = 'wifi-status-badge online';
       }
       if (wifiText) wifiText.textContent = 'Online';
-      if (metricNet) metricNet.textContent = 'Connected (Wi-Fi)';
-      // Replay offline mutations to Firebase/server, then fetch freshest
-      flushOfflineMutations().then(() => fetchTasksFromServer());
+      if (metricNet) metricNet.textContent = 'Connected';
+      if (announce) {
+        const waiting = getOfflineMutations().length > 0;
+        if (waiting) showToast('Back online. Sending your changes...');
+        // Send changes made offline, then fetch the freshest copy
+        flushOfflineMutations().then(() => fetchTasksFromServer());
+      }
     } else {
       if (wifiBadge) {
         wifiBadge.className = 'wifi-status-badge offline';
       }
       if (wifiText) wifiText.textContent = 'Offline';
-      if (metricNet) metricNet.textContent = 'Offline (Cached Mode)';
-      showToast('You are offline. Showing cached deadlines.');
+      if (metricNet) metricNet.textContent = 'Offline (saved on this device)';
+      if (announce) {
+        showToast('You are offline. You can still mark deadlines done and edit them; changes sync when you are back online.');
+      }
     }
+    updatePasteAvailability();
+    updateSyncBanner();
   }
 
-  window.addEventListener('online', () => {
-    updateStatus(true);
-    flushOfflineMutations();
-  });
+  // The badge starts as "Online" in the HTML, so set the real state right away
+  updateStatus(!isOffline(), false);
+
+  window.addEventListener('online', () => updateStatus(true));
   window.addEventListener('offline', () => updateStatus(false));
   window.addEventListener('focus', () => {
     checkUpcomingDeadlines(false);
@@ -2071,9 +2093,10 @@ function initOnlineListeners() {
   }, 60000);
 
   // Heartbeat poll every 10 seconds while tab is active so extension changes mirror immediately
+  // Changes that could not be sent (no signal, flaky Wi-Fi) are retried here until the server takes them.
   setInterval(() => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
-      fetchTasksFromServer();
+      flushOfflineMutations().then(() => fetchTasksFromServer());
     }
   }, 10000);
 
@@ -3639,6 +3662,7 @@ function initSettings() {
       localStorage.removeItem('bbs_mobile_courses_updated_at');
       localStorage.removeItem('bbs_sync_key');
       localStorage.removeItem(AI_PASS_STORE);
+      localStorage.removeItem(MUTATION_QUEUE_KEY);
       resetLocalDataForNewKey();
       if (inputSyncKey) inputSyncKey.value = '';
       if (window.history && window.history.replaceState) {
@@ -3953,6 +3977,28 @@ function showToast(message, actionText = null, onAction = null) {
 // ==========================================================================
 const MUTATION_QUEUE_KEY = 'bbs_offline_mutation_queue';
 
+/** True only when the device reports no network at all (airplane mode, no signal). */
+function isOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+const PASTE_OFFLINE_NOTE = 'Pasting announcements needs internet. You can still mark deadlines done and edit them offline.';
+
+/** Pasting new announcements needs the network, so it is turned off while offline. */
+function updatePasteAvailability() {
+  const offline = isOffline();
+  const openBtn = document.getElementById('btn-ai-extract-modal');
+  const runBtn = document.getElementById('btn-run-extract');
+  for (const btn of [openBtn, runBtn]) {
+    if (!btn) continue;
+    btn.disabled = offline;
+    btn.setAttribute('aria-disabled', String(offline));
+    btn.title = offline ? PASTE_OFFLINE_NOTE : '';
+  }
+  const note = document.getElementById('extract-offline-note');
+  if (note) note.hidden = !offline;
+}
+
 function getOfflineMutations() {
   try {
     const raw = localStorage.getItem(MUTATION_QUEUE_KEY);
@@ -3986,7 +4032,8 @@ async function flushOfflineMutations() {
     // Every queued mutation is already applied to state.tasks, so one full-state push replaces them.
     // Per-key writes such as /tasks/<id>.json must not be used: they turn the Firebase tasks
     // array into an object, which every client then reads as "no tasks".
-    await syncToCloudAndLocal();
+    // Wait for the push, so the fetch that follows sees the server with these changes in it
+    await syncToCloudAndLocal(true);
   } catch (err) {
     console.warn('Failed to flush offline mutations:', err);
   } finally {
@@ -4076,6 +4123,10 @@ function initModals() {
   }
 
   document.getElementById('btn-ai-extract-modal')?.addEventListener('click', () => {
+    if (isOffline()) {
+      showToast(PASTE_OFFLINE_NOTE);
+      return;
+    }
     if (extractModal) {
       extractModal.style.display = 'flex';
       extractModal.classList.remove('hidden');
@@ -4207,6 +4258,11 @@ function initModals() {
   // Execute 3-Tier Hybrid Extraction in Modal
   const btnRunExtract = document.getElementById('btn-run-extract');
   btnRunExtract?.addEventListener('click', async () => {
+    if (isOffline()) {
+      showToast(PASTE_OFFLINE_NOTE);
+      updatePasteAvailability();
+      return;
+    }
     const textArea = document.getElementById('input-extract-text');
     const courseSelect = document.getElementById('extract-course-hint');
     const statusBox = document.getElementById('extract-status-box');
@@ -4328,7 +4384,7 @@ function initModals() {
       }
       showToast('Extraction error: ' + (err.message || 'Failed'));
     } finally {
-      if (btnRunExtract) btnRunExtract.disabled = false;
+      if (btnRunExtract) btnRunExtract.disabled = isOffline();
       if (btnIcon) btnIcon.innerHTML = getSvgIcon('bolt');
       if (btnText) btnText.textContent = 'Extract Deadlines';
     }
@@ -4404,7 +4460,7 @@ function initModals() {
     closeEditModal();
     enqueueOfflineMutation({ type: 'edit', task });
 
-    showToast('Deadline updated and synced with Firebase');
+    showToast(isOffline() ? 'Deadline updated on this device. It syncs when you are back online.' : 'Deadline updated');
     syncToCloudAndLocal();
 
     // If #day-sheet-drawer is open, refresh #day-sheet-items with the re-sorted tasks for that day
@@ -5035,6 +5091,12 @@ async function syncToCloudAndLocal(waitForNetwork = false) {
 let cloudSyncChain = Promise.resolve(true);
 
 async function pushStateToCloud() {
+  // Offline: everything is already saved on this device. Mark it so it is sent once back online.
+  if (isOffline()) {
+    if (getSyncKey() && getOfflineMutations().length === 0) enqueueOfflineMutation({ type: 'pending' });
+    return false;
+  }
+
   // Preserve latest courses and coursesUpdatedAt from cloud snapshot
   let coursesToSync = state.userCourses || undefined;
   let coursesUpdatedAtToSync = state.coursesUpdatedAt || localStorage.getItem('bbs_mobile_courses_updated_at') || undefined;
@@ -5166,7 +5228,13 @@ async function pushStateToCloud() {
     syncChannel.close();
   } catch (err) {}
 
-  if (cloudOk) clearOfflineMutations();
+  if (cloudOk) {
+    clearOfflineMutations();
+  } else if (getSyncKey() && getOfflineMutations().length === 0) {
+    // No signal or a flaky network: keep a marker so the retry loop sends this later
+    enqueueOfflineMutation({ type: 'pending' });
+  }
+  updateSyncBanner();
   return cloudOk;
 }
 

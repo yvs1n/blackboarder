@@ -3090,6 +3090,11 @@ input:checked + .slider:before {
   margin-bottom: 10px;
 }
 
+.btn-primary-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .btn-primary-action {
   min-height: 40px;
   width: 100%;

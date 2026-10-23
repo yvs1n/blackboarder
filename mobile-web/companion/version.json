@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "77101f96fcc8",
-  "commit": "6ae479ab86f5e6c6247b8e7305b0ffdeee91434f",
-  "shortCommit": "6ae479a",
-  "timestamp": "2026-10-23T11:23:19.299Z",
-  "message": "Phone app: the sync key box accepts the whole pairing link",
+  "build": "ebd49ba133ca",
+  "commit": "cfef666cc6acf974eb10de8b1aad4a1b651f26b4",
+  "shortCommit": "cfef666",
+  "timestamp": "2026-10-23T11:33:33.618Z",
+  "message": "Phone app: sync key box gets the room on phones, Pair Key button sizes to its label",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

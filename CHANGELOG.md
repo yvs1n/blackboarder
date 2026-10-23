@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The phone app works offline again from the home screen.** Home screen apps that open at the site root (installed before the app moved to `/companion/`, or added from the landing page) had no offline copy, because the root service worker removed itself. It now stays and, with no connection, opens the saved app at `/companion/`. Offline, the app shows its real state at launch, pasting announcements is turned off with a note, and marking deadlines done, editing, adding and deleting still work: changes are kept on the phone, shown as waiting to sync, and sent as soon as the connection is back (retried every few seconds on a flaky network).
 - **"The Sunday after next" no longer lands on the coming Sunday.** The built-in parser now understands "<day> after next", "a week from <day>", "<day> next week" / "next week on <day>", and the Arabic "الأحد بعد القادم", "الأسبوع القادم يوم ..." and "المقبل".
 
 ### Removed

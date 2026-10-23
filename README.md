@@ -13,7 +13,7 @@
   <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Release-Download_ZIP-black?logo=github&logoColor=white" alt="Download Release" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-450_Passing-success?logo=vitest&logoColor=white" alt="Vitest 450 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-459_Passing-success?logo=vitest&logoColor=white" alt="Vitest 459 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -29,7 +29,7 @@ It is built for the **University of Sharjah** (`elearning.sharjah.ac.ae`, `black
 | Part | What it does |
 | :--- | :--- |
 | **Browser extension** | Scans Blackboard, finds deadlines, and shows them in a popup or the browser's side panel. |
-| **Phone app (PWA)** | The same calendar and deadlines on your phone. Installs to the home screen and works offline. |
+| **Phone app (PWA)** | The same calendar and deadlines on your phone. Installs to the home screen and works offline: mark deadlines done and edit them, and changes sync when you are back online. |
 | **Calendar feed** | A live `.ics` link for Apple Calendar, Google Calendar or Outlook. |
 
 Data syncs through **Firebase**, each student under their own private sync key. No account or sign-in is needed.
@@ -186,7 +186,7 @@ blackboarder/
 |-- mobile-web/           The website, served as-is by Cloudflare Pages
 |   |-- index.html        Landing page (/)
 |   |-- companion/        Phone app (PWA) at /companion/
-|   |-- sw.js             Retires the old root service worker
+|   |-- sw.js             Root worker: offline launches at / open the saved app
 |   `-- _worker.js        Backend: sync API, calendar feed, AI key locker
 |-- dist/                 Built extension; load this folder (generated)
 |
