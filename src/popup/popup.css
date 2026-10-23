@@ -4512,3 +4512,10 @@ h1, h2, h3 {
 .course-picker-dot { width: 8px; height: 8px; flex: 0 0 8px; }
 .course-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .course-picker-code { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* AI provider picker (settings) */
+.ai-provider-field[hidden] { display: none !important; }
+.ai-provider-hint { font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px; }
+.ai-test-row { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; }
+.ai-test-status { font-size: 11px; color: var(--text-muted); }
+.ai-test-status.is-ok { color: var(--text-main); font-weight: 600; }

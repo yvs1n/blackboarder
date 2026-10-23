@@ -2,6 +2,7 @@ import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
 import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../core/courseSchedule';
 import { sanitizeDoctorAnnouncementText } from '../core/courseHelper';
 import { isExtensionContextValid, canUseSameOriginProxy } from '../utils/storage';
+import { AiEndpoint, OPENROUTER_CHAT_URL, DEFAULT_OPENROUTER_MODEL, aiRequestHeaders, parseAiJson } from './aiProviders';
 
 interface AiExtractedItem {
   title: string;
@@ -27,7 +28,8 @@ interface OpenRouterResponse {
 }
 
 /**
- * Extracts deadlines and academic tasks from an announcement using OpenRouter AI.
+ * Extracts deadlines and academic tasks from an announcement with the generative AI the student
+ * picked: OpenRouter by default, or IFM or any OpenAI-compatible service through `endpoint`.
  */
 export async function extractDeadlinesWithAi(
   announcement: Announcement,
@@ -38,12 +40,14 @@ export async function extractDeadlinesWithAi(
     priority?: TaskPriority;
     hasRoom?: boolean;
     hasTime?: boolean;
-  }
+  },
+  endpoint: Pick<AiEndpoint, 'provider' | 'chatUrl'> = { provider: 'openrouter', chatUrl: OPENROUTER_CHAT_URL }
 ): Promise<DeadlineTask[]> {
   if (!apiKey || !apiKey.trim()) {
-    console.info('OpenRouter API key not configured.');
+    console.info('AI API key not configured.');
     return [];
   }
+  const isOpenRouter = endpoint.provider === 'openrouter';
 
   const baseDate = announcement.postedAt ? new Date(announcement.postedAt) : new Date();
   const baseDateStr = baseDate.toISOString().slice(0, 10);
@@ -116,12 +120,15 @@ Posted Date (METADATA ONLY - DO NOT USE AS ASSESSMENT TIME): ${announcement.post
 ${hintBlock}Doctor's Announcement Body:
 ${cleanBody}`;
 
-  const candidateModels = [
-    model || 'google/gemini-3.8-flash',
-    'google/gemini-3.8-flash',
-    'google/gemini-3.7-flash',
-    'google/gemini-flash-latest'
-  ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+  // Fallback models only exist on OpenRouter; another provider runs just the model it was given
+  const candidateModels = isOpenRouter
+    ? [
+        model || DEFAULT_OPENROUTER_MODEL,
+        DEFAULT_OPENROUTER_MODEL,
+        'google/gemini-3.7-flash',
+        'google/gemini-flash-latest'
+      ].filter((m, idx, arr) => arr.indexOf(m) === idx)
+    : [model];
 
   for (const currentModel of candidateModels) {
     try {
@@ -129,7 +136,7 @@ ${cleanBody}`;
       let data: OpenRouterResponse | null = null;
 
       // Optional: try the hosted edge proxy first (never on the Blackboard origin, which would receive the API key)
-      if (canUseSameOriginProxy()) {
+      if (isOpenRouter && canUseSameOriginProxy()) {
         try {
           const proxyRes = await fetch('/api/ai/extract', {
             method: 'POST',
@@ -153,7 +160,7 @@ ${cleanBody}`;
         }
       }
 
-      const requestPayload = {
+      const requestPayload: Record<string, unknown> = {
         model: currentModel,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -161,7 +168,8 @@ ${cleanBody}`;
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-        max_tokens: 1000
+        // Reasoning models (K2 Horizon) spend tokens thinking before they write the JSON
+        max_tokens: isOpenRouter ? 1000 : 4000
       };
 
       const isContentScript =
@@ -182,7 +190,9 @@ ${cleanBody}`;
                 {
                   type: 'PROXY_OPENROUTER_CHAT',
                   body: requestPayload,
-                  apiKey: apiKey.trim()
+                  apiKey: apiKey.trim(),
+                  provider: endpoint.provider,
+                  url: endpoint.chatUrl
                 },
                 response => {
                   try {
@@ -213,20 +223,22 @@ ${cleanBody}`;
       }
 
       if (!data) {
-        response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const post = (payload: Record<string, unknown>) => fetch(endpoint.chatUrl, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey.trim()}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://blackboarder.local',
-            'X-Title': 'Blackboarder Extension'
-          },
-          body: JSON.stringify(requestPayload)
+          headers: aiRequestHeaders(endpoint.provider, apiKey.trim()),
+          body: JSON.stringify(payload)
         });
+        response = await post(requestPayload);
+
+        // Some OpenAI-compatible services refuse JSON mode; ask again without it
+        if (response.status === 400 && !isOpenRouter) {
+          const { response_format: _omit, ...plain } = requestPayload;
+          response = await post(plain);
+        }
 
         if (!response.ok) {
           const errText = await response.text();
-          console.warn(`[OpenRouter AI] Model ${currentModel} returned status ${response.status}:`, errText);
+          console.warn(`[AI] Model ${currentModel} returned status ${response.status}:`, errText);
           continue;
         }
 
@@ -236,15 +248,7 @@ ${cleanBody}`;
       const content = data.choices?.[0]?.message?.content;
       if (!content) continue;
 
-      // Parse JSON
-      let parsed: any;
-      try {
-        parsed = JSON.parse(content);
-      } catch {
-        // Clean possible markdown code fences
-        const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-        parsed = JSON.parse(cleaned);
-      }
+      const parsed: any = parseAiJson(content);
 
       const rawItems: unknown = Array.isArray(parsed) ? parsed : (parsed.deadlines || (parsed as any).tasks);
       if (!Array.isArray(rawItems)) {

@@ -1,6 +1,7 @@
 import { Announcement, DeadlineTask, UserSettings } from '../types';
 import { extractDeadlinesLocally } from './localExtractor';
 import { extractDeadlinesWithAi } from './aiExtractor';
+import { AiSettings, resolveAiEndpoint } from './aiProviders';
 import { classifyAnnouncementWithJev } from './jevClassifier';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskRoom } from '../core/courseSchedule';
@@ -96,7 +97,7 @@ export async function extractDeadlinesHybrid(
  */
 export async function extractDeadlinesHybridDetailed(
   announcement: Announcement,
-  settings: Pick<UserSettings, 'useAiExtraction' | 'openRouterApiKey' | 'openRouterModel' | 'useJevClassification' | 'jevApiKey'>
+  settings: AiSettings
 ): Promise<HybridExtractionResult> {
   // Step 1: Run local parser (instant, offline)
   const localTasks = extractDeadlinesLocally(announcement);
@@ -125,8 +126,9 @@ export async function extractDeadlinesHybridDetailed(
     return { tasks: localTasks, tier: localTier };
   }
 
-  // If AI is disabled or no API key, return local results
-  if (!settings.useAiExtraction || !settings.openRouterApiKey) {
+  // If AI is disabled or the chosen provider has no key, return local results
+  const aiEndpoint = settings.useAiExtraction ? resolveAiEndpoint(settings) : null;
+  if (!aiEndpoint) {
     return { tasks: localTasks, tier: localTier };
   }
 
@@ -171,13 +173,14 @@ export async function extractDeadlinesHybridDetailed(
     }
   }
 
-  // Step 3: Generative AI (OpenRouter / Gemini) for exact ISO timestamp synthesis
+  // Step 3: Generative AI (OpenRouter, IFM or a custom service) for exact ISO timestamp synthesis
   console.log(`[Blackboarder] Triggering Generative AI parser for announcement: "${announcement.title}"`);
   const aiTasks = await extractDeadlinesWithAi(
     announcement,
-    settings.openRouterApiKey,
-    settings.openRouterModel,
-    jevCategoryHint
+    aiEndpoint.apiKey,
+    aiEndpoint.model,
+    jevCategoryHint,
+    { provider: aiEndpoint.provider, chatUrl: aiEndpoint.chatUrl }
   );
 
   if (aiTasks.length > 0) {

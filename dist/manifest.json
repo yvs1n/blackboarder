@@ -69,6 +69,7 @@
     "https://raw.githubusercontent.com/*",
     "https://github.com/*",
     "https://openrouter.ai/*",
+    "https://api.ifm.ai/*",
     "https://api.typesafe.ai/*",
     "https://*.pages.dev/*",
     "http://*.pages.dev/*",
@@ -77,6 +78,9 @@
     "https://*.firebaseio.com/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
   ],
   "commands": {
     "_execute_action": {

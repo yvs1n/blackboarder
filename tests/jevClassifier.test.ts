@@ -197,7 +197,8 @@ describe('3-Tier Hybrid Extractor with Jev Gatekeeper', () => {
       examAnn,
       baseSettings.openRouterApiKey,
       baseSettings.openRouterModel,
-      expect.objectContaining({ category: 'exam', priority: 'high' })
+      expect.objectContaining({ category: 'exam', priority: 'high' }),
+      expect.objectContaining({ provider: 'openrouter' })
     );
 
     spyLocal.mockRestore();

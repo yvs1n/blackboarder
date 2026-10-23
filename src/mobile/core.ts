@@ -6,7 +6,7 @@
  * and the web app therefore run the same course matching, weights, rooms, merging and extraction
  * code instead of keeping copies that drift apart.
  */
-import type { Announcement, UserSettings } from '../types';
+import type { Announcement } from '../types';
 import { sanitizeCloudTasks, sanitizeCloudQuickLinks, sanitizeCloudCourses, safeHexColor, isSafeCloudId, encodeCloudKeys, decodeCloudKeys } from '../utils/cloudSanitize';
 import {
   compileCoursePattern,
@@ -42,8 +42,7 @@ import {
 } from '../utils/taskMerge';
 import { createGoogleCalendarUrl, generateIcsContent, formatCountdown, getTaskSortTimestamp, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesHybridDetailed, HybridExtractionResult } from '../engine/hybridExtractor';
-
-type AiSettings = Pick<UserSettings, 'useAiExtraction' | 'openRouterApiKey' | 'openRouterModel' | 'useJevClassification' | 'jevApiKey'>;
+import { AiSettings } from '../engine/aiProviders';
 
 /**
  * Runs the extension's extraction pipeline on text pasted into the web app.

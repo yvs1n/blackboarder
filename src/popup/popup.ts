@@ -1,4 +1,4 @@
-import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday } from '../types';
+import { DeadlineTask, TaskType, TaskPriority, TaskStatus, QuickLink, QuickLinkCategory, UserCourseConfig, CustomScheduleSlot, CustomSyllabusComponent, Weekday, AiProvider, UserSettings } from '../types';
 import { loadDraft, saveDraft, clearDraft, collectFields, applyFields } from './popupDraft';
 import { attachCoursePicker, findPickedCourse } from './coursePicker';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText } from '../utils/marks';
@@ -6,6 +6,7 @@ import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusPr
 import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY, saveTasksMergingLatest } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
+import { resolveAiEndpoint, normalizeAiBaseUrl, testAiEndpoint, IFM_MODEL } from '../engine/aiProviders';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../core/syllabusWeights';
@@ -2533,9 +2534,73 @@ async function handleRestoreJson(file: File) {
 // ============================================================================
 // Settings Form
 // ============================================================================
+// The AI key field shows the key of whichever provider is picked; each provider keeps its own
+const AI_PROVIDER_UI: Record<AiProvider, { label: string; placeholder: string; keyField: 'openRouterApiKey' | 'ifmApiKey' | 'customAiApiKey'; hint: string }> = {
+  openrouter: {
+    label: 'OpenRouter API Key (AI Fallback)',
+    placeholder: 'sk-or-v1-...',
+    keyField: 'openRouterApiKey',
+    hint: 'Paid per use. Pick the model below.'
+  },
+  ifm: {
+    label: 'IFM API Key (AI Fallback)',
+    placeholder: 'Key from platform.ifm.ai',
+    keyField: 'ifmApiKey',
+    hint: `Uses ${IFM_MODEL.replace('IFM/', '')}. Get a free key at platform.ifm.ai.`
+  },
+  custom: {
+    label: 'API Key (AI Fallback)',
+    placeholder: 'Key for your provider',
+    keyField: 'customAiApiKey',
+    hint: 'Any service that offers an OpenAI-compatible /chat/completions API.'
+  }
+};
+
+function selectedAiProvider(): AiProvider {
+  const v = (document.getElementById('setting-ai-provider') as HTMLSelectElement | null)?.value;
+  return v === 'ifm' || v === 'custom' ? v : 'openrouter';
+}
+
+function showAiProviderFields(provider: AiProvider, settings: Partial<UserSettings>): void {
+  const ui = AI_PROVIDER_UI[provider];
+  const label = document.getElementById('setting-apikey-label');
+  const key = document.getElementById('setting-apikey') as HTMLInputElement | null;
+  const hint = document.getElementById('setting-ai-provider-hint');
+  if (label) label.textContent = ui.label;
+  if (key) {
+    key.placeholder = ui.placeholder;
+    key.value = (settings[ui.keyField] as string) || '';
+  }
+  if (hint) hint.textContent = ui.hint;
+  const custom = document.getElementById('ai-custom-fields');
+  if (custom) custom.hidden = provider !== 'custom';
+  const orModel = document.getElementById('ai-openrouter-model');
+  if (orModel) orModel.hidden = provider !== 'openrouter';
+  const baseUrl = document.getElementById('setting-ai-base-url') as HTMLInputElement | null;
+  if (baseUrl) baseUrl.value = settings.customAiBaseUrl || '';
+  const customModel = document.getElementById('setting-ai-custom-model') as HTMLInputElement | null;
+  if (customModel) customModel.value = settings.customAiModel || '';
+  const status = document.getElementById('ai-test-status');
+  if (status) { status.textContent = ''; status.classList.remove('is-ok'); }
+}
+
+/** A custom AI service needs permission to reach its host. Asked once, on a click or edit. */
+async function ensureAiHostPermission(baseUrl: string): Promise<boolean> {
+  if (!baseUrl || typeof chrome === 'undefined' || !chrome.permissions?.request) return true;
+  const origins = [`${new URL(baseUrl).origin}/*`];
+  try {
+    // Called first so the click still counts as the user's gesture; no prompt if already allowed
+    return await chrome.permissions.request({ origins });
+  } catch {
+    return false;
+  }
+}
+
 async function loadSettingsForm() {
   const settings = await getSettings();
-  (document.getElementById('setting-apikey') as HTMLInputElement).value = settings.openRouterApiKey || '';
+  const aiProviderSelect = document.getElementById('setting-ai-provider') as HTMLSelectElement | null;
+  if (aiProviderSelect) aiProviderSelect.value = settings.aiProvider || 'openrouter';
+  showAiProviderFields(settings.aiProvider || 'openrouter', settings);
   (document.getElementById('setting-model') as HTMLSelectElement).value = settings.openRouterModel || 'google/gemini-3.8-flash';
   (document.getElementById('setting-use-ai') as HTMLInputElement).checked = settings.useAiExtraction;
   (document.getElementById('setting-autoscan') as HTMLInputElement).checked = settings.autoScanOnPageLoad;
@@ -3195,14 +3260,70 @@ function setupEvents() {
     const enabled = settingUseAi.checked;
     await saveSettings({ useAiExtraction: enabled });
     if (enabled && !settingApiKey?.value.trim()) {
-      showToast('AI Deep Extraction on - add an OpenRouter API key to use it');
+      showToast('AI Deep Extraction on - add an API key to use it');
     } else {
       showToast(`AI Deep Extraction ${enabled ? 'Enabled' : 'Disabled'}`);
     }
   });
   settingApiKey?.addEventListener('change', async () => {
-    await saveSettings({ openRouterApiKey: settingApiKey.value.trim() });
-    showToast('OpenRouter API key saved');
+    const ui = AI_PROVIDER_UI[selectedAiProvider()];
+    await saveSettings({ [ui.keyField]: settingApiKey.value.trim() });
+    showToast('API key saved');
+  });
+  const settingAiProvider = document.getElementById('setting-ai-provider') as HTMLSelectElement | null;
+  settingAiProvider?.addEventListener('change', async () => {
+    const provider = selectedAiProvider();
+    await saveSettings({ aiProvider: provider });
+    showAiProviderFields(provider, await getSettings());
+    showToast('AI provider saved');
+  });
+  const settingAiBaseUrl = document.getElementById('setting-ai-base-url') as HTMLInputElement | null;
+  settingAiBaseUrl?.addEventListener('change', async () => {
+    const base = normalizeAiBaseUrl(settingAiBaseUrl.value);
+    if (settingAiBaseUrl.value.trim() && !base) {
+      showToast('Base URL must start with https://');
+      return;
+    }
+    settingAiBaseUrl.value = base;
+    await saveSettings({ customAiBaseUrl: base });
+    if (base && !(await ensureAiHostPermission(base))) {
+      showToast('Saved, but access to that site was not allowed');
+      return;
+    }
+    showToast('Base URL saved');
+  });
+  const settingAiCustomModel = document.getElementById('setting-ai-custom-model') as HTMLInputElement | null;
+  settingAiCustomModel?.addEventListener('change', async () => {
+    await saveSettings({ customAiModel: settingAiCustomModel.value.trim() });
+    showToast('Model saved');
+  });
+  document.getElementById('btn-test-ai')?.addEventListener('click', async () => {
+    const status = document.getElementById('ai-test-status');
+    const show = (text: string, ok = false) => {
+      if (!status) return;
+      status.textContent = text;
+      status.classList.toggle('is-ok', ok);
+    };
+    const provider = selectedAiProvider();
+    const key = settingApiKey?.value.trim() || '';
+    const endpoint = resolveAiEndpoint({
+      aiProvider: provider,
+      [AI_PROVIDER_UI[provider].keyField]: key,
+      openRouterModel: (document.getElementById('setting-model') as HTMLSelectElement | null)?.value,
+      customAiBaseUrl: settingAiBaseUrl?.value,
+      customAiModel: settingAiCustomModel?.value
+    });
+    if (!endpoint) {
+      show(provider === 'custom' ? 'Add the base URL, model and key first' : 'Add an API key first');
+      return;
+    }
+    if (provider === 'custom' && !(await ensureAiHostPermission(normalizeAiBaseUrl(settingAiBaseUrl?.value)))) {
+      show('Access to that site was not allowed');
+      return;
+    }
+    show('Testing...');
+    const result = await testAiEndpoint(endpoint);
+    show(result.message, result.ok);
   });
   const settingModel = document.getElementById('setting-model') as HTMLSelectElement | null;
   settingModel?.addEventListener('change', async () => {
@@ -3246,8 +3367,15 @@ function setupEvents() {
     const prevSettings = await getSettings();
     const prevSyncKey = prevSettings.syncKey;
 
+    const aiProvider = selectedAiProvider();
+    const customBase = normalizeAiBaseUrl((document.getElementById('setting-ai-base-url') as HTMLInputElement | null)?.value);
+    const customModel = (document.getElementById('setting-ai-custom-model') as HTMLInputElement | null)?.value.trim() || '';
+
     await saveSettings({
-      openRouterApiKey: apiKey,
+      [AI_PROVIDER_UI[aiProvider].keyField]: apiKey.trim(),
+      aiProvider,
+      customAiBaseUrl: customBase,
+      customAiModel: customModel,
       openRouterModel: model,
       useAiExtraction: useAi,
       jevApiKey: jevKey,

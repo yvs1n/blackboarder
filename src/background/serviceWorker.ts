@@ -3,6 +3,7 @@ import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
 import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
+import { OPENROUTER_CHAT_URL, aiRequestHeaders, isAllowedAiChatUrl } from '../engine/aiProviders';
 import { getUserCourses, getCoursesUpdatedAt, saveUserCourses } from '../utils/storage';
 import { initAutoUpdate } from './autoUpdate';
 
@@ -286,18 +287,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // 2. Content Script Proxy: OpenRouter AI Chat (bypasses Blackboard page CSP)
+  // 2. Content Script Proxy: generative AI chat (bypasses Blackboard page CSP).
+  // OpenRouter by default; IFM or a custom OpenAI-compatible URL when the student picked one.
   if (message.type === 'PROXY_OPENROUTER_CHAT') {
-    fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const provider = message.provider === 'ifm' || message.provider === 'custom' ? message.provider : 'openrouter';
+    const url = provider === 'openrouter' ? OPENROUTER_CHAT_URL : message.url;
+    if (!isAllowedAiChatUrl(url)) {
+      sendResponse({ ok: false, error: 'AI URL not allowed' });
+      return false;
+    }
+    const post = (body: any) => fetch(url, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${message.apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://blackboarder.local',
-        'X-Title': 'Blackboarder Extension'
-      },
-      body: JSON.stringify(message.body)
-    })
+      headers: aiRequestHeaders(provider, message.apiKey),
+      body: JSON.stringify(body)
+    });
+    post(message.body)
+      .then(async res => {
+        // Some OpenAI-compatible services refuse JSON mode; ask again without it
+        if (res.status === 400 && provider !== 'openrouter' && message.body?.response_format) {
+          const { response_format: _omit, ...plain } = message.body;
+          res = await post(plain);
+        }
+        return res;
+      })
       .then(async res => {
         const data = await res.json().catch(() => null);
         sendResponse({ ok: res.ok, status: res.status, data });

@@ -2696,15 +2696,112 @@ var BBCoreBundle = (function() {
 		const cachedInitialCourses = getCachedCoursesSync();
 		if (Array.isArray(cachedInitialCourses) && cachedInitialCourses.length > 0) setActiveUserCourses(cachedInitialCourses);
 	} catch {}
+	// src/engine/aiProviders.ts
+	/**
+	* Where the generative AI step sends its request. Every provider speaks the OpenAI
+	* chat-completions format, so only the URL, key and model differ.
+	*/
+	var OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
+	var IFM_BASE_URL = "https://api.ifm.ai/v1";
+	var IFM_MODEL = "IFM/K2-Horizon-375B-A23B";
+	var DEFAULT_OPENROUTER_MODEL = "google/gemini-3.8-flash";
+	/**
+	* Turns what the student typed ("api.example.com/v1/", ".../v1/chat/completions") into a base URL
+	* ending before /chat/completions. Only https is accepted, except for a model running on this computer.
+	*/
+	function normalizeAiBaseUrl(raw) {
+		let s = String(raw || "").trim();
+		if (!s) return "";
+		if (!/^[a-z]+:\/\//i.test(s)) s = "https://" + s;
+		let url;
+		try {
+			url = new URL(s);
+		} catch {
+			return "";
+		}
+		const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+		if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return "";
+		const path = url.pathname.replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+		return `${url.origin}${path}`;
+	}
+	function chatUrlFor(baseUrl) {
+		return `${baseUrl}/chat/completions`;
+	}
+	/** The provider the student picked, with its key. Null when that provider has no key or URL yet. */
+	function resolveAiEndpoint(settings) {
+		const provider = settings.aiProvider || "openrouter";
+		if (provider === "ifm") {
+			const apiKey = (settings.ifmApiKey || "").trim();
+			return apiKey ? {
+				provider,
+				chatUrl: chatUrlFor(IFM_BASE_URL),
+				apiKey,
+				model: IFM_MODEL
+			} : null;
+		}
+		if (provider === "custom") {
+			const base = normalizeAiBaseUrl(settings.customAiBaseUrl);
+			const apiKey = (settings.customAiApiKey || "").trim();
+			const model = (settings.customAiModel || "").trim();
+			return base && apiKey && model ? {
+				provider,
+				chatUrl: chatUrlFor(base),
+				apiKey,
+				model
+			} : null;
+		}
+		const apiKey = (settings.openRouterApiKey || "").trim();
+		return apiKey ? {
+			provider: "openrouter",
+			chatUrl: OPENROUTER_CHAT_URL,
+			apiKey,
+			model: settings.openRouterModel || "google/gemini-3.8-flash"
+		} : null;
+	}
+	/** Request headers. OpenRouter's attribution headers are only sent to OpenRouter. */
+	function aiRequestHeaders(provider, apiKey) {
+		const headers = {
+			"Authorization": `Bearer ${apiKey}`,
+			"Content-Type": "application/json"
+		};
+		if (provider === "openrouter") {
+			headers["HTTP-Referer"] = "https://blackboarder.local";
+			headers["X-Title"] = "Blackboarder Extension";
+		}
+		return headers;
+	}
+	/**
+	* Reads the model's JSON answer. Reasoning models (K2 Horizon) may wrap it in <think> blocks
+	* or code fences, so the outermost {...} or [...] is taken.
+	*/
+	function parseAiJson(content) {
+		const text = String(content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+		try {
+			return JSON.parse(text);
+		} catch {}
+		const unfenced = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+		try {
+			return JSON.parse(unfenced);
+		} catch {}
+		const start = unfenced.search(/[{[]/);
+		const end = Math.max(unfenced.lastIndexOf("}"), unfenced.lastIndexOf("]"));
+		if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
+		throw new Error("AI reply was not JSON");
+	}
 	// src/engine/aiExtractor.ts
 	/**
-	* Extracts deadlines and academic tasks from an announcement using OpenRouter AI.
+	* Extracts deadlines and academic tasks from an announcement with the generative AI the student
+	* picked: OpenRouter by default, or IFM or any OpenAI-compatible service through `endpoint`.
 	*/
-	async function extractDeadlinesWithAi(announcement, apiKey, model = "google/gemini-3.8-flash", jevHint) {
+	async function extractDeadlinesWithAi(announcement, apiKey, model = "google/gemini-3.8-flash", jevHint, endpoint = {
+		provider: "openrouter",
+		chatUrl: OPENROUTER_CHAT_URL
+	}) {
 		if (!apiKey || !apiKey.trim()) {
-			console.info("OpenRouter API key not configured.");
+			console.info("AI API key not configured.");
 			return [];
 		}
+		const isOpenRouter = endpoint.provider === "openrouter";
 		const baseDate = announcement.postedAt ? new Date(announcement.postedAt) : /* @__PURE__ */ new Date();
 		const baseDateStr = baseDate.toISOString().slice(0, 10);
 		const systemPrompt = `You are an expert academic assistant designed to extract due dates, assignments, quizzes, midterms, labs, exams, and projects from university Blackboard course announcements (English and Arabic).
@@ -2751,16 +2848,16 @@ Announcement Title: ${announcement.title}
 Posted Date (METADATA ONLY - DO NOT USE AS ASSESSMENT TIME): ${announcement.postedAt || "Unknown"}
 ${hintBlock}Doctor's Announcement Body:
 ${cleanBody}`;
-		const candidateModels = [
+		const candidateModels = isOpenRouter ? [
 			model || "google/gemini-3.8-flash",
-			"google/gemini-3.8-flash",
+			DEFAULT_OPENROUTER_MODEL,
 			"google/gemini-3.7-flash",
 			"google/gemini-flash-latest"
-		].filter((m, idx, arr) => arr.indexOf(m) === idx);
+		].filter((m, idx, arr) => arr.indexOf(m) === idx) : [model];
 		for (const currentModel of candidateModels) try {
 			let response = null;
 			let data = null;
-			if (canUseSameOriginProxy()) try {
+			if (isOpenRouter && canUseSameOriginProxy()) try {
 				const proxyRes = await fetch("/api/ai/extract", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -2787,7 +2884,7 @@ ${cleanBody}`;
 				}],
 				response_format: { type: "json_object" },
 				temperature: .1,
-				max_tokens: 1e3
+				max_tokens: isOpenRouter ? 1e3 : 4e3
 			};
 			const isContentScript = typeof window !== "undefined" && window.location?.protocol !== "chrome-extension:" && (window.location?.protocol === "http:" || window.location?.protocol === "https:") && isExtensionContextValid();
 			if (!data && isContentScript) try {
@@ -2800,7 +2897,9 @@ ${cleanBody}`;
 						chrome.runtime.sendMessage({
 							type: "PROXY_OPENROUTER_CHAT",
 							body: requestPayload,
-							apiKey: apiKey.trim()
+							apiKey: apiKey.trim(),
+							provider: endpoint.provider,
+							url: endpoint.chatUrl
 						}, (response) => {
 							try {
 								if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
@@ -2819,32 +2918,26 @@ ${cleanBody}`;
 				else console.info("[OpenRouter AI] Service worker proxy failed, falling back:", String(e));
 			}
 			if (!data) {
-				response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+				const post = (payload) => fetch(endpoint.chatUrl, {
 					method: "POST",
-					headers: {
-						"Authorization": `Bearer ${apiKey.trim()}`,
-						"Content-Type": "application/json",
-						"HTTP-Referer": "https://blackboarder.local",
-						"X-Title": "Blackboarder Extension"
-					},
-					body: JSON.stringify(requestPayload)
+					headers: aiRequestHeaders(endpoint.provider, apiKey.trim()),
+					body: JSON.stringify(payload)
 				});
+				response = await post(requestPayload);
+				if (response.status === 400 && !isOpenRouter) {
+					const { response_format: _omit, ...plain } = requestPayload;
+					response = await post(plain);
+				}
 				if (!response.ok) {
 					const errText = await response.text();
-					console.warn(`[OpenRouter AI] Model ${currentModel} returned status ${response.status}:`, errText);
+					console.warn(`[AI] Model ${currentModel} returned status ${response.status}:`, errText);
 					continue;
 				}
 				data = await response.json();
 			}
 			const content = data.choices?.[0]?.message?.content;
 			if (!content) continue;
-			let parsed;
-			try {
-				parsed = JSON.parse(content);
-			} catch {
-				const cleaned = content.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
-				parsed = JSON.parse(cleaned);
-			}
+			const parsed = parseAiJson(content);
 			const rawItems = Array.isArray(parsed) ? parsed : parsed.deadlines || parsed.tasks;
 			if (!Array.isArray(rawItems)) return [];
 			return rawItems.filter((item) => item && !isNaN(new Date(item.dueDate).getTime())).map((item) => {
@@ -3758,7 +3851,8 @@ ${cleanBody}`;
 				tier: localTier
 			};
 		}
-		if (!settings.useAiExtraction || !settings.openRouterApiKey) return {
+		const aiEndpoint = settings.useAiExtraction ? resolveAiEndpoint(settings) : null;
+		if (!aiEndpoint) return {
 			tasks: localTasks,
 			tier: localTier
 		};
@@ -3789,7 +3883,10 @@ ${cleanBody}`;
 			console.info("[Blackboarder] Jev classifier error, falling back to Generative AI:", String(jevErr));
 		}
 		console.log(`[Blackboarder] Triggering Generative AI parser for announcement: "${announcement.title}"`);
-		const aiTasks = await extractDeadlinesWithAi(announcement, settings.openRouterApiKey, settings.openRouterModel, jevCategoryHint);
+		const aiTasks = await extractDeadlinesWithAi(announcement, aiEndpoint.apiKey, aiEndpoint.model, jevCategoryHint, {
+			provider: aiEndpoint.provider,
+			chatUrl: aiEndpoint.chatUrl
+		});
 		if (aiTasks.length > 0) return {
 			tasks: aiTasks,
 			tier: jevCategoryHint ? "Tier 3: Generative AI (with Jev Gatekeeper Hint)" : "Tier 3: Generative AI"

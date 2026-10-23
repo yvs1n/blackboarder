@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Choose your AI provider.** Settings has an AI Provider dropdown under the API key: OpenRouter (as before), IFM K2 Horizon with a free key from platform.ifm.ai, or any OpenAI-compatible API with your own base URL and model. Each provider keeps its own key, and a Test connection button checks the key before a scan needs it.
+
 ### Changed
 - **Theme follows your system**: the extension and the phone app now match your computer's or phone's light/dark setting by default and switch along with it. You can still pick Light or Dark in Settings. Everyone is moved to the system setting once with this update.
 - **Phone app on a computer**: on wide screens the app shows the calendar on the left, with Up Next and Quick Links under it, and your deadline list on the right, side by side. Clicking a day opens that day's deadlines in a pop-up. The header is slimmer, matching the extension: Quick Links, the Setup Guide and the theme are in the page and in Settings. The phone layout is unchanged.

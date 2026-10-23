@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "1bdf492de23c",
-  "commit": "eb2136dd96ab6526698eb9cc6bc7470f127cbe1a",
-  "shortCommit": "eb2136d",
-  "timestamp": "2026-10-22T21:07:16.130Z",
-  "message": "build: update generated files for 7fea3a1",
+  "build": "a3fbc86cc01f",
+  "commit": "db322da8ed1b3b64d358bc978f2969e3450bc65f",
+  "shortCommit": "db322da",
+  "timestamp": "2026-10-23T09:41:17.375Z",
+  "message": "docs: document website SEO and static asset caching in AGENTS.md",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

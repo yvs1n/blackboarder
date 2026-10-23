@@ -12,7 +12,7 @@
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Version-v1.1.0-blue?logo=github&logoColor=white" alt="Version v1.1.0" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-425_Passing-success?logo=vitest&logoColor=white" alt="Vitest 425 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-434_Passing-success?logo=vitest&logoColor=white" alt="Vitest 434 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -105,7 +105,8 @@ Everything works without any keys; the local parser handles most announcements. 
 
 | Setting | What it is for | Default |
 | :--- | :--- | :--- |
-| **OpenRouter API key** | AI extraction for long or vague announcements | Empty (optional) |
+| **AI provider** | OpenRouter, IFM K2 Horizon (free daily tokens from platform.ifm.ai), or any OpenAI-compatible API (base URL and model name). Each keeps its own key, and **Test connection** checks it | OpenRouter |
+| **API key** | AI extraction for long or vague announcements | Empty (optional) |
 | **AI model** | Model used through OpenRouter | `google/gemini-3.8-flash` |
 | **Jev API key** | Fast check that skips AI calls for announcements with no deadline | Empty (optional) |
 | **Hosted Web Dashboard URL** | Your site address. The phone app is at `/companion/` and the calendar feed at `/feed.ics` | `https://blackboarder.pages.dev` |

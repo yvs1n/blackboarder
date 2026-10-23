@@ -17,7 +17,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 ## What is where
 
 - `src/core/`: courses, schedule, room and weight rules, syllabus data. Single source of truth for course logic.
-- `src/engine/`: deadline extraction. Local regex first, then Jev classifier, then OpenRouter AI.
+- `src/engine/`: deadline extraction. Local regex first, then Jev classifier, then generative AI. The provider (OpenRouter, IFM, or a custom OpenAI-compatible URL) is chosen in `src/engine/aiProviders.ts`; content scripts reach it through the service worker.
 - `src/utils/`: storage, Firebase sync, task merge, gradebook marks, marks and syllabus-progress lists, announcement merge, stream parsing.
 - `src/content/scraper.ts`: runs on Blackboard pages. Scans announcements, the stream and the gradebook, then saves tasks.
 - `src/background/`: service worker (alarms, badge, sync, update checks).

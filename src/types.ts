@@ -118,10 +118,18 @@ export interface TaskSubmissionUpdate {
   gradedAt?: string; // When Blackboard recorded the grade, if it says
 }
 
+// Generative AI service. Each keeps its own key, so switching back and forth loses nothing
+export type AiProvider = 'openrouter' | 'ifm' | 'custom';
+
 export interface UserSettings {
   openRouterApiKey: string;
   openRouterModel: string;
   useAiExtraction: boolean;
+  aiProvider?: AiProvider;
+  ifmApiKey?: string;
+  customAiBaseUrl?: string; // Any OpenAI-compatible service, e.g. https://api.example.com/v1
+  customAiApiKey?: string;
+  customAiModel?: string;
   jevApiKey?: string;
   useJevClassification?: boolean;
   autoScanOnPageLoad: boolean;
@@ -143,6 +151,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   openRouterApiKey: '',
   openRouterModel: 'google/gemini-3.8-flash',
   useAiExtraction: false,
+  aiProvider: 'openrouter',
+  ifmApiKey: '',
+  customAiBaseUrl: '',
+  customAiApiKey: '',
+  customAiModel: '',
   jevApiKey: '',
   useJevClassification: false,
   autoScanOnPageLoad: true,

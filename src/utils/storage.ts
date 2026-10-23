@@ -217,7 +217,7 @@ export async function getSettings(): Promise<UserSettings> {
                 resolved.syncKey || result?.bbs_persistent_sync_key || safeGetLocalStorage('bbs_persistent_sync_key')
               );
 
-              if (localCandidate && (resolved.openRouterApiKey || resolved.jevApiKey)) {
+              if (localCandidate && (resolved.openRouterApiKey || resolved.ifmApiKey || resolved.customAiApiKey || resolved.jevApiKey)) {
                 resolveSyncKeyAndFinish(localCandidate);
                 return;
               }
@@ -229,6 +229,16 @@ export async function getSettings(): Promise<UserSettings> {
                   if (backup && typeof backup === 'object') {
                     if (!resolved.openRouterApiKey && backup.openRouterApiKey) {
                       resolved.openRouterApiKey = backup.openRouterApiKey;
+                    }
+                    // Other AI providers' keys come back too, along with the provider choice
+                    if (!resolved.ifmApiKey && backup.ifmApiKey) resolved.ifmApiKey = backup.ifmApiKey;
+                    if (!resolved.customAiApiKey && backup.customAiApiKey) {
+                      resolved.customAiApiKey = backup.customAiApiKey;
+                      resolved.customAiBaseUrl = resolved.customAiBaseUrl || backup.customAiBaseUrl;
+                      resolved.customAiModel = resolved.customAiModel || backup.customAiModel;
+                    }
+                    if ((!resolved.aiProvider || resolved.aiProvider === 'openrouter') && backup.aiProvider) {
+                      resolved.aiProvider = backup.aiProvider;
                     }
                     if (!resolved.jevApiKey && backup.jevApiKey) {
                       resolved.jevApiKey = backup.jevApiKey;

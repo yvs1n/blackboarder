@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-DA9yZwFa.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-D_Vt4VzT.css">
+  <title>Blackboarder</title>
+  <script type="module" crossorigin src="../../assets/popup-DVi41uev.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-D200RUf4.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -719,7 +719,7 @@
           <div class="toggle-control-row">
             <div class="toggle-text-block">
               <span class="toggle-main-label">Enable AI Deep Extraction</span>
-              <span class="toggle-status-desc">Use Gemini or GPT fallback for conversational announcements</span>
+              <span class="toggle-status-desc">Use an AI model for conversational announcements</span>
             </div>
             <label class="switch">
               <input type="checkbox" id="setting-use-ai">
@@ -728,12 +728,34 @@
           </div>
 
           <div class="form-group" style="margin-top: 8px;">
-            <label class="form-label" for="setting-apikey">OpenRouter API Key (AI Fallback)</label>
-            <input type="password" id="setting-apikey" class="form-input" placeholder="sk-or-v1-...">
+            <label class="form-label" for="setting-apikey" id="setting-apikey-label">OpenRouter API Key (AI Fallback)</label>
+            <input type="password" id="setting-apikey" class="form-input" placeholder="sk-or-v1-..." autocomplete="off">
             <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Used when local parser encounters ambiguous or conversational announcements.</span>
           </div>
 
           <div class="form-group">
+            <label class="form-label" for="setting-ai-provider">AI Provider</label>
+            <select id="setting-ai-provider" class="form-select">
+              <option value="openrouter">OpenRouter (Gemini, GPT and more)</option>
+              <option value="ifm">IFM K2 Horizon (free daily tokens)</option>
+              <option value="custom">Custom (any OpenAI-compatible API)</option>
+            </select>
+            <span class="ai-provider-hint" id="setting-ai-provider-hint">Each provider keeps its own key, so switching back loses nothing.</span>
+          </div>
+
+          <div class="form-group ai-provider-field" id="ai-custom-fields" hidden>
+            <label class="form-label" for="setting-ai-base-url">API Base URL</label>
+            <input type="url" id="setting-ai-base-url" class="form-input" placeholder="https://api.example.com/v1" autocomplete="off">
+            <label class="form-label" for="setting-ai-custom-model" style="margin-top: 6px;">Model Name</label>
+            <input type="text" id="setting-ai-custom-model" class="form-input" placeholder="provider/model-name" autocomplete="off">
+          </div>
+
+          <div class="ai-test-row">
+            <button type="button" class="btn-secondary" id="btn-test-ai">Test connection</button>
+            <span class="ai-test-status" id="ai-test-status" aria-live="polite"></span>
+          </div>
+
+          <div class="form-group ai-provider-field" id="ai-openrouter-model">
             <label class="form-label" for="setting-model">AI Model</label>
             <select id="setting-model" class="form-select">
               <option value="google/gemini-3.8-flash">Google Gemini 3.8 Flash (Fast &amp; Recommended)</option>
@@ -1662,6 +1684,6 @@
 
   <!-- Floating Action Toast Container -->
   <div id="toast-container" class="toast-container"></div>
-
+
 </body>
 </html>

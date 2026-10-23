@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "c7117023ea40",
-  "commit": "8385b6b96cabc25e3522f23dfe276107ae78fb10",
-  "shortCommit": "8385b6b",
-  "timestamp": "2026-10-22T20:32:46.010Z",
-  "message": "Replace PROJECT_BRAIN.md with a lean AGENTS.md; bring README and landing page up to date",
+  "build": "4b67edbfba18",
+  "commit": "db322da8ed1b3b64d358bc978f2969e3450bc65f",
+  "shortCommit": "db322da",
+  "timestamp": "2026-10-23T09:43:07.691Z",
+  "message": "docs: document website SEO and static asset caching in AGENTS.md",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };
