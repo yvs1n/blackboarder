@@ -27,6 +27,7 @@ export interface CustomSyllabusComponent {
   type: TaskType;
   totalWeight: number; // e.g. 20 for 20%
   count?: number;      // e.g. 4 for 4 quizzes
+  outOf?: number;      // items held when only the best `count` count, e.g. 3 for "best 2 of 3"
   unitWeight?: number; // e.g. 5 for 5% each
   note?: string;
   keywords?: string[]; // e.g. ["quiz", "test", "كويز"]
@@ -37,6 +38,7 @@ export interface UserCourseConfig {
   courseCode: string;
   courseName: string;
   crn?: string;
+  creditHours?: number; // for the GPA; 3 when missing
   colorHex: string;
   aliases: string[];
   scheduleSlots: CustomScheduleSlot[];

@@ -23,6 +23,7 @@ import { extractRoomFromText, isPlausibleRoom, resolveTaskRoom, findCourseSchedu
 import { resolveTaskWeight, extractExplicitPoints, extractAssessmentNumber } from '../core/syllabusWeights';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText, formatScore } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
+import { buildGpaSummary, gpaSummaryHtml, gpaBadgeText } from '../utils/gpa';
 import {
   sanitizeDoctorAnnouncementText,
   resolveCourseInfo,
@@ -121,6 +122,9 @@ const BBCore = {
   formatScore,
   buildSyllabusProgress,
   syllabusProgressHtml,
+  buildGpaSummary,
+  gpaSummaryHtml,
+  gpaBadgeText,
   extractExplicitPoints,
   extractAssessmentNumber,
   sanitizeDoctorAnnouncementText,

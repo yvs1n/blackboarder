@@ -115,6 +115,7 @@ export function sanitizeCloudCourses(courses: unknown): UserCourseConfig[] | und
       courseCode: str(c.courseCode),
       courseName: str(c.courseName),
       crn: typeof c.crn === 'string' ? c.crn : undefined,
+      creditHours: optNum(c.creditHours),
       colorHex: safeHexColor(c.colorHex),
       aliases: Array.isArray(c.aliases) ? c.aliases.filter((a: unknown) => typeof a === 'string') : [],
       scheduleSlots: (Array.isArray(c.scheduleSlots) ? c.scheduleSlots : [])
@@ -135,6 +136,7 @@ export function sanitizeCloudCourses(courses: unknown): UserCourseConfig[] | und
           type: TASK_TYPES.includes(s.type) ? s.type : 'other',
           totalWeight: optNum(s.totalWeight) ?? 0,
           count: optNum(s.count),
+          outOf: optNum(s.outOf),
           unitWeight: optNum(s.unitWeight)
         }))
     });

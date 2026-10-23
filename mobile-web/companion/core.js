@@ -136,6 +136,7 @@ var BBCoreBundle = (function() {
 				courseCode: str(c.courseCode),
 				courseName: str(c.courseName),
 				crn: typeof c.crn === "string" ? c.crn : void 0,
+				creditHours: optNum(c.creditHours),
 				colorHex: safeHexColor(c.colorHex),
 				aliases: Array.isArray(c.aliases) ? c.aliases.filter((a) => typeof a === "string") : [],
 				scheduleSlots: (Array.isArray(c.scheduleSlots) ? c.scheduleSlots : []).filter((s) => s && typeof s === "object").map((s) => ({
@@ -152,6 +153,7 @@ var BBCoreBundle = (function() {
 					type: TASK_TYPES.includes(s.type) ? s.type : "other",
 					totalWeight: optNum(s.totalWeight) ?? 0,
 					count: optNum(s.count),
+					outOf: optNum(s.outOf),
 					unitWeight: optNum(s.unitWeight)
 				}))
 			});
@@ -235,6 +237,7 @@ var BBCoreBundle = (function() {
 			courseCode: "1502101",
 			courseName: "Introduction to Computer Eng.",
 			crn: "12056",
+			creditHours: 3,
 			colorHex: "#7c7c7c",
 			aliases: [
 				"intro.*comp",
@@ -291,6 +294,7 @@ var BBCoreBundle = (function() {
 					type: "quiz",
 					totalWeight: 25,
 					count: 3,
+					outOf: 4,
 					unitWeight: 8.33,
 					note: "Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)",
 					keywords: [
@@ -306,6 +310,7 @@ var BBCoreBundle = (function() {
 			courseCode: "1440133",
 			courseName: "Calculus I for Engineering",
 			crn: "10806",
+			creditHours: 3,
 			colorHex: "#dc2626",
 			aliases: [
 				"calculus",
@@ -362,6 +367,7 @@ var BBCoreBundle = (function() {
 					type: "quiz",
 					totalWeight: 20,
 					count: 2,
+					outOf: 3,
 					unitWeight: 10,
 					note: "On paper, best 2 of 3 quizzes (10% each, 20% total)",
 					keywords: [
@@ -376,6 +382,7 @@ var BBCoreBundle = (function() {
 					type: "assignment",
 					totalWeight: 10,
 					count: 3,
+					outOf: 4,
 					unitWeight: 3.33,
 					note: "Online, best 3 of 4 homeworks (~3.33% each, 10% total)",
 					keywords: [
@@ -393,6 +400,7 @@ var BBCoreBundle = (function() {
 			courseCode: "0202112",
 			courseName: "English for Academic Purposes",
 			crn: "10175",
+			creditHours: 3,
 			colorHex: "#525252",
 			aliases: [
 				"english",
@@ -489,6 +497,7 @@ var BBCoreBundle = (function() {
 			courseCode: "1430116",
 			courseName: "Physics 1 Lab",
 			crn: "10708",
+			creditHours: 1,
 			colorHex: "#4b99d2",
 			aliases: [
 				"physics.*lab",
@@ -534,6 +543,7 @@ var BBCoreBundle = (function() {
 					type: "quiz",
 					totalWeight: 30,
 					count: 3,
+					outOf: 4,
 					unitWeight: 10,
 					note: "4 scheduled, top 3 counted (10% each, 30% total)",
 					keywords: ["quiz", "كويز"]
@@ -561,6 +571,7 @@ var BBCoreBundle = (function() {
 			courseCode: "1430115",
 			courseName: "Physics 1",
 			crn: "10668",
+			creditHours: 3,
 			colorHex: "#4b99d2",
 			aliases: [
 				"physics\\s*1(?!\\s*lab)",
@@ -645,6 +656,7 @@ var BBCoreBundle = (function() {
 			courseCode: "0104100",
 			courseName: "Islamic Culture",
 			crn: "10475",
+			creditHours: 3,
 			colorHex: "#489160",
 			aliases: [
 				"islamic",
@@ -758,6 +770,7 @@ var BBCoreBundle = (function() {
 				type: comp.type,
 				totalWeight: comp.totalWeight,
 				count: comp.count,
+				outOf: comp.outOf,
 				unitWeight: comp.unitWeight !== void 0 ? comp.unitWeight : comp.count && comp.count > 0 ? Number((comp.totalWeight / comp.count).toFixed(2)) : comp.totalWeight,
 				note: comp.note,
 				matcher: compileSyllabusComponentMatcher(comp)
@@ -769,6 +782,7 @@ var BBCoreBundle = (function() {
 				courseCodePattern,
 				sourcePdf: `${course.id}.pdf`,
 				totalWeight,
+				creditHours: Number(course.creditHours) > 0 ? Number(course.creditHours) : DEFAULT_USER_COURSES.find((d) => d.id === course.id)?.creditHours,
 				components
 			};
 		});
@@ -1559,7 +1573,7 @@ var BBCoreBundle = (function() {
 		return {};
 	}
 	// src/utils/marks.ts
-	var round1$1 = (n) => Math.round(n * 10) / 10;
+	var round1$2 = (n) => Math.round(n * 10) / 10;
 	/**
 	* Every mark in one place: graded and submitted tasks grouped by course, with each course's
 	* earned share of the grade. Courses are named after their syllabus when one matches.
@@ -1598,9 +1612,9 @@ var BBCoreBundle = (function() {
 				gradedCount++;
 				row.score = t.score;
 				row.maxScore = t.maxScore;
-				row.percent = round1$1(t.score / t.maxScore * 100);
+				row.percent = round1$2(t.score / t.maxScore * 100);
 				if (weight) {
-					row.earned = round1$1(t.score / t.maxScore * weight);
+					row.earned = round1$2(t.score / t.maxScore * weight);
 					course.gradedWeight += weight;
 					course.earnedWeight += t.score / t.maxScore * weight;
 				}
@@ -1609,10 +1623,10 @@ var BBCoreBundle = (function() {
 		}
 		const courses = Array.from(byCourse.values());
 		for (const c of courses) {
-			c.gradedWeight = round1$1(c.gradedWeight);
-			c.earnedWeight = round1$1(c.earnedWeight);
+			c.gradedWeight = round1$2(c.gradedWeight);
+			c.earnedWeight = round1$2(c.earnedWeight);
 			const pcts = c.marks.filter((m) => m.percent !== void 0).map((m) => m.percent);
-			if (pcts.length) c.averagePercent = round1$1(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+			if (pcts.length) c.averagePercent = round1$2(pcts.reduce((a, b) => a + b, 0) / pcts.length);
 			const time = (m) => {
 				const n = new Date(m.dueDate || "").getTime();
 				return isNaN(n) ? -Infinity : n;
@@ -1628,10 +1642,10 @@ var BBCoreBundle = (function() {
 	}
 	/** "4.5 / 5" with trailing zeros dropped. */
 	function formatScore(score, max) {
-		const f = (n) => n === void 0 ? "-" : String(round1$1(n));
+		const f = (n) => n === void 0 ? "-" : String(round1$2(n));
 		return `${f(score)} / ${f(max)}`;
 	}
-	function esc$1(s) {
+	function esc$2(s) {
 		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
 			"&": "&amp;",
 			"<": "&lt;",
@@ -1656,18 +1670,18 @@ var BBCoreBundle = (function() {
 		return summary.courses.map((c) => {
 			const head = c.gradedWeight > 0 ? `<span class="marks-course-total" title="Course grade earned from graded items with a known weight">${c.earnedWeight}% of ${c.gradedWeight}% graded</span>` : c.averagePercent !== void 0 ? `<span class="marks-course-total">Avg ${c.averagePercent}%</span>` : "";
 			const rows = c.marks.map((m) => {
-				const right = m.status === "graded" ? `<span class="marks-score">${esc$1(formatScore(m.score, m.maxScore))}</span><span class="marks-pct">${m.percent}%</span>` : "<span class=\"marks-awaiting\">Submitted</span>";
+				const right = m.status === "graded" ? `<span class="marks-score">${esc$2(formatScore(m.score, m.maxScore))}</span><span class="marks-pct">${m.percent}%</span>` : "<span class=\"marks-awaiting\">Submitted</span>";
 				const sub = m.weight ? `<span class="marks-weight">${m.earned !== void 0 ? `${m.earned} of ${m.weight}%` : `worth ${m.weight}%`}</span>` : "";
-				return `<div class="marks-row"><span class="marks-title">${esc$1(m.title)}</span>${sub}<span class="marks-right">${right}</span></div>`;
+				return `<div class="marks-row"><span class="marks-title">${esc$2(m.title)}</span>${sub}<span class="marks-right">${right}</span></div>`;
 			}).join("");
 			return `<div class="marks-course">
-      <div class="marks-course-head"><span class="marks-dot" style="background:${esc$1(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc$1(c.courseName)}</span>${head}</div>
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc$2(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc$2(c.courseName)}</span>${head}</div>
       ${rows}
     </div>`;
 		}).join("");
 	}
 	// src/utils/syllabusProgress.ts
-	var round1 = (n) => Math.round(n * 10) / 10;
+	var round1$1 = (n) => Math.round(n * 10) / 10;
 	/** How much of each course's syllabus weight is done, still pending, or not announced yet. */
 	function buildSyllabusProgress(tasks, syllabi) {
 		let done = 0;
@@ -1684,8 +1698,8 @@ var BBCoreBundle = (function() {
 					if (t.status === "completed") completed += w;
 					else pending += w;
 				}
-				completed = round1(Math.min(completed, totalWeight));
-				pending = round1(Math.min(pending, totalWeight - completed));
+				completed = round1$1(Math.min(completed, totalWeight));
+				pending = round1$1(Math.min(pending, totalWeight - completed));
 				done += completed;
 				total += totalWeight;
 				return {
@@ -1693,14 +1707,14 @@ var BBCoreBundle = (function() {
 					totalWeight,
 					completedWeight: completed,
 					pendingWeight: pending,
-					upcomingWeight: round1(Math.max(0, totalWeight - completed - pending)),
+					upcomingWeight: round1$1(Math.max(0, totalWeight - completed - pending)),
 					percentDone: Math.round(completed / totalWeight * 100)
 				};
 			}),
 			overallPercent: total > 0 ? Math.round(done / total * 100) : 0
 		};
 	}
-	function esc(s) {
+	function esc$1(s) {
 		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
 			"&": "&amp;",
 			"<": "&lt;",
@@ -1715,11 +1729,206 @@ var BBCoreBundle = (function() {
 		return p.courses.map((c) => {
 			const pendingPct = Math.round(c.pendingWeight / c.totalWeight * 100);
 			return `<div class="marks-course">
-      <div class="marks-course-head"><span class="marks-dot" style="background:${esc(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc(c.courseName)}</span><span class="marks-course-total">${c.percentDone}% done</span></div>
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc$1(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc$1(c.courseName)}</span><span class="marks-course-total">${c.percentDone}% done</span></div>
       <div class="syl-bar" role="img" aria-label="${c.completedWeight}% done, ${c.pendingWeight}% pending, ${c.upcomingWeight}% not announced yet"><span class="syl-done" style="width:${c.percentDone}%"></span><span class="syl-pending" style="width:${Math.min(100 - c.percentDone, pendingPct)}%"></span></div>
       <div class="syl-legend"><span>Done ${c.completedWeight}%</span><span>Pending ${c.pendingWeight}%</span><span>Not announced ${c.upcomingWeight}%</span></div>
     </div>`;
 		}).join("");
+	}
+	// src/utils/gpa.ts
+	/**
+	* University of Sharjah undergraduate grading (4-point scale, catalog 2025-2026):
+	* a course percentage maps to a letter and its grade points. D is the lowest pass.
+	*/
+	var UOS_GRADE_SCALE = [
+		{
+			letter: "A",
+			min: 90,
+			points: 4
+		},
+		{
+			letter: "B+",
+			min: 85,
+			points: 3.5
+		},
+		{
+			letter: "B",
+			min: 80,
+			points: 3
+		},
+		{
+			letter: "C+",
+			min: 75,
+			points: 2.5
+		},
+		{
+			letter: "C",
+			min: 70,
+			points: 2
+		},
+		{
+			letter: "D+",
+			min: 65,
+			points: 1.5
+		},
+		{
+			letter: "D",
+			min: 60,
+			points: 1
+		},
+		{
+			letter: "F",
+			min: 0,
+			points: 0
+		}
+	];
+	function gradeForPercent(percent) {
+		const row = UOS_GRADE_SCALE.find((g) => percent >= g.min) || UOS_GRADE_SCALE[UOS_GRADE_SCALE.length - 1];
+		return {
+			letter: row.letter,
+			points: row.points
+		};
+	}
+	var round1 = (n) => Math.round(n * 10) / 10;
+	var round2 = (n) => Math.round(n * 100) / 100;
+	/**
+	* Reads "best 2 of 3", "top 3 of 4", "4 scheduled, top 3 counted" or "best 3 out of 4" from a
+	* syllabus note, for courses set up before the count rule had its own field.
+	*/
+	function bestOfFromNote(note) {
+		if (!note) return null;
+		const m = note.match(/\b(?:best|top|highest)\s+(\d+)\s+(?:out\s+)?of\s+(?:the\s+)?(\d+)/i);
+		if (m) return {
+			count: +m[1],
+			outOf: +m[2]
+		};
+		const held = note.match(/(\d+)\s+(?:scheduled|held|given)[^0-9]*\b(?:best|top|highest)\s+(\d+)/i);
+		if (held) return {
+			count: +held[2],
+			outOf: +held[1]
+		};
+		return null;
+	}
+	function isGraded(t) {
+		return t.submissionStatus === "graded" && typeof t.score === "number" && !!t.maxScore && t.maxScore > 0;
+	}
+	function pickComponent(task, components) {
+		const title = task.title || "";
+		return components.find((c) => c.type === task.type && c.matcher.test(title)) || components.find((c) => c.matcher.test(title)) || components.find((c) => c.type === task.type);
+	}
+	/**
+	* Each course's grade so far and the projected GPA, from the marks Blackboard has given.
+	* Where the syllabus counts only the best items ("best 2 of 3 quizzes"), the best ones count and
+	* the rest are dropped. Items not graded yet do not count either way, so the grade is the score
+	* on what has been marked so far.
+	*/
+	function buildGpaSummary(tasks, syllabi) {
+		const graded = (tasks || []).filter((t) => t && isGraded(t));
+		const courses = [];
+		for (const syl of syllabi || []) {
+			const creditHours = Number(syl.creditHours) > 0 ? Number(syl.creditHours) : 3;
+			const totalWeight = syl.totalWeight || 100;
+			const mine = graded.filter((t) => syl.courseCodePattern.test(t.courseName || "") || syl.courseCodePattern.test(t.courseCode || ""));
+			const components = syl.components || [];
+			const byComponent = /* @__PURE__ */ new Map();
+			let gradedWeight = 0;
+			let earnedWeight = 0;
+			for (const t of mine) {
+				const item = {
+					title: t.title,
+					percent: t.score / t.maxScore * 100
+				};
+				const comp = pickComponent(t, components);
+				if (comp) {
+					const list = byComponent.get(comp) || [];
+					list.push(item);
+					byComponent.set(comp, list);
+				} else if (Number(t.weight) > 0) {
+					gradedWeight += Number(t.weight);
+					earnedWeight += item.percent / 100 * Number(t.weight);
+				}
+			}
+			const componentGrades = [];
+			for (const comp of components) {
+				const items = (byComponent.get(comp) || []).sort((a, b) => b.percent - a.percent);
+				if (!items.length) continue;
+				const fromNote = bestOfFromNote(comp.note);
+				const count = comp.count || fromNote?.count;
+				const outOf = comp.outOf || fromNote?.outOf;
+				let counted = items;
+				let dropped = [];
+				if (count && count > 0) {
+					counted = items.slice(0, count);
+					dropped = items.slice(count);
+					const unit = comp.totalWeight / count;
+					gradedWeight += counted.length * unit;
+					earnedWeight += counted.reduce((s, i) => s + i.percent / 100 * unit, 0);
+				} else {
+					const avg = items.reduce((s, i) => s + i.percent, 0) / items.length;
+					gradedWeight += comp.totalWeight;
+					earnedWeight += avg / 100 * comp.totalWeight;
+				}
+				componentGrades.push({
+					name: comp.name,
+					counted: counted.map((i) => ({
+						...i,
+						percent: round1(i.percent)
+					})),
+					dropped: dropped.map((i) => ({
+						...i,
+						percent: round1(i.percent)
+					})),
+					rule: count && outOf && outOf > count ? `best ${count} of ${outOf}` : void 0
+				});
+			}
+			gradedWeight = Math.min(gradedWeight, totalWeight);
+			const course = {
+				courseName: syl.courseName,
+				creditHours,
+				gradedWeight: round1(gradedWeight),
+				earnedWeight: round1(earnedWeight),
+				components: componentGrades
+			};
+			if (gradedWeight > 0) {
+				course.percent = round1(earnedWeight / gradedWeight * 100);
+				Object.assign(course, gradeForPercent(course.percent));
+			}
+			courses.push(course);
+		}
+		const counted = courses.filter((c) => c.points !== void 0);
+		const gradedCredits = counted.reduce((s, c) => s + c.creditHours, 0);
+		const summary = {
+			courses,
+			gradedCredits,
+			totalCredits: courses.reduce((s, c) => s + c.creditHours, 0)
+		};
+		if (gradedCredits > 0) summary.gpa = round2(counted.reduce((s, c) => s + c.points * c.creditHours, 0) / gradedCredits);
+		return summary;
+	}
+	function gpaBadgeText(s) {
+		return s.gpa === void 0 ? "No marks yet" : `GPA ${s.gpa.toFixed(2)}`;
+	}
+	function esc(s) {
+		return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#39;"
+		})[c]);
+	}
+	/** The GPA card body, shared by the extension popup and the phone app (same classes in both stylesheets). */
+	function gpaSummaryHtml(s, colorFor) {
+		if (!s.courses.length) return "<div class=\"marks-empty\">No courses configured yet.</div>";
+		return `${s.gpa === void 0 ? "<div class=\"gpa-head\"><span class=\"gpa-value\">-</span><span class=\"gpa-caption\">No marks yet. Your GPA appears after the first graded item.</span></div>" : `<div class="gpa-head"><span class="gpa-value">${s.gpa.toFixed(2)}</span><span class="gpa-caption">Projected GPA from marks so far, ${s.gradedCredits} of ${s.totalCredits} credit hours</span></div>`}${s.courses.map((c) => {
+			const right = c.percent === void 0 ? "<span class=\"marks-awaiting\">No marks yet</span>" : `<span class="marks-pct">${c.percent}%</span><span class="gpa-letter">${esc(c.letter)}</span>`;
+			const detail = c.percent === void 0 ? "" : `<div class="gpa-detail">${c.earnedWeight}% of ${c.gradedWeight}% graded · ${c.points.toFixed(1)} points</div>`;
+			const drops = c.components.filter((k) => k.dropped.length).map((k) => `<div class="gpa-detail">${esc(k.name)}${k.rule ? ` (${esc(k.rule)})` : ""}: not counted ${k.dropped.map((d) => `${esc(d.title)} ${d.percent}%`).join(", ")}</div>`).join("");
+			return `<div class="marks-course">
+      <div class="marks-course-head"><span class="marks-dot" style="background:${esc(colorFor(c.courseName))}"></span><span class="marks-course-name">${esc(c.courseName)}</span><span class="marks-course-total">${c.creditHours} cr</span><span class="marks-right">${right}</span></div>
+      ${detail}${drops}
+    </div>`;
+		}).join("")}<div class="gpa-note">UOS scale: ${UOS_GRADE_SCALE.filter((g) => g.letter !== "F").map((g) => `${g.letter} ${g.min}+`).join(" · ")} · F below 60. Grades are your score on what is graded so far; set credit hours in Settings &gt; Courses.</div>`;
 	}
 	// src/utils/taskMerge.ts
 	/** Union of two tombstone maps; for the same id the later deletion time wins. */
@@ -3182,6 +3391,9 @@ ${cleanBody}`;
 		formatScore,
 		buildSyllabusProgress,
 		syllabusProgressHtml,
+		buildGpaSummary,
+		gpaSummaryHtml,
+		gpaBadgeText,
 		extractExplicitPoints,
 		extractAssessmentNumber,
 		sanitizeDoctorAnnouncementText,

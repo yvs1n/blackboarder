@@ -7,6 +7,7 @@ export interface SyllabusComponent {
   type: TaskType;
   totalWeight: number; // e.g. 20 for 20%
   count?: number; // e.g. 4 for 4 quizzes
+  outOf?: number; // items held when only the best `count` count ("best 2 of 3")
   unitWeight?: number; // e.g. 5 for 5% each
   note?: string; // e.g. "Weeks 4, 6, 9, 11 (5% each)"
   matcher: RegExp;
@@ -18,6 +19,7 @@ export interface CourseSyllabus {
   courseCodePattern: RegExp;
   sourcePdf: string;
   totalWeight: number; // 100
+  creditHours?: number;
   components: SyllabusComponent[];
 }
 

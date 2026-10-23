@@ -18,7 +18,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 
 - `src/core/`: courses, schedule, room and weight rules, syllabus data. Single source of truth for course logic.
 - `src/engine/`: deadline extraction. Local regex first, then a keyword check, then an optional AI model (no key means the built-in parser's answer stands). The provider (OpenRouter, IFM, or a custom OpenAI-compatible URL) is chosen in `src/engine/aiProviders.ts`; content scripts reach it through the service worker.
-- `src/utils/`: storage, Firebase sync, task merge, gradebook marks, marks and syllabus-progress lists, announcement merge, stream parsing.
+- `src/utils/`: storage, Firebase sync, task merge, gradebook marks, marks, GPA and syllabus-progress lists, announcement merge, stream parsing.
 - `src/content/scraper.ts`: runs on Blackboard pages. Scans announcements, the stream and the gradebook, then saves tasks.
 - `src/background/`: service worker (alarms, badge, sync, update checks).
 - `src/popup/`: extension popup and side panel (plain TypeScript, no framework).
@@ -35,6 +35,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 - **Weights**: from the course syllabus (`resolveTaskWeight`). A percentage in announcement text only counts when it is stated as that item's weight. The title is matched before the body.
 - **Rooms**: announced room first, then the saved room if it looks real (`isPlausibleRoom`), then the course schedule.
 - **Marks card and Syllabus Progress card**: `src/utils/marks.ts` and `src/utils/syllabusProgress.ts`, rendered by both the popup and the phone app. Marks are listed newest first.
+- **GPA card**: `src/utils/gpa.ts`, rendered by both apps. UOS 4-point scale (`UOS_GRADE_SCALE`). A course grade is the score on graded items only; a syllabus part with `count` counts only the best `count` items (`outOf` is how many are held; old courses fall back to "best N of M" in the note). GPA = sum of points x `creditHours` / credit hours of courses with a mark (default 3; a synced course without it takes the default course's value).
 - **Popup**: opens on the calendar. Unfinished add, edit and settings work is restored (`src/popup/popupDraft.ts`). Course fields are pickers (`src/popup/coursePicker.ts`). Settings has one page per group.
 - **AI on the web app**: models and keys are set only in the extension. `src/utils/aiKeyLock.ts` sends the key to the student's server (`/api/ai/key`), which encrypts it with `AI_KEY_SECRET` plus the sync key and stores only the encrypted text at `users/{syncKey}/ai`. The web app sends the extension's prompt to `/api/ai/extract` and the server adds the key. AI calls also need the AI pass: the extension makes it, puts it in the pairing link after `#ai=` (never in the query; the phone's sync key box also accepts the whole link, for iPhone home screen apps), and the server keeps only its SHA-256 inside the sealed config, so the sync key alone cannot use the AI. Without `AI_KEY_SECRET` or a key, the web app uses the built-in parser.
 - **Sync**: tasks, quick links, courses and tombstones live at `users/{syncKey}/data` in Firebase. The newer `updatedAt` wins per task.

@@ -1008,7 +1008,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"a9ac74d5cd18","version":"1.1.0","shortCommit":"a60f0fb","timestamp":"2026-10-23T21:00:54.635Z"};
+const APP_BUILD = {"build":"45cfe4ded0e0","version":"1.1.0","shortCommit":"e077d11","timestamp":"2026-10-23T21:15:26.040Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3522,6 +3522,15 @@ function renderGradeTracker() {
   badge.textContent = BB.marksBadgeText(summary);
   breakdown.innerHTML = BB.marksSummaryHtml(summary, name => getCourseColor('', name));
 
+  // GPA card
+  const gpaBadge = document.getElementById('mobile-gpa-tracker-badge');
+  const gpaBody = document.getElementById('mobile-gpa-tracker-breakdown');
+  if (gpaBadge && gpaBody && BB.buildGpaSummary) {
+    const gpa = BB.buildGpaSummary(state.tasks, DEFAULT_SYLLABUS_DATABASE);
+    gpaBadge.textContent = BB.gpaBadgeText(gpa);
+    gpaBody.innerHTML = BB.gpaSummaryHtml(gpa, name => getCourseColor('', name));
+  }
+
   // Syllabus Progress card
   const sylBadge = document.getElementById('mobile-syllabus-tracker-badge');
   const sylBody = document.getElementById('mobile-syllabus-tracker-breakdown');
@@ -3533,6 +3542,16 @@ function renderGradeTracker() {
 }
 
 function initGradeTracker() {
+  const gpaBtn = document.getElementById('mobile-gpa-tracker-toggle-btn');
+  const gpaBody = document.getElementById('mobile-gpa-tracker-breakdown');
+  const gpaArrow = document.getElementById('mobile-gpa-tracker-arrow');
+  gpaBtn?.addEventListener('click', () => {
+    if (!gpaBody) return;
+    const isHidden = gpaBody.style.display === 'none' || !gpaBody.style.display;
+    gpaBody.style.display = isHidden ? 'flex' : 'none';
+    if (gpaArrow) gpaArrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+  });
+
   const sylBtn = document.getElementById('mobile-syllabus-tracker-toggle-btn');
   const sylBody = document.getElementById('mobile-syllabus-tracker-breakdown');
   const sylArrow = document.getElementById('mobile-syllabus-tracker-arrow');

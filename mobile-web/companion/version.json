@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "a9ac74d5cd18",
-  "commit": "a60f0fbe0e01dbd2e80f68725ffc7a015f27ee28",
-  "shortCommit": "a60f0fb",
-  "timestamp": "2026-10-23T21:00:54.635Z",
-  "message": "Phone app: reminders only, no \"new deadline\" notifications; push failures explained",
+  "build": "45cfe4ded0e0",
+  "commit": "e077d1169eafd097f1174c6d1f213c25435904d8",
+  "shortCommit": "e077d11",
+  "timestamp": "2026-10-23T21:15:26.040Z",
+  "message": "Docs and guides: reminders in README, Setup Guide and landing page",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

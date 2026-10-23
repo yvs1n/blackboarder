@@ -115,6 +115,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '1502101',
     courseName: 'Introduction to Computer Eng.',
     crn: '12056',
+    creditHours: 3,
     colorHex: '#7c7c7c',
     aliases: [
       'intro.*comp',
@@ -162,6 +163,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
         type: 'quiz',
         totalWeight: 25,
         count: 3,
+        outOf: 4,
         unitWeight: 8.33,
         note: 'Best 3 of 4 quizzes (average taken, ~8.33% each, 25% total, no HWs)',
         keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
@@ -175,6 +177,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '1440133',
     courseName: 'Calculus I for Engineering',
     crn: '10806',
+    creditHours: 3,
     colorHex: '#dc2626',
     aliases: [
       'calculus',
@@ -222,6 +225,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
         type: 'quiz',
         totalWeight: 20,
         count: 2,
+        outOf: 3,
         unitWeight: 10,
         note: 'On paper, best 2 of 3 quizzes (10% each, 20% total)',
         keywords: ['quiz', 'كويز', 'امتحان\\s*قصير']
@@ -232,6 +236,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
         type: 'assignment',
         totalWeight: 10,
         count: 3,
+        outOf: 4,
         unitWeight: 3.33,
         note: 'Online, best 3 of 4 homeworks (~3.33% each, 10% total)',
         keywords: ['assignment', 'hw', 'homework', 'واجب', 'connect']
@@ -245,6 +250,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '0202112',
     courseName: 'English for Academic Purposes',
     crn: '10175',
+    creditHours: 3,
     colorHex: '#525252',
     aliases: [
       'english',
@@ -325,6 +331,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '1430116',
     courseName: 'Physics 1 Lab',
     crn: '10708',
+    creditHours: 1,
     colorHex: '#4b99d2',
     aliases: [
       'physics.*lab',
@@ -366,6 +373,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
         type: 'quiz',
         totalWeight: 30,
         count: 3,
+        outOf: 4,
         unitWeight: 10,
         note: '4 scheduled, top 3 counted (10% each, 30% total)',
         keywords: ['quiz', 'كويز']
@@ -389,6 +397,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '1430115',
     courseName: 'Physics 1',
     crn: '10668',
+    creditHours: 3,
     colorHex: '#4b99d2',
     aliases: [
       'physics\\s*1(?!\\s*lab)',
@@ -457,6 +466,7 @@ export const DEFAULT_USER_COURSES: UserCourseConfig[] = [
     courseCode: '0104100',
     courseName: 'Islamic Culture',
     crn: '10475',
+    creditHours: 3,
     colorHex: '#489160',
     aliases: [
       'islamic',
@@ -558,6 +568,7 @@ export function userCoursesToSyllabi(courses: UserCourseConfig[]): CourseSyllabu
       type: comp.type,
       totalWeight: comp.totalWeight,
       count: comp.count,
+      outOf: comp.outOf,
       unitWeight: comp.unitWeight !== undefined ? comp.unitWeight : (comp.count && comp.count > 0 ? Number((comp.totalWeight / comp.count).toFixed(2)) : comp.totalWeight),
       note: comp.note,
       matcher: compileSyllabusComponentMatcher(comp)
@@ -571,6 +582,8 @@ export function userCoursesToSyllabi(courses: UserCourseConfig[]): CourseSyllabu
       courseCodePattern,
       sourcePdf: `${course.id}.pdf`,
       totalWeight,
+      // Courses saved before credit hours existed take the default course's value
+      creditHours: Number(course.creditHours) > 0 ? Number(course.creditHours) : DEFAULT_USER_COURSES.find(d => d.id === course.id)?.creditHours,
       components
     };
   });

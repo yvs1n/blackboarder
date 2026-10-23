@@ -13,7 +13,7 @@
   <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Release-Download_ZIP-black?logo=github&logoColor=white" alt="Download Release" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-490_Passing-success?logo=vitest&logoColor=white" alt="Vitest 490 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-501_Passing-success?logo=vitest&logoColor=white" alt="Vitest 501 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -43,6 +43,7 @@ Data syncs through **Firebase**, each student under their own private sync key. 
 - **Course schedule matching.** When an announcement does not name a room or time, Blackboarder fills it in from your weekly class schedule.
 - **Grade weights.** Shows how much each deliverable counts (for example *Midterm 25%*) on cards and in the calendar. A percentage elsewhere in an announcement ("final exam out of 75%") is not taken as the weight.
 - **Marks from the Blackboard gradebook.** Every scan reads your gradebook and puts each mark on its deadline. A **Marks** card lists them by course, newest first, with the share of the grade each one earned. A practice or mock exam never takes the real exam's mark, and each scan says how many marks matched.
+- **GPA.** Each course's grade so far on the University of Sharjah scale (A 90+, B+ 85+, B 80+, C+ 75+, C 70+, D+ 65+, D 60+) and a projected GPA weighted by credit hours. When a syllabus counts only the best items (for example best 2 of 3 quizzes), only the best ones count. Credit hours are set per course in Settings > Courses.
 - **Syllabus progress.** For each course, how much of the syllabus weight is done, pending, or not announced yet.
 - **Add deadlines quickly.** The course field lists your courses and narrows as you type. Closing the popup while adding or editing a deadline, or in Settings, reopens right there.
 - **Quick links.** One-tap links to marks, attendance, study plan, library and your own custom links, synced to the phone.

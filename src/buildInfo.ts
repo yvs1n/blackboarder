@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "ca28592cc689",
-  "commit": "12b4d7d5479690e655277fcb6bb7b9f8f3823127",
-  "shortCommit": "12b4d7d",
-  "timestamp": "2026-10-23T12:13:12.409Z",
-  "message": "Bring back offline support for the phone app",
+  "build": "04fab54be74f",
+  "commit": "e077d1169eafd097f1174c6d1f213c25435904d8",
+  "shortCommit": "e077d11",
+  "timestamp": "2026-10-23T21:17:33.709Z",
+  "message": "Docs and guides: reminders in README, Setup Guide and landing page",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

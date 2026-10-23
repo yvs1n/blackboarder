@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=a9ac74d5cd18">
+  <link rel="stylesheet" href="./styles.css?v=45cfe4ded0e0">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -439,6 +439,21 @@
         <div class="grade-tracker-breakdown" id="mobile-grade-tracker-breakdown" style="display: none;">
           <!-- Dynamically populated per course -->
         </div>
+      </div>
+
+      <!-- GPA: each course's grade so far on the UOS scale, and the projected GPA -->
+      <div class="grade-tracker-widget" id="mobile-gpa-tracker">
+        <div class="grade-tracker-header" id="mobile-gpa-tracker-toggle-btn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg class="ui-icon"><use href="#icon-scale"></use></svg>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--text-main);">GPA</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="info-badge blue" id="mobile-gpa-tracker-badge" style="font-size: 11px;">No marks yet</span>
+            <svg class="ui-icon" id="mobile-gpa-tracker-arrow" style="width: 14px; height: 14px; transition: transform 0.2s;"><use href="#icon-chevron-right"></use></svg>
+          </div>
+        </div>
+        <div class="grade-tracker-breakdown" id="mobile-gpa-tracker-breakdown" style="display: none; margin-top: 10px; flex-direction: column; gap: 8px;"></div>
       </div>
 
       <!-- Syllabus Progress: how much of each course's weight is done, pending, or not announced yet -->
@@ -1519,7 +1534,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=a9ac74d5cd18"></script>
-  <script src="./app.js?v=a9ac74d5cd18"></script>
+  <script src="./core.js?v=45cfe4ded0e0"></script>
+  <script src="./app.js?v=45cfe4ded0e0"></script>
 </body>
 </html>

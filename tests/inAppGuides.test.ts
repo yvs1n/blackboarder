@@ -40,7 +40,7 @@ describe('in-app guides stay accurate', () => {
 
   it('do not promise things the apps no longer do or look like', () => {
     for (const g of [phoneGuide, tour]) {
-      expect(g).not.toMatch(/GPA|floating blue|green|runs entirely on your device|Calculus 1, Physics 1/i);
+      expect(g).not.toMatch(/floating blue|green|runs entirely on your device|Calculus 1, Physics 1/i);
     }
     expect(popupTs).not.toContain("'Next Step ->'");
   });

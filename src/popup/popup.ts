@@ -3,6 +3,7 @@ import { loadDraft, saveDraft, clearDraft, collectFields, applyFields } from './
 import { attachCoursePicker, findPickedCourse } from './coursePicker';
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
+import { buildGpaSummary, gpaSummaryHtml, gpaBadgeText } from '../utils/gpa';
 import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCheckpoint, getQuickLinks, saveQuickLinks, addQuickLink, updateQuickLink, deleteQuickLink, resetQuickLinksToDefault, getCachedTasksSync, getCachedQuickLinksSync, getCachedSettingsSync, getCachedCoursesSync, getUserCourses, saveUserCourses, resetUserCoursesToDefault, recalculateTasksWithActiveCourses, getCoursesUpdatedAt, generateUniqueSyncKey, getScanStatus, ScanStatus, SCAN_STALE_MS, SCAN_STATUS_KEY, saveTasksMergingLatest } from '../utils/storage';
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
@@ -1069,6 +1070,7 @@ function openCourseEditor(courseId?: string) {
   const codeInput = document.getElementById('editor-course-code') as HTMLInputElement;
   const nameInput = document.getElementById('editor-course-name') as HTMLInputElement;
   const crnInput = document.getElementById('editor-course-crn') as HTMLInputElement;
+  const creditsInput = document.getElementById('editor-course-credits') as HTMLInputElement | null;
   const colorPicker = document.getElementById('editor-color-picker') as HTMLInputElement;
   const colorHexInput = document.getElementById('editor-color-hex') as HTMLInputElement;
   const aliasesInput = document.getElementById('editor-course-aliases') as HTMLInputElement;
@@ -1085,6 +1087,7 @@ function openCourseEditor(courseId?: string) {
     if (codeInput) codeInput.value = course.courseCode || '';
     if (nameInput) nameInput.value = course.courseName || '';
     if (crnInput) crnInput.value = course.crn || '';
+    if (creditsInput) creditsInput.value = course.creditHours ? String(course.creditHours) : '';
     const color = course.colorHex || '#2563eb';
     if (colorPicker) colorPicker.value = color;
     if (colorHexInput) colorHexInput.value = color;
@@ -1107,6 +1110,7 @@ function openCourseEditor(courseId?: string) {
     if (codeInput) codeInput.value = '';
     if (nameInput) nameInput.value = '';
     if (crnInput) crnInput.value = '';
+    if (creditsInput) creditsInput.value = '';
     const defaultColor = '#2563eb';
     if (colorPicker) colorPicker.value = defaultColor;
     if (colorHexInput) colorHexInput.value = defaultColor;
@@ -1205,6 +1209,7 @@ function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
   const compType = comp?.type || 'quiz';
   const totalWeight = comp?.totalWeight !== undefined ? comp.totalWeight : 20;
   const count = comp?.count || '';
+  const outOf = comp?.outOf || '';
   const unitWeight = comp?.unitWeight !== undefined ? `${comp.unitWeight}% each` : '';
 
   row.innerHTML = `
@@ -1219,7 +1224,8 @@ function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
         <option value="other" ${compType === 'other' ? 'selected' : ''}>Other</option>
       </select>
       <input type="number" min="0" max="100" class="form-input comp-weight" placeholder="Weight %" value="${totalWeight}" required style="width: 60px; font-size: 11.5px; padding: 4px 6px;">
-      <input type="number" min="1" max="50" class="form-input comp-count" placeholder="Count" value="${count}" title="Optional number of items (e.g. 4 quizzes)" style="width: 52px; font-size: 11.5px; padding: 4px 6px;">
+      <input type="number" min="1" max="50" class="form-input comp-count" placeholder="Count" value="${count}" title="Optional number of items that count (e.g. 2 for best 2 of 3)" style="width: 52px; font-size: 11.5px; padding: 4px 6px;">
+      <input type="number" min="1" max="50" class="form-input comp-outof" placeholder="Of" value="${outOf}" title="Optional: how many are held when only the best count (e.g. 3 for best 2 of 3)" style="width: 44px; font-size: 11.5px; padding: 4px 6px;">
       <button type="button" class="ucc-action-btn delete btn-remove-syllabus" title="Remove component" style="width: 22px; height: 22px; flex-shrink: 0;">✕</button>
     </div>
     <div class="comp-unit-calc" style="font-size: 10px; color: var(--text-muted); text-align: right; padding-right: 28px;">
@@ -1236,7 +1242,8 @@ function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
     const c = parseInt(countInput.value, 10) || 0;
     if (c > 1 && w > 0) {
       const u = Math.round((w / c) * 10) / 10;
-      unitCalcEl.textContent = `${c} items x ${u}% each`;
+      const o = parseInt((row.querySelector('.comp-outof') as HTMLInputElement)?.value, 10) || 0;
+      unitCalcEl.textContent = o > c ? `best ${c} of ${o}, ${u}% each` : `${c} items x ${u}% each`;
     } else {
       unitCalcEl.textContent = '';
     }
@@ -1245,6 +1252,7 @@ function addSyllabusRow(comp?: Partial<CustomSyllabusComponent>) {
 
   weightInput.addEventListener('input', recalculateUnit);
   countInput.addEventListener('input', recalculateUnit);
+  row.querySelector('.comp-outof')?.addEventListener('input', recalculateUnit);
 
   row.querySelector('.btn-remove-syllabus')?.addEventListener('click', () => {
     row.remove();
@@ -1283,6 +1291,7 @@ async function handleSaveCourse(e: Event) {
   const code = (document.getElementById('editor-course-code') as HTMLInputElement).value.trim();
   const name = (document.getElementById('editor-course-name') as HTMLInputElement).value.trim();
   const crn = (document.getElementById('editor-course-crn') as HTMLInputElement).value.trim();
+  const credits = parseFloat((document.getElementById('editor-course-credits') as HTMLInputElement | null)?.value || '');
   const rawHex = (document.getElementById('editor-color-hex') as HTMLInputElement).value.trim();
   const hex = /^#[0-9a-f]{3,8}$/i.test(rawHex) ? rawHex : '#2563eb';
   const aliasesRaw = (document.getElementById('editor-course-aliases') as HTMLInputElement).value;
@@ -1331,6 +1340,7 @@ async function handleSaveCourse(e: Event) {
     const cType = ((row.querySelector('.comp-type') as HTMLSelectElement)?.value || 'quiz') as TaskType;
     const cWeight = parseFloat((row.querySelector('.comp-weight') as HTMLInputElement)?.value) || 0;
     const cCount = parseInt((row.querySelector('.comp-count') as HTMLInputElement)?.value, 10) || undefined;
+    const cOutOf = parseInt((row.querySelector('.comp-outof') as HTMLInputElement)?.value, 10) || undefined;
     const uWeight = (cCount && cCount > 1 && cWeight > 0) ? Math.round((cWeight / cCount) * 10) / 10 : undefined;
 
     let extra: { id?: string; note?: string; keywords?: string[] } = {};
@@ -1345,6 +1355,7 @@ async function handleSaveCourse(e: Event) {
         type: cType,
         totalWeight: cWeight,
         count: cCount,
+        ...(cCount && cOutOf && cOutOf > cCount ? { outOf: cOutOf } : {}),
         unitWeight: uWeight,
         ...(extra.note ? { note: extra.note } : {}),
         ...(Array.isArray(extra.keywords) && extra.keywords.length > 0 ? { keywords: extra.keywords } : {})
@@ -1358,6 +1369,7 @@ async function handleSaveCourse(e: Event) {
     courseCode: code,
     courseName: name,
     crn: crn || undefined,
+    ...(credits > 0 ? { creditHours: credits } : {}),
     colorHex: hex,
     aliases,
     scheduleSlots: slots,
@@ -1617,6 +1629,15 @@ function renderGradeTracker(tasks: DeadlineTask[]) {
   badge.textContent = marksBadgeText(summary);
   breakdown.innerHTML = marksSummaryHtml(summary, name => getCourseHex(name));
 
+  // GPA card
+  const gpaBadge = document.getElementById('gpa-tracker-badge');
+  const gpaBody = document.getElementById('gpa-tracker-breakdown');
+  if (gpaBadge && gpaBody) {
+    const gpa = buildGpaSummary(tasks, getAllSyllabi());
+    gpaBadge.textContent = gpaBadgeText(gpa);
+    gpaBody.innerHTML = gpaSummaryHtml(gpa, name => getCourseHex(name));
+  }
+
   // Syllabus Progress card
   const sylBadge = document.getElementById('syllabus-tracker-badge');
   const sylBody = document.getElementById('syllabus-tracker-breakdown');
@@ -1629,6 +1650,7 @@ function renderGradeTracker(tasks: DeadlineTask[]) {
 
 function initGradeTrackerToggle() {
   wireCollapsible('syllabus-tracker-toggle-btn', 'syllabus-tracker-breakdown', 'syllabus-tracker-arrow');
+  wireCollapsible('gpa-tracker-toggle-btn', 'gpa-tracker-breakdown', 'gpa-tracker-arrow');
   wireCollapsible('grade-tracker-toggle-btn', 'grade-tracker-breakdown', 'grade-tracker-arrow');
 }
 
