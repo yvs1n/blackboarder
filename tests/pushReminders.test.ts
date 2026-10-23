@@ -304,3 +304,33 @@ describe('Alerts settings toggle', () => {
     expect(app).toMatch(/localStorage\.setItem\('bbs_push_enabled', 'false'\);\s*\/\/[^\n]*\n\s*await unsubscribeServerPush\(\)/);
   });
 });
+
+describe('push scheduler worker (self-hosted/push-cron)', () => {
+  it('on its schedule, calls the tick with the secret until the server has no more to send', async () => {
+    const { default: cron } = await import('../self-hosted/push-cron/worker.js');
+    const calls: { url: string; secret: string | null }[] = [];
+    let n = 0;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), secret: new Headers(init.headers).get('x-tick-secret') });
+      return new Response(JSON.stringify({ ok: true, sent: 3, more: ++n < 2 }));
+    });
+    let done: Promise<any> | undefined;
+    await cron.scheduled({} as any, { PUSH_TICK_URL: 'https://made-up.example/\n', PUSH_TICK_SECRET: 'made-up-tick-secret-1234\n' }, { waitUntil: (p: Promise<any>) => { done = p; } } as any);
+    await done;
+    expect(calls).toEqual([
+      { url: 'https://made-up.example/api/push/tick', secret: 'made-up-tick-secret-1234' },
+      { url: 'https://made-up.example/api/push/tick', secret: 'made-up-tick-secret-1234' }
+    ]);
+  });
+
+  it('opening its address runs one check and shows the result, or what is missing', async () => {
+    const { default: cron } = await import('../self-hosted/push-cron/worker.js');
+    const res = await cron.fetch(new Request('https://cron.example/'), {});
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toContain('PUSH_TICK_URL');
+  });
+
+  it('runs every 5 minutes', () => {
+    expect(fs.readFileSync('self-hosted/push-cron/wrangler.toml', 'utf8')).toContain('crons = ["*/5 * * * *"]');
+  });
+});

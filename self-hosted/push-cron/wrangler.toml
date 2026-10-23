@@ -1,0 +1,9 @@
+name = "blackboarder-push-cron"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Every 5 minutes. Set PUSH_TICK_URL and PUSH_TICK_SECRET as secrets:
+#   npx wrangler secret put PUSH_TICK_URL
+#   npx wrangler secret put PUSH_TICK_SECRET
+[triggers]
+crons = ["*/5 * * * *"]

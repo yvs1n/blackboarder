@@ -1,6 +1,7 @@
-# Sends deadline reminders to phones while the app is closed. Every 10 minutes it asks the server
-# (POST /api/push/tick) to push any reminder that is due. GitHub can start scheduled runs late,
-# so a reminder may arrive a few minutes after its time.
+# Backup and manual check for push reminders. The main scheduler is the Cloudflare Worker in
+# self-hosted/push-cron (every 5 minutes, on time). This one asks the server (POST /api/push/tick)
+# once an hour, and can be run by hand from the Actions tab. GitHub often starts scheduled runs
+# late or skips them, so it is not relied on.
 #
 # Needs two repository secrets (Settings > Secrets and variables > Actions):
 #   PUSH_TICK_URL     the server's address, for example https://blackboarder.pages.dev
@@ -10,7 +11,7 @@ name: Push reminders
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions: {}
