@@ -232,6 +232,8 @@ export async function getSettings(): Promise<UserSettings> {
                     }
                     // Other AI providers' keys come back too, along with the provider choice
                     if (!resolved.ifmApiKey && backup.ifmApiKey) resolved.ifmApiKey = backup.ifmApiKey;
+                    // Same AI pass after a reinstall, so paired phones keep working
+                    if (!resolved.aiPass && backup.aiPass) resolved.aiPass = backup.aiPass;
                     if (!resolved.customAiApiKey && backup.customAiApiKey) {
                       resolved.customAiApiKey = backup.customAiApiKey;
                       resolved.customAiBaseUrl = resolved.customAiBaseUrl || backup.customAiBaseUrl;

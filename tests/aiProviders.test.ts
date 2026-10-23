@@ -134,12 +134,13 @@ describe('web app', () => {
     const BBCore = (await import('../src/mobile/core')).default as any;
     const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ok: true, data: { choices: [{ message: { content: QUIZ_JSON } }] } }) }));
     vi.stubGlobal('fetch', fetchMock);
-    const res = await BBCore.extractFromText(VAGUE, 'Calculus I', { url: 'https://blackboarder.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    const res = await BBCore.extractFromText(VAGUE, 'Calculus I', { url: 'https://blackboarder.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK', aiPass: 'made-up-ai-pass-for-tests-0123456789abcdef' });
     expect(res.tasks).toHaveLength(1);
     const [url, init] = fetchMock.mock.calls[0] as any[];
     expect(url).toBe('https://blackboarder.pages.dev/api/ai/extract');
     const body = JSON.parse(init.body);
     expect(body.syncKey).toBe('BBS-ABCDEFGHJK');
+    expect(body.aiPass).toBe('made-up-ai-pass-for-tests-0123456789abcdef');
     expect(body.messages[0].role).toBe('system');
     expect(body.model).toBeUndefined();
     expect(init.headers.Authorization).toBeUndefined();
@@ -148,9 +149,9 @@ describe('web app', () => {
   it('falls back to the built-in parser when the server has no key', async () => {
     const BBCore = (await import('../src/mobile/core')).default as any;
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({ ok: false, error: 'No AI key set in the extension' }) })));
-    const res = await BBCore.extractFromText('Quiz 1 will be held on October 15 at 12:30 PM in A8-103', 'Calculus I', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    const res = await BBCore.extractFromText('Quiz 1 will be held on October 15 at 12:30 PM in A8-103', 'Calculus I', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK', aiPass: 'made-up-ai-pass-for-tests-0123456789abcdef' });
     expect(res.tasks.length).toBeGreaterThan(0);
-    const none = await BBCore.extractFromText(VAGUE, '', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    const none = await BBCore.extractFromText(VAGUE, '', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK', aiPass: 'made-up-ai-pass-for-tests-0123456789abcdef' });
     expect(none.tasks).toHaveLength(0);
   });
 });

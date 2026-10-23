@@ -1,5 +1,6 @@
 import { UserSettings } from '../types';
 import { DEFAULT_OPENROUTER_MODEL, IFM_MODEL } from '../engine/aiProviders';
+import { getSettings, saveSettings } from './storage';
 
 /**
  * Hands the extension's AI key to the student's own Blackboarder server, which stores it encrypted
@@ -20,8 +21,33 @@ export interface AiLockState {
 type LockSettings = Pick<
   UserSettings,
   'useAiExtraction' | 'aiProvider' | 'openRouterApiKey' | 'openRouterModel' | 'ifmApiKey' |
-  'customAiApiKey' | 'customAiBaseUrl' | 'customAiModel' | 'syncKey' | 'hostedWebUrl'
+  'customAiApiKey' | 'customAiBaseUrl' | 'customAiModel' | 'syncKey' | 'hostedWebUrl' | 'aiPass'
 >;
+
+/**
+ * The AI pass: random, made by the extension, and given to phones only inside the pairing link
+ * (after "#", so it never reaches a server log). The server keeps just its hash and runs the AI
+ * only for requests that carry it, so the sync key alone cannot spend the student's AI credit.
+ */
+export function newAiPass(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** The extension's AI pass, made on first use. */
+export async function ensureAiPass(): Promise<string> {
+  const settings = await getSettings();
+  if (settings.aiPass && /^[A-Za-z0-9_-]{32,128}$/.test(settings.aiPass)) return settings.aiPass;
+  const aiPass = newAiPass();
+  await saveSettings({ aiPass });
+  return aiPass;
+}
+
+/** The phone pairing link: the sync key in the query, the AI pass after "#". */
+export function pairingLink(appBase: string, syncKey: string, aiPass?: string): string {
+  if (!syncKey) return appBase;
+  return `${appBase}?key=${encodeURIComponent(syncKey)}${aiPass ? `#ai=${aiPass}` : ''}`;
+}
 
 /** What the server should hold: the picked provider's key and model, or nothing when AI is off. */
 export function aiLockRequest(settings: Partial<LockSettings>) {
@@ -38,7 +64,8 @@ export function aiLockRequest(settings: Partial<LockSettings>) {
     provider,
     apiKey: (key || '').trim(),
     model,
-    baseUrl: provider === 'custom' ? (settings.customAiBaseUrl || '') : ''
+    baseUrl: provider === 'custom' ? (settings.customAiBaseUrl || '') : '',
+    aiPass: settings.aiPass || ''
   };
 }
 

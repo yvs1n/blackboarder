@@ -15,7 +15,7 @@ export type AiSettings = Partial<Pick<
 >> & {
   useAiExtraction: boolean;
   /** Web app only: the server that holds the extension's key, locked, reached by sync key */
-  aiServer?: { url: string; syncKey: string };
+  aiServer?: { url: string; syncKey: string; aiPass: string };
 };
 
 /** 'server' is the web app's route: its server adds the extension's key and model. */
@@ -27,6 +27,7 @@ export interface AiEndpoint {
   apiKey: string;
   model: string;
   syncKey?: string;
+  aiPass?: string;
 }
 
 /**
@@ -56,8 +57,8 @@ export function chatUrlFor(baseUrl: string): string {
 /** The provider the student picked, with its key. Null when that provider has no key or URL yet. */
 export function resolveAiEndpoint(settings: Partial<AiSettings>): AiEndpoint | null {
   if (settings.aiServer) {
-    const { url, syncKey } = settings.aiServer;
-    return url && syncKey ? { provider: 'server', chatUrl: url, apiKey: '', model: '', syncKey } : null;
+    const { url, syncKey, aiPass } = settings.aiServer;
+    return url && syncKey && aiPass ? { provider: 'server', chatUrl: url, apiKey: '', model: '', syncKey, aiPass } : null;
   }
   const provider: AiProvider = settings.aiProvider || 'openrouter';
   if (provider === 'ifm') {

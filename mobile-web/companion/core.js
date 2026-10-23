@@ -2767,13 +2767,14 @@ var BBCoreBundle = (function() {
 	/** The provider the student picked, with its key. Null when that provider has no key or URL yet. */
 	function resolveAiEndpoint(settings) {
 		if (settings.aiServer) {
-			const { url, syncKey } = settings.aiServer;
-			return url && syncKey ? {
+			const { url, syncKey, aiPass } = settings.aiServer;
+			return url && syncKey && aiPass ? {
 				provider: "server",
 				chatUrl: url,
 				apiKey: "",
 				model: "",
-				syncKey
+				syncKey,
+				aiPass
 			} : null;
 		}
 		const provider = settings.aiProvider || "openrouter";
@@ -2845,7 +2846,7 @@ var BBCoreBundle = (function() {
 		chatUrl: OPENROUTER_CHAT_URL
 	}) {
 		const viaServer = endpoint.provider === "server";
-		if (viaServer ? !endpoint.syncKey : !apiKey || !apiKey.trim()) {
+		if (viaServer ? !(endpoint.syncKey && endpoint.aiPass) : !apiKey || !apiKey.trim()) {
 			console.info("AI API key not configured.");
 			return [];
 		}
@@ -2924,7 +2925,8 @@ ${cleanBody}`;
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						...forServer,
-						syncKey: endpoint.syncKey
+						syncKey: endpoint.syncKey,
+						aiPass: endpoint.aiPass
 					})
 				});
 				const json = await res.json().catch(() => null);
@@ -3093,7 +3095,8 @@ ${cleanBody}`;
 		const aiTasks = await extractDeadlinesWithAi(announcement, aiEndpoint.apiKey, aiEndpoint.model, wordingHint(fullText), {
 			provider: aiEndpoint.provider,
 			chatUrl: aiEndpoint.chatUrl,
-			syncKey: aiEndpoint.syncKey
+			syncKey: aiEndpoint.syncKey,
+			aiPass: aiEndpoint.aiPass
 		});
 		if (aiTasks.length > 0) return {
 			tasks: aiTasks,

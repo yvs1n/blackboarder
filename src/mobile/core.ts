@@ -52,7 +52,7 @@ import { extractDeadlinesHybridDetailed, HybridExtractionResult } from '../engin
 async function extractFromText(
   text: string,
   courseHint: string,
-  aiServer?: { url: string; syncKey: string }
+  aiServer?: { url: string; syncKey: string; aiPass: string }
 ): Promise<HybridExtractionResult> {
   const body = (text || '').trim();
   if (!body) return { tasks: [], tier: 'Tier 1: Local Regex' };

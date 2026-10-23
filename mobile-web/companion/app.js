@@ -37,6 +37,28 @@ function resetLocalDataForNewKey() {
   });
 }
 
+// AI pass: comes only in the extension's pairing link, after "#" (never sent to any server),
+// and is kept with the sync key it came with. Without it this device uses the built-in parser.
+const AI_PASS_STORE = 'bbs_ai_pass';
+(function captureAiPassFromLink() {
+  try {
+    const pass = new URLSearchParams(window.location.hash.slice(1)).get('ai') || '';
+    const key = (new URLSearchParams(window.location.search).get('key') || '').trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '');
+    if (key && /^[A-Za-z0-9_-]{32,128}$/.test(pass)) {
+      localStorage.setItem(AI_PASS_STORE, JSON.stringify({ key, pass }));
+    }
+  } catch (e) {}
+})();
+
+function getAiPass(syncKey) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AI_PASS_STORE) || 'null');
+    return saved && saved.key === syncKey ? saved.pass : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function getSyncKey() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -221,8 +243,9 @@ try { localStorage.removeItem('bbs_ai_settings'); } catch (e) {}
 // which holds the extension's key encrypted; without a key there, the built-in parser answers.
 async function extractAnnouncementHybrid(text, courseHint = '') {
   const syncKey = getSyncKey();
-  const aiServer = syncKey && /^https?:$/.test(location.protocol)
-    ? { url: `${location.origin}/api/ai/extract`, syncKey }
+  const aiPass = getAiPass(syncKey);
+  const aiServer = syncKey && aiPass && /^https?:$/.test(location.protocol)
+    ? { url: `${location.origin}/api/ai/extract`, syncKey, aiPass }
     : undefined;
   return BB.extractFromText(text, courseHint, aiServer);
 }
@@ -962,7 +985,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"bfad33145570","version":"1.1.0","shortCommit":"f95ac94","timestamp":"2026-10-23T10:34:01.104Z"};
+const APP_BUILD = {"build":"69fa71c8cec6","version":"1.1.0","shortCommit":"f7b916b","timestamp":"2026-10-23T10:40:49.051Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3490,6 +3513,12 @@ function initSettings() {
     if (inputSyncKey && !inputSyncKey.matches(':focus')) {
       inputSyncKey.value = activeKey || '';
     }
+    const aiPassStatus = document.getElementById('web-ai-pass-status');
+    if (aiPassStatus) {
+      aiPassStatus.textContent = activeKey && getAiPass(activeKey)
+        ? 'This device can use your AI model.'
+        : 'This device uses the built-in parser. To let it use your AI model, open the pairing link from the extension (Settings > Sync > Copy Phone Pairing Link) on it. Typing the sync key alone does not allow AI.';
+    }
     if (activeKey) {
       if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
       if (statusIndicator) statusIndicator.style.background = 'var(--text-main)';
@@ -3584,6 +3613,7 @@ function initSettings() {
       localStorage.removeItem('bbs_mobile_courses');
       localStorage.removeItem('bbs_mobile_courses_updated_at');
       localStorage.removeItem('bbs_sync_key');
+      localStorage.removeItem(AI_PASS_STORE);
       resetLocalDataForNewKey();
       if (inputSyncKey) inputSyncKey.value = '';
       if (window.history && window.history.replaceState) {

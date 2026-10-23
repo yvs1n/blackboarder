@@ -151,7 +151,7 @@ export async function extractDeadlinesHybridDetailed(
     aiEndpoint.apiKey,
     aiEndpoint.model,
     wordingHint(fullText),
-    { provider: aiEndpoint.provider, chatUrl: aiEndpoint.chatUrl, syncKey: aiEndpoint.syncKey }
+    { provider: aiEndpoint.provider, chatUrl: aiEndpoint.chatUrl, syncKey: aiEndpoint.syncKey, aiPass: aiEndpoint.aiPass }
   );
 
   if (aiTasks.length > 0) {

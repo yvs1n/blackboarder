@@ -7,7 +7,7 @@ import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCh
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { resolveAiEndpoint, normalizeAiBaseUrl, testAiEndpoint, IFM_MODEL } from '../engine/aiProviders';
-import { syncAiKeyLock, getAiLockState, describeAiLock } from '../utils/aiKeyLock';
+import { syncAiKeyLock, getAiLockState, describeAiLock, ensureAiPass, newAiPass, pairingLink } from '../utils/aiKeyLock';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../core/syllabusWeights';
@@ -2589,6 +2589,7 @@ function showAiProviderFields(provider: AiProvider, settings: Partial<UserSettin
 async function refreshAiKeyLock(force = false): Promise<void> {
   const line = document.getElementById('ai-webapp-status');
   try {
+    await ensureAiPass();
     const status = await syncAiKeyLock(await getSettings(), force);
     if (line) line.textContent = describeAiLock(status);
   } catch {
@@ -3316,6 +3317,12 @@ function setupEvents() {
       setTimeout(() => void refreshAiKeyLock(), 500);
     });
   }
+  document.getElementById('btn-new-ai-pass')?.addEventListener('click', async () => {
+    if (!confirm('Make a new AI pass? Phones lose AI access until you open the new pairing link on them.')) return;
+    await saveSettings({ aiPass: newAiPass() });
+    await refreshAiKeyLock(true);
+    showToast('New AI pass made. Copy the pairing link to your phone again.');
+  });
   document.getElementById('btn-test-ai')?.addEventListener('click', async () => {
     const status = document.getElementById('ai-test-status');
     const show = (text: string, ok = false) => {
@@ -3492,13 +3499,13 @@ function setupEvents() {
 
   // Copy Phone Pairing Link
   btnCopyPairingLink?.addEventListener('click', async () => {
+    const aiPass = await ensureAiPass();
     const settings = await getSettings();
     const appBase = companionUrl(settings.hostedWebUrl);
-    const syncKey = settings.syncKey || '';
-    const pairUrl = syncKey ? `${appBase}?key=${encodeURIComponent(syncKey)}` : appBase;
+    const pairUrl = pairingLink(appBase, settings.syncKey || '', aiPass);
     try {
       await navigator.clipboard.writeText(pairUrl);
-      alert(`Copied Mobile Pairing Link to clipboard:\n${pairUrl}\n\nOpen this link on your phone (or send it via WhatsApp) to instantly view and sync your deadlines!`);
+      alert(`Copied Mobile Pairing Link to clipboard:\n${pairUrl}\n\nOpen this link on your phone to view and sync your deadlines. It also lets that phone use your AI model, so only send it to yourself.`);
     } catch {
       prompt('Mobile Pairing Link:', pairUrl);
     }
@@ -3540,10 +3547,10 @@ function setupEvents() {
   btnSyncToServer?.addEventListener('click', handleManualSyncToMobile);
 
   btnOpenMobileWeb?.addEventListener('click', async () => {
+    const aiPass = await ensureAiPass();
     const settings = await getSettings();
     const appBase = companionUrl(settings.hostedWebUrl);
-    const syncKey = settings.syncKey || '';
-    const targetUrl = syncKey ? `${appBase}?key=${encodeURIComponent(syncKey)}` : appBase;
+    const targetUrl = pairingLink(appBase, settings.syncKey || '', aiPass);
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.create({ url: targetUrl });
     } else {

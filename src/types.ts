@@ -130,6 +130,7 @@ export interface UserSettings {
   customAiBaseUrl?: string; // Any OpenAI-compatible service, e.g. https://api.example.com/v1
   customAiApiKey?: string;
   customAiModel?: string;
+  aiPass?: string; // Lets paired phones use the AI model; travels only in the pairing link
   autoScanOnPageLoad: boolean;
   badgeNotification: boolean;
   reminderHoursBefore: number;

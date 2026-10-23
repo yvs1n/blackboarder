@@ -325,7 +325,26 @@ function isRateLimited(request, key, maxPerIp = RATE_LIMIT_MAX) {
  * stored, at users/{syncKey}/ai. The web app never holds the key: it sends the prompt here and
  * the server adds the key. Without AI_KEY_SECRET the locker is off and the web app uses its
  * built-in parser.
+ *
+ * Using the key also needs the AI pass: a random value only the extension and phones paired with
+ * its link have (it travels after "#" in that link, which browsers never send to a server). Only
+ * its hash is kept, inside the encrypted text. The sync key alone, which also sits in calendar
+ * links, is not enough to spend the student's AI credit.
  */
+const AI_PASS_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Same-length comparison that does not stop at the first different character. */
+function sameText(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 const AI_CHAT_URLS = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   ifm: 'https://api.ifm.ai/v1/chat/completions'
@@ -575,7 +594,11 @@ export default {
       if (!chatUrl || !model || apiKey.length > 500) {
         return jsonResponse({ ok: false, error: 'Unsupported AI provider, URL or model' }, 400);
       }
-      const sealed = await sealAiConfig({ provider, chatUrl, model, apiKey }, env.AI_KEY_SECRET, activeKey);
+      if (!AI_PASS_PATTERN.test(String(body.aiPass || ''))) {
+        return jsonResponse({ ok: false, error: 'Missing AI pass' }, 400);
+      }
+      const passHash = await sha256Hex(body.aiPass);
+      const sealed = await sealAiConfig({ provider, chatUrl, model, apiKey, passHash }, env.AI_KEY_SECRET, activeKey);
       await writeSealedAi(env, activeKey, sealed);
       return jsonResponse({ ok: true, provider, model });
     }
@@ -596,6 +619,10 @@ export default {
       const config = await openAiConfig(await readSealedAi(env, activeKey), env.AI_KEY_SECRET, activeKey);
       if (!config || !config.apiKey) {
         return jsonResponse({ ok: false, error: 'No AI key set in the extension' }, 404);
+      }
+      const givenPass = String(body.aiPass || '');
+      if (!config.passHash || !AI_PASS_PATTERN.test(givenPass) || !sameText(await sha256Hex(givenPass), config.passHash)) {
+        return jsonResponse({ ok: false, error: 'AI pass missing or out of date. Open the pairing link from the extension again.' }, 403);
       }
       // The URL is checked again so a stored value can never point the server somewhere else
       const chatUrl = aiChatUrlFor(config.provider, config.chatUrl);

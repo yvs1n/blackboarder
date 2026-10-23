@@ -41,11 +41,11 @@ export async function extractDeadlinesWithAi(
     hasRoom?: boolean;
     hasTime?: boolean;
   },
-  endpoint: Pick<AiEndpoint, 'provider' | 'chatUrl' | 'syncKey'> = { provider: 'openrouter', chatUrl: OPENROUTER_CHAT_URL }
+  endpoint: Pick<AiEndpoint, 'provider' | 'chatUrl' | 'syncKey' | 'aiPass'> = { provider: 'openrouter', chatUrl: OPENROUTER_CHAT_URL }
 ): Promise<DeadlineTask[]> {
   // The web app has no key: its server holds the extension's key, locked, and is reached by sync key
   const viaServer = endpoint.provider === 'server';
-  if (viaServer ? !endpoint.syncKey : (!apiKey || !apiKey.trim())) {
+  if (viaServer ? !(endpoint.syncKey && endpoint.aiPass) : (!apiKey || !apiKey.trim())) {
     console.info('AI API key not configured.');
     return [];
   }
@@ -155,7 +155,7 @@ ${cleanBody}`;
         const res = await fetch(endpoint.chatUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...forServer, syncKey: endpoint.syncKey })
+          body: JSON.stringify({ ...forServer, syncKey: endpoint.syncKey, aiPass: endpoint.aiPass })
         });
         const json = await res.json().catch(() => null);
         if (!res.ok || !json?.ok || !json.data) {
