@@ -217,7 +217,7 @@ export async function getSettings(): Promise<UserSettings> {
                 resolved.syncKey || result?.bbs_persistent_sync_key || safeGetLocalStorage('bbs_persistent_sync_key')
               );
 
-              if (localCandidate && (resolved.openRouterApiKey || resolved.ifmApiKey || resolved.customAiApiKey || resolved.jevApiKey)) {
+              if (localCandidate && (resolved.openRouterApiKey || resolved.ifmApiKey || resolved.customAiApiKey)) {
                 resolveSyncKeyAndFinish(localCandidate);
                 return;
               }
@@ -239,12 +239,6 @@ export async function getSettings(): Promise<UserSettings> {
                     }
                     if ((!resolved.aiProvider || resolved.aiProvider === 'openrouter') && backup.aiProvider) {
                       resolved.aiProvider = backup.aiProvider;
-                    }
-                    if (!resolved.jevApiKey && backup.jevApiKey) {
-                      resolved.jevApiKey = backup.jevApiKey;
-                    }
-                    if (typeof backup.useJevClassification === 'boolean' && resolved.jevApiKey) {
-                      resolved.useJevClassification = backup.useJevClassification;
                     }
                   }
                   const syncKey = normalizeRestoredSyncKey(

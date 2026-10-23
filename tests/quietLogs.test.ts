@@ -17,7 +17,7 @@ describe('expected situations stay off the extension Errors page', () => {
   });
 
   it('logs AI and classifier fallbacks as info', () => {
-    for (const f of ['src/engine/aiExtractor.ts', 'src/engine/jevClassifier.ts', 'src/engine/hybridExtractor.ts']) {
+    for (const f of ['src/engine/aiExtractor.ts', 'src/engine/hybridExtractor.ts']) {
       expect(read(f)).not.toMatch(/console\.warn\([^)]*(?:falling back|not configured|refinement failed)/i);
     }
   });

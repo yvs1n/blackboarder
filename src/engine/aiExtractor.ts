@@ -1,7 +1,7 @@
 import { Announcement, DeadlineTask, TaskType, TaskPriority } from '../types';
 import { resolveTaskTimeWithSchedule, resolveTaskRoom } from '../core/courseSchedule';
 import { sanitizeDoctorAnnouncementText } from '../core/courseHelper';
-import { isExtensionContextValid, canUseSameOriginProxy } from '../utils/storage';
+import { isExtensionContextValid } from '../utils/storage';
 import { AiEndpoint, OPENROUTER_CHAT_URL, DEFAULT_OPENROUTER_MODEL, aiRequestHeaders, parseAiJson } from './aiProviders';
 
 interface AiExtractedItem {
@@ -35,15 +35,17 @@ export async function extractDeadlinesWithAi(
   announcement: Announcement,
   apiKey: string,
   model: string = 'google/gemini-3.8-flash',
-  jevHint?: {
-    category?: TaskType | 'not_a_task';
+  hint?: {
+    category?: TaskType;
     priority?: TaskPriority;
     hasRoom?: boolean;
     hasTime?: boolean;
   },
-  endpoint: Pick<AiEndpoint, 'provider' | 'chatUrl'> = { provider: 'openrouter', chatUrl: OPENROUTER_CHAT_URL }
+  endpoint: Pick<AiEndpoint, 'provider' | 'chatUrl' | 'syncKey'> = { provider: 'openrouter', chatUrl: OPENROUTER_CHAT_URL }
 ): Promise<DeadlineTask[]> {
-  if (!apiKey || !apiKey.trim()) {
+  // The web app has no key: its server holds the extension's key, locked, and is reached by sync key
+  const viaServer = endpoint.provider === 'server';
+  if (viaServer ? !endpoint.syncKey : (!apiKey || !apiKey.trim())) {
     console.info('AI API key not configured.');
     return [];
   }
@@ -94,25 +96,25 @@ If no deadlines or tasks are found, return { "deadlines": [] }. Output valid JSO
   );
 
   const hintLines: string[] = [];
-  if (jevHint?.category && jevHint.category !== 'not_a_task') {
-    hintLines.push(`Assessment Type: "${jevHint.category}" with priority: "${jevHint.priority || 'medium'}". Use this type unless clear evidence indicates otherwise.`);
+  if (hint?.category) {
+    hintLines.push(`Assessment Type: "${hint.category}" with priority: "${hint.priority || 'medium'}". Use this type unless clear evidence indicates otherwise.`);
   }
-  if (jevHint?.hasRoom !== undefined) {
+  if (hint?.hasRoom !== undefined) {
     hintLines.push(
-      jevHint.hasRoom
+      hint.hasRoom
         ? 'Doctor mentions an explicit room/location in text: YES (You MUST extract this exact room/hall/lab into "room").'
         : 'Doctor mentions an explicit room/location in text: NO (Leave "room" as null; do not guess or hallucinate a room so the schedule default room is preserved).'
     );
   }
-  if (jevHint?.hasTime !== undefined) {
+  if (hint?.hasTime !== undefined) {
     hintLines.push(
-      jevHint.hasTime
+      hint.hasTime
         ? 'Doctor states an explicit clock time: YES (Extract the start time and set "hasSpecificTime": true).'
         : 'Doctor states an explicit clock time: NO (Set "hasSpecificTime": false so the schedule class time is preserved).'
     );
   }
 
-  const hintBlock = hintLines.length > 0 ? `PRE-CLASSIFICATION GUIDANCE (from fast classifier):\n${hintLines.map(h => `- ${h}`).join('\n')}\n` : '';
+  const hintBlock = hintLines.length > 0 ? `PRE-CLASSIFICATION GUIDANCE (from the announcement wording):\n${hintLines.map(h => `- ${h}`).join('\n')}\n` : '';
 
   const userContent = `Course: ${announcement.courseCode} ${announcement.courseName}
 Announcement Title: ${announcement.title}
@@ -135,31 +137,6 @@ ${cleanBody}`;
       let response: Response | null = null;
       let data: OpenRouterResponse | null = null;
 
-      // Optional: try the hosted edge proxy first (never on the Blackboard origin, which would receive the API key)
-      if (isOpenRouter && canUseSameOriginProxy()) {
-        try {
-          const proxyRes = await fetch('/api/ai/extract', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: cleanBody,
-              context: `Course: ${announcement.courseCode} ${announcement.courseName}\nTitle: ${announcement.title}\nRefDate: ${baseDateStr}`,
-              model: currentModel,
-              apiKey: apiKey.trim()
-            })
-          });
-          if (proxyRes.ok) {
-            const proxyJson = await proxyRes.json();
-            if (proxyJson && proxyJson.ok && proxyJson.data) {
-              // Shares the normal parsing path below so schedule/room resolution and date checks still apply
-              data = proxyJson.data as OpenRouterResponse;
-            }
-          }
-        } catch (e) {
-          // Fall back to direct OpenRouter
-        }
-      }
-
       const requestPayload: Record<string, unknown> = {
         model: currentModel,
         messages: [
@@ -171,6 +148,22 @@ ${cleanBody}`;
         // Reasoning models (K2 Horizon) spend tokens thinking before they write the JSON
         max_tokens: isOpenRouter ? 1000 : 4000
       };
+
+      if (viaServer) {
+        // Same prompt and parsing as the extension; the server only adds the key and model
+        const { model: _model, ...forServer } = requestPayload;
+        const res = await fetch(endpoint.chatUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...forServer, syncKey: endpoint.syncKey })
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok || !json.data) {
+          console.info('[AI] Server AI unavailable:', json?.error || res.status);
+          return [];
+        }
+        data = json.data as OpenRouterResponse;
+      }
 
       const isContentScript =
         typeof window !== 'undefined' &&
@@ -274,8 +267,8 @@ ${cleanBody}`;
 
         const resolvedType = (item.type && item.type !== 'other')
           ? (item.type as TaskType)
-          : (jevHint?.category && jevHint.category !== 'not_a_task' && jevHint.category !== 'other'
-              ? (jevHint.category as TaskType)
+          : (hint?.category && hint.category !== 'other'
+              ? hint.category
               : (item.type as TaskType || 'other'));
 
         const roomInfo = resolveTaskRoom({
@@ -286,7 +279,7 @@ ${cleanBody}`;
           type: resolvedType
         });
 
-        const resolvedPriority = item.priority || jevHint?.priority || 'medium';
+        const resolvedPriority = item.priority || hint?.priority || 'medium';
 
         return {
           id: `task_ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,

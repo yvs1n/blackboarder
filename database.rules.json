@@ -9,6 +9,9 @@
         "data": {
           ".validate": "newData.hasChild('lastSync')"
         },
+        "ai": {
+          ".validate": "newData.isString() && newData.val().beginsWith('v1:') && newData.val().length < 4000"
+        },
         "$other": {
           ".validate": false
         }

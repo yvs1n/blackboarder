@@ -20,8 +20,7 @@ function ann(title: string, contentText: string): Announcement {
 const aiSettings = {
   ...DEFAULT_SETTINGS,
   useAiExtraction: true,
-  openRouterApiKey: 'test-key',
-  useJevClassification: false
+  openRouterApiKey: 'test-key'
 };
 
 describe('AI keyword gate handles Arabic', () => {

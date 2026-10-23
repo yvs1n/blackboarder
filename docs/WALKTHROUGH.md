@@ -15,7 +15,7 @@ Blackboarder consists of four tightly synchronized layers designed to operate of
 │        (https://elearning.sharjah.ac.ae/ultra/stream)     │
 └─────────────────────────────┬─────────────────────────────┘
                               │
-                    DOM Scraper + Jev Gatekeeper
+                 DOM Scraper + built-in parser
                               │
                               ▼
 ┌───────────────────────────────────────────────────────────┐
@@ -154,7 +154,7 @@ blackboarder/
 |   |-- popup/            Popup and side panel (popup.ts, popup.css, index.html)
 |   |-- content/          Scraper that runs on Blackboard pages
 |   |-- background/       Background worker: sync, notifications, automatic updates
-|   |-- engine/           Deadline detection (regex, Jev classifier, AI)
+|   |-- engine/           Deadline detection (regex, then an optional AI model)
 |   |-- core/             Logic shared with the phone app: courses, weights, schedules
 |   |-- utils/            Storage, calendar, Firebase sync, task merging
 |   `-- mobile/core.ts    Entry point that is bundled into mobile-web/companion/core.js

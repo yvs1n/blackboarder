@@ -1,5 +1,5 @@
 // Filled in by scripts/build.js; a new build changes this file, so browsers install the new worker
-const BUILD_ID = '69b6cde09fdb';
+const BUILD_ID = '7657182103ab';
 const CACHE_NAME = 'blackboarder-web-' + BUILD_ID;
 // Notification schedule lives in its own cache so app updates never wipe it
 const NOTIF_STORE_NAME = 'sidekick-notif-store';

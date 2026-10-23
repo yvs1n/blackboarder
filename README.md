@@ -13,7 +13,7 @@
   <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Release-Download_ZIP-black?logo=github&logoColor=white" alt="Download Release" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-435_Passing-success?logo=vitest&logoColor=white" alt="Vitest 435 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-439_Passing-success?logo=vitest&logoColor=white" alt="Vitest 439 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -102,14 +102,13 @@ The calendar link includes your sync key. Links without a key are rejected, so i
 
 ## ⚙️ Settings and AI Keys
 
-Everything works without any keys; the local parser handles most announcements. Keys only add the optional AI steps.
+No API key? The built-in parser reads announcements automatically, so everything works without one. A key only adds an AI model for long or vague announcements. Set the model and key in the **extension** (Settings > Scanning); the phone app uses the same one through your server and never holds the key.
 
 | Setting | What it is for | Default |
 | :--- | :--- | :--- |
 | **AI provider** | OpenRouter, IFM K2 Horizon (free daily tokens from platform.ifm.ai), or any OpenAI-compatible API (base URL and model name). Each keeps its own key, and **Test connection** checks it | OpenRouter |
 | **API key** | AI extraction for long or vague announcements | Empty (optional) |
 | **AI model** | Model used through OpenRouter | `google/gemini-3.8-flash` |
-| **Jev API key** | Fast check that skips AI calls for announcements with no deadline | Empty (optional) |
 | **Hosted Web Dashboard URL** | Your site address. The phone app is at `/companion/` and the calendar feed at `/feed.ics` | `https://blackboarder.pages.dev` |
 | **Own Sync Server** | Only for a self-hosted server. Leave empty to sync through Firebase | Empty |
 | **Auto-scan** | Scans announcements when a Blackboard page loads | On |
@@ -123,7 +122,7 @@ The two URL fields are under **Settings > Advanced Server & Endpoints**.
 
 You only need this to run your own phone app and backend instead of `blackboarder.pages.dev`. Full steps are in the [hosting guide](docs/HOSTING_GUIDE.md).
 
-1. **Cloudflare Pages (recommended).** Connect the GitHub repository in **Workers & Pages**, with no build command and **`mobile-web`** as the output folder. Every push to `main` then deploys automatically. `mobile-web/_worker.js` is the backend: sync API, calendar feed and AI proxy.
+1. **Cloudflare Pages (recommended).** Connect the GitHub repository in **Workers & Pages**, with no build command and **`mobile-web`** as the output folder. Every push to `main` then deploys automatically. `mobile-web/_worker.js` is the backend: sync API, calendar feed and the AI key locker. To let the phone app use your AI model, set an **`AI_KEY_SECRET`** environment variable (any long random text) in the Cloudflare project and publish the latest `database.rules.json`. See [docs/HOSTING_GUIDE.md](docs/HOSTING_GUIDE.md).
 2. **Firebase.** Create a Realtime Database, then paste [`database.rules.json`](database.rules.json) into **Realtime Database > Rules** and click **Publish**. The rules only take effect once published. They allow each sync key to read and write only its own `users/<key>` folder. If you use your own database, change the URL in `src/utils/firebaseSync.ts`, `mobile-web/app.js` and `mobile-web/_worker.js`.
 3. **Point the extension at it.** Set **Hosted Web Dashboard URL** in Settings to your Pages address.
 4. **Optional:** add a Cloudflare rate limiting rule for `/api/*`. The built-in limit (60 requests a minute per IP and per key) slows abuse down but does not stop it.
@@ -179,7 +178,7 @@ blackboarder/
 |   |-- popup/            Popup and side panel
 |   |-- content/          Scraper and dark mode for Blackboard pages
 |   |-- background/       Background worker: sync, reminders, automatic updates
-|   |-- engine/           Deadline detection: local parser, Jev check, AI
+|   |-- engine/           Deadline detection: local parser, then an optional AI model
 |   |-- core/             Logic shared with the phone app: courses, weights, schedules
 |   |-- utils/            Storage, Firebase sync, calendar, task merging
 |   `-- mobile/core.ts    Bundled into mobile-web/companion/core.js
@@ -188,7 +187,7 @@ blackboarder/
 |   |-- index.html        Landing page (/)
 |   |-- companion/        Phone app (PWA) at /companion/
 |   |-- sw.js             Retires the old root service worker
-|   `-- _worker.js        Backend: sync API, calendar feed, AI proxy
+|   `-- _worker.js        Backend: sync API, calendar feed, AI key locker
 |-- dist/                 Built extension; load this folder (generated)
 |
 |-- updater/              Update helper (copied into dist/ by the build)

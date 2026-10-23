@@ -42,7 +42,7 @@ Every push to `main` now deploys by itself. The repository's GitHub Actions work
    - Accept the default deployment settings.
 3. Your web dashboard is live at `https://<project-name>.vercel.app`.
 
-On Vercel, `api/[...path].js` runs the same backend as Cloudflare (`mobile-web/_worker.js`), so sync, the calendar feed and the security checks behave the same on both hosts. Optional environment variables: `FIREBASE_DB_URL`, `SYNC_SECRET`, `JEV_API_KEY`, `OPENROUTER_API_KEY`.
+On Vercel, `api/[...path].js` runs the same backend as Cloudflare (`mobile-web/_worker.js`), so sync, the calendar feed and the security checks behave the same on both hosts. Optional environment variables: `FIREBASE_DB_URL`, `SYNC_SECRET`, `AI_KEY_SECRET`.
 
 ---
 
@@ -50,7 +50,8 @@ On Vercel, `api/[...path].js` runs the same backend as Cloudflare (`mobile-web/_
 
 1. **Publish the database rules.** Open the Firebase console > Realtime Database > **Rules**, paste the contents of `database.rules.json`, and click **Publish**. The file in the repository does nothing until it is published. These rules close the old shared bucket at the root and only allow each student's own `users/<sync key>` folder.
 2. **Every request needs a sync key.** The API and calendar feed answer `400` when the link has no `?key=`. If you subscribed to the calendar before this change with a link that had no key, copy the link again from Settings and re-subscribe.
-3. **Optional hard rate limits.** The built-in limit (60 requests per minute per IP and per key) lives in each worker instance, so it slows abuse rather than stopping it. For a strict limit, add a rate limiting rule for `/api/*` in the Cloudflare dashboard (Security > WAF > Rate limiting rules).
+3. **Let the phone app use your AI model (optional).** In the Cloudflare project (Settings > Variables and Secrets) or Vercel (Environment Variables), add a secret named `AI_KEY_SECRET` with any long random text, then redeploy. The extension sends its AI key to `/api/ai/key`; the server encrypts it with this secret plus the sync key and stores only the encrypted text at `users/<sync key>/ai` (allowed by the published rules). Pasting an announcement on the phone sends the prompt to `/api/ai/extract` and the server adds the key, so the phone never holds it. Changing the secret makes stored keys unreadable; open the extension popup and they are sent again. Without the secret, the phone app uses the built-in parser.
+4. **Optional hard rate limits.** The built-in limit (60 requests per minute per IP and per key) lives in each worker instance, so it slows abuse rather than stopping it. For a strict limit, add a rate limiting rule for `/api/*` in the Cloudflare dashboard (Security > WAF > Rate limiting rules).
 
 ---
 

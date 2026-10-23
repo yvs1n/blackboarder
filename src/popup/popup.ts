@@ -7,6 +7,7 @@ import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCh
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { resolveAiEndpoint, normalizeAiBaseUrl, testAiEndpoint, IFM_MODEL } from '../engine/aiProviders';
+import { syncAiKeyLock, getAiLockState, describeAiLock } from '../utils/aiKeyLock';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
 import { resolveTaskWeight, getAllSyllabi } from '../core/syllabusWeights';
@@ -2584,6 +2585,17 @@ function showAiProviderFields(provider: AiProvider, settings: Partial<UserSettin
   if (status) { status.textContent = ''; status.classList.remove('is-ok'); }
 }
 
+/** Re-locks the AI key on the student's server if it changed, and says what the web app will use. */
+async function refreshAiKeyLock(force = false): Promise<void> {
+  const line = document.getElementById('ai-webapp-status');
+  try {
+    const status = await syncAiKeyLock(await getSettings(), force);
+    if (line) line.textContent = describeAiLock(status);
+  } catch {
+    if (line) line.textContent = describeAiLock('error');
+  }
+}
+
 /** A custom AI service needs permission to reach its host. Asked once, on a click or edit. */
 async function ensureAiHostPermission(baseUrl: string): Promise<boolean> {
   if (!baseUrl || typeof chrome === 'undefined' || !chrome.permissions?.request) return true;
@@ -2601,6 +2613,11 @@ async function loadSettingsForm() {
   const aiProviderSelect = document.getElementById('setting-ai-provider') as HTMLSelectElement | null;
   if (aiProviderSelect) aiProviderSelect.value = settings.aiProvider || 'openrouter';
   showAiProviderFields(settings.aiProvider || 'openrouter', settings);
+  getAiLockState().then(state => {
+    const line = document.getElementById('ai-webapp-status');
+    if (line) line.textContent = describeAiLock(state?.status);
+  });
+  void refreshAiKeyLock();
   (document.getElementById('setting-model') as HTMLSelectElement).value = settings.openRouterModel || 'google/gemini-3.8-flash';
   (document.getElementById('setting-use-ai') as HTMLInputElement).checked = settings.useAiExtraction;
   (document.getElementById('setting-autoscan') as HTMLInputElement).checked = settings.autoScanOnPageLoad;
@@ -2624,10 +2641,6 @@ async function loadSettingsForm() {
   const settingHostedUrl = document.getElementById('setting-hosted-url') as HTMLInputElement | null;
   if (settingHostedUrl) settingHostedUrl.value = settings.hostedWebUrl || 'https://blackboarder.pages.dev';
 
-  const settingJevKey = document.getElementById('setting-jev-key') as HTMLInputElement | null;
-  if (settingJevKey) settingJevKey.value = settings.jevApiKey || '';
-  const settingUseJev = document.getElementById('setting-use-jev') as HTMLInputElement | null;
-  if (settingUseJev) settingUseJev.checked = settings.useJevClassification !== false;
 
   // Check Firebase cloud status
   const fbBadge = document.getElementById('firebase-status-badge');
@@ -3297,6 +3310,12 @@ function setupEvents() {
     await saveSettings({ customAiModel: settingAiCustomModel.value.trim() });
     showToast('Model saved');
   });
+  // Any AI change is passed on to the web app's server once the handlers above have saved it
+  for (const id of ['setting-use-ai', 'setting-apikey', 'setting-ai-provider', 'setting-ai-base-url', 'setting-ai-custom-model', 'setting-model']) {
+    document.getElementById(id)?.addEventListener('change', () => {
+      setTimeout(() => void refreshAiKeyLock(), 500);
+    });
+  }
   document.getElementById('btn-test-ai')?.addEventListener('click', async () => {
     const status = document.getElementById('ai-test-status');
     const show = (text: string, ok = false) => {
@@ -3330,14 +3349,6 @@ function setupEvents() {
     await saveSettings({ openRouterModel: settingModel.value });
     showToast('AI model saved');
   });
-  const settingUseJevToggle = document.getElementById('setting-use-jev') as HTMLInputElement | null;
-  settingUseJevToggle?.addEventListener('change', async () => {
-    await saveSettings({ useJevClassification: settingUseJevToggle.checked });
-  });
-  const settingJevKeyInput = document.getElementById('setting-jev-key') as HTMLInputElement | null;
-  settingJevKeyInput?.addEventListener('change', async () => {
-    await saveSettings({ jevApiKey: settingJevKeyInput.value.trim() });
-  });
 
   // Settings Form Submit
   formSettings.addEventListener('submit', async e => {
@@ -3356,8 +3367,6 @@ function setupEvents() {
     const syncMidnight = (document.getElementById('setting-sync-midnight') as HTMLInputElement)?.checked ?? true;
     const syncOnScan = (document.getElementById('setting-sync-onscan') as HTMLInputElement)?.checked ?? true;
 
-    const jevKey = (document.getElementById('setting-jev-key') as HTMLInputElement)?.value?.trim() || '';
-    const useJev = (document.getElementById('setting-use-jev') as HTMLInputElement)?.checked ?? true;
 
     const syncKey = (document.getElementById('setting-sync-key') as HTMLInputElement)?.value?.trim().toUpperCase() || '';
     const hostedUrl = (document.getElementById('setting-hosted-url') as HTMLInputElement)?.value?.trim() || 'https://blackboarder.pages.dev';
@@ -3378,8 +3387,6 @@ function setupEvents() {
       customAiModel: customModel,
       openRouterModel: model,
       useAiExtraction: useAi,
-      jevApiKey: jevKey,
-      useJevClassification: useJev,
       autoScanOnPageLoad: autoScan,
       badgeNotification: badgeNotif,
       reminderHoursBefore: reminderHours,
@@ -3393,6 +3400,7 @@ function setupEvents() {
     });
 
     await setBlackboardDarkMode(bbDark);
+    void refreshAiKeyLock();
 
     if (syncKey && syncKey !== prevSyncKey) {
       await pullTasksFromFirebaseIfNewer();

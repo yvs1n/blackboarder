@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Choose your AI provider.** Settings has an AI Provider dropdown under the API key: OpenRouter (as before), IFM K2 Horizon with a free key from platform.ifm.ai, or any OpenAI-compatible API with your own base URL and model. Each provider keeps its own key, and a Test connection button checks the key before a scan needs it.
-- **The web app no longer mentions AI models.** It shows what the extension scanned, so it keeps no AI or Jev keys (old ones stored in the browser are removed and left out of backups). Pasting an announcement there uses the built-in parser only.
+- **The web app uses the extension's AI model, with the key kept off the phone.** The extension hands its key to your Blackboarder server, which stores it encrypted (with a server secret, `AI_KEY_SECRET`, plus your sync key). Pasting an announcement on the phone runs the extension's own pipeline, and the server adds the key. Models and keys are set only in the extension; the web app says so. No key, or no `AI_KEY_SECRET`? The built-in parser is used automatically. Old keys stored in the phone's browser are removed and left out of backups.
+
+### Removed
+
+- **Jev classifier.** It only skipped announcements without a deadline and guessed a category before the AI ran. Code now does both: a keyword check, and the wording sets the type, time and room hints. The Jev key, setting, server route and SDK dependency are gone.
 
 ### Changed
 - **Theme follows your system**: the extension and the phone app now match your computer's or phone's light/dark setting by default and switch along with it. You can still pick Light or Dark in Settings. Everyone is moved to the system setting once with this update.

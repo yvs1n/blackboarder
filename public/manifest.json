@@ -70,7 +70,6 @@
     "https://github.com/*",
     "https://openrouter.ai/*",
     "https://api.ifm.ai/*",
-    "https://api.typesafe.ai/*",
     "https://*.pages.dev/*",
     "http://*.pages.dev/*",
     "https://*.workers.dev/*",

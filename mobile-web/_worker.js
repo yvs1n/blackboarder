@@ -319,6 +319,107 @@ function isRateLimited(request, key, maxPerIp = RATE_LIMIT_MAX) {
   return Boolean(key) && !checkRateLimit(`key_${key}`);
 }
 
+/*
+ * AI key locker. The extension sends its AI key here once; it is encrypted with AI_KEY_SECRET
+ * (a server setting nobody else has) mixed with the sync key, and only the encrypted text is
+ * stored, at users/{syncKey}/ai. The web app never holds the key: it sends the prompt here and
+ * the server adds the key. Without AI_KEY_SECRET the locker is off and the web app uses its
+ * built-in parser.
+ */
+const AI_CHAT_URLS = {
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  ifm: 'https://api.ifm.ai/v1/chat/completions'
+};
+const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const unb64 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+
+async function aiLockKey(secret, syncKey) {
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${secret}|${syncKey}`));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function sealAiConfig(config, secret, syncKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await aiLockKey(secret, syncKey);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(config)));
+  return `v1:${b64(iv)}:${b64(ct)}`;
+}
+
+async function openAiConfig(sealed, secret, syncKey) {
+  const [v, iv, ct] = String(sealed || '').split(':');
+  if (v !== 'v1' || !iv || !ct) return null;
+  try {
+    const key = await aiLockKey(secret, syncKey);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, key, unb64(ct));
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch {
+    return null;
+  }
+}
+
+/** The provider's chat URL. A custom one must be public https; the server cannot reach a home computer. */
+function aiChatUrlFor(provider, baseUrl) {
+  if (AI_CHAT_URLS[provider]) return AI_CHAT_URLS[provider];
+  if (provider !== 'custom') return '';
+  try {
+    const u = new URL(String(baseUrl || '').trim());
+    if (u.protocol !== 'https:' || /^(localhost|127\.|10\.|192\.168\.|\[)/.test(u.hostname)) return '';
+    return `${u.origin}${u.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '')}/chat/completions`;
+  } catch {
+    return '';
+  }
+}
+
+function aiStoreUrl(env, syncKey) {
+  const dbUrl = (env && env.SKIP_FIREBASE) ? null : ((env && env.FIREBASE_DB_URL) || FIREBASE_DB_URL);
+  return dbUrl ? `${dbUrl}/users/${syncKey}/ai.json` : '';
+}
+
+async function readSealedAi(env, syncKey) {
+  const target = aiStoreUrl(env, syncKey);
+  if (target) {
+    try {
+      const res = await fetch(target, { cache: 'no-store' });
+      if (res.ok) {
+        const v = await res.json();
+        if (typeof v === 'string') return v;
+      }
+    } catch (e) {}
+  }
+  if (env && env.TASKS_KV) {
+    try { return await env.TASKS_KV.get(`bbs_ai_${syncKey}`); } catch (e) {}
+  }
+  return null;
+}
+
+async function writeSealedAi(env, syncKey, sealed) {
+  const target = aiStoreUrl(env, syncKey);
+  if (target) {
+    await fetch(target, sealed
+      ? { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sealed) }
+      : { method: 'DELETE' });
+  }
+  if (env && env.TASKS_KV) {
+    try {
+      if (sealed) await env.TASKS_KV.put(`bbs_ai_${syncKey}`, sealed);
+      else await env.TASKS_KV.delete(`bbs_ai_${syncKey}`);
+    } catch (e) {}
+  }
+}
+
+/** Only a system and a user message of plain text are forwarded, never anything else from the caller. */
+function cleanAiMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 4) return null;
+  let total = 0;
+  const out = [];
+  for (const m of messages) {
+    if (!m || (m.role !== 'system' && m.role !== 'user') || typeof m.content !== 'string') return null;
+    total += m.content.length;
+    out.push({ role: m.role, content: m.content });
+  }
+  return total <= 20000 ? out : null;
+}
+
 const KEY_REQUIRED_MESSAGE = 'A sync key is required. Pair this device from Settings in the Blackboarder extension.';
 
 export default {
@@ -449,83 +550,80 @@ export default {
       }
     }
 
-    // 5b. POST /api/ai/classify - Edge Proxy for Jev System One
-    if (request.method === 'POST' && pathname === '/api/ai/classify') {
+    // 5b. POST /api/ai/key - the extension locks its AI key here (see the AI key locker above)
+    if (request.method === 'POST' && pathname === '/api/ai/key') {
       const body = await request.json().catch(() => ({}));
       const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
-      if (isRateLimited(request, activeKey, 20)) {
+      if (!activeKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
+      if (isRateLimited(request, activeKey, 10)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
-      const text = body.text || body.input || '';
-      const apiKey = body.apiKey || (activeKey && env && env.JEV_API_KEY) || '';
-      if (!apiKey) return jsonResponse({ ok: false, error: 'Missing JEV_API_KEY' }, 401);
-      if (!text) return jsonResponse({ ok: false, error: 'Missing announcement text' }, 400);
-
-      try {
-        const res = await fetch('https://api.typesafe.ai/v1/classify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
-          },
-          body: JSON.stringify({
-            input: text.slice(0, 3000),
-            schema: {
-              is_deadline: 'boolean',
-              category: 'string',
-              urgency: 'number',
-              has_room: 'boolean',
-              has_time: 'boolean'
-            }
-          })
-        });
-        const resData = await res.json().catch(() => null);
-        return jsonResponse({ ok: res.ok, data: resData, status: res.status });
-      } catch (e) {
-        return jsonResponse({ ok: false, error: e.message }, 502);
+      if (!isAuthorizedWrite(request, env)) {
+        return jsonResponse({ ok: false, error: 'Invalid sync secret' }, 401);
       }
+      if (!env || !env.AI_KEY_SECRET) {
+        return jsonResponse({ ok: false, error: 'AI_KEY_SECRET is not set on this server' }, 501);
+      }
+      const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+      if (!apiKey) {
+        await writeSealedAi(env, activeKey, null);
+        return jsonResponse({ ok: true, cleared: true });
+      }
+      const provider = String(body.provider || 'openrouter');
+      const chatUrl = aiChatUrlFor(provider, body.baseUrl);
+      const model = typeof body.model === 'string' ? body.model.trim().slice(0, 200) : '';
+      if (!chatUrl || !model || apiKey.length > 500) {
+        return jsonResponse({ ok: false, error: 'Unsupported AI provider, URL or model' }, 400);
+      }
+      const sealed = await sealAiConfig({ provider, chatUrl, model, apiKey }, env.AI_KEY_SECRET, activeKey);
+      await writeSealedAi(env, activeKey, sealed);
+      return jsonResponse({ ok: true, provider, model });
     }
 
-    // 5c. POST /api/ai/extract - Edge Proxy for OpenRouter Generative AI
+    // 5c. POST /api/ai/extract - runs the extension's prompt for the web app with the locked key
     if (request.method === 'POST' && pathname === '/api/ai/extract') {
       const body = await request.json().catch(() => ({}));
       const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (!activeKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
       if (isRateLimited(request, activeKey, 20)) {
         return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
       }
-      const { text, context, model } = body;
-      const apiKey = body.apiKey || (activeKey && env && env.OPENROUTER_API_KEY) || '';
-      if (!apiKey) return jsonResponse({ ok: false, error: 'Missing OPENROUTER_API_KEY' }, 401);
-      if (!text) return jsonResponse({ ok: false, error: 'Missing announcement text' }, 400);
+      if (!env || !env.AI_KEY_SECRET) {
+        return jsonResponse({ ok: false, error: 'AI is not set up on this server' }, 501);
+      }
+      const messages = cleanAiMessages(body.messages);
+      if (!messages) return jsonResponse({ ok: false, error: 'Invalid messages' }, 400);
+      const config = await openAiConfig(await readSealedAi(env, activeKey), env.AI_KEY_SECRET, activeKey);
+      if (!config || !config.apiKey) {
+        return jsonResponse({ ok: false, error: 'No AI key set in the extension' }, 404);
+      }
+      // The URL is checked again so a stored value can never point the server somewhere else
+      const chatUrl = aiChatUrlFor(config.provider, config.chatUrl);
+      if (!chatUrl) return jsonResponse({ ok: false, error: 'Unsupported AI provider' }, 400);
 
+      const payload = {
+        model: config.model,
+        messages,
+        temperature: typeof body.temperature === 'number' ? Math.min(Math.max(body.temperature, 0), 1) : 0.1,
+        max_tokens: Math.min(Number(body.max_tokens) || 1000, 4000),
+        response_format: { type: 'json_object' }
+      };
+      const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey };
+      if (config.provider === 'openrouter') {
+        headers['HTTP-Referer'] = 'https://blackboarder.local';
+        headers['X-Title'] = 'Blackboarder Web App';
+      }
       try {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey,
-            'HTTP-Referer': 'https://blackboard.sharjah.ac.ae',
-            'X-Title': 'Blackboarder Pages Proxy'
-          },
-          body: JSON.stringify({
-            model: model || 'google/gemini-3.8-flash',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an academic deadline extraction engine for Blackboard. Extract deadlines in strict JSON.'
-              },
-              {
-                role: 'user',
-                content: 'Context: ' + (context || '') + '\nAnnouncement: ' + text
-              }
-            ],
-            response_format: { type: 'json_object' }
-          })
-        });
+        let res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
+        // Some OpenAI-compatible services refuse JSON mode; ask again without it
+        if (res.status === 400 && config.provider !== 'openrouter') {
+          const { response_format: _omit, ...plain } = payload;
+          res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(plain) });
+        }
         const resData = await res.json().catch(() => null);
-        return jsonResponse({ ok: res.ok, data: resData, status: res.status });
+        return jsonResponse({ ok: res.ok, data: resData, status: res.status }, res.ok ? 200 : 502);
       } catch (e) {
-        return jsonResponse({ ok: false, error: e.message }, 502);
+        return jsonResponse({ ok: false, error: 'Could not reach the AI provider' }, 502);
       }
     }
 

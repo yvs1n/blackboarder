@@ -9,17 +9,24 @@ export const IFM_BASE_URL = 'https://api.ifm.ai/v1';
 export const IFM_MODEL = 'IFM/K2-Horizon-375B-A23B';
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.8-flash';
 
-export type AiSettings = Pick<
+export type AiSettings = Partial<Pick<
   UserSettings,
-  'useAiExtraction' | 'openRouterApiKey' | 'openRouterModel' | 'useJevClassification' | 'jevApiKey' |
-  'aiProvider' | 'ifmApiKey' | 'customAiBaseUrl' | 'customAiApiKey' | 'customAiModel'
->;
+  'openRouterApiKey' | 'openRouterModel' | 'aiProvider' | 'ifmApiKey' | 'customAiBaseUrl' | 'customAiApiKey' | 'customAiModel'
+>> & {
+  useAiExtraction: boolean;
+  /** Web app only: the server that holds the extension's key, locked, reached by sync key */
+  aiServer?: { url: string; syncKey: string };
+};
+
+/** 'server' is the web app's route: its server adds the extension's key and model. */
+export type AiRoute = AiProvider | 'server';
 
 export interface AiEndpoint {
-  provider: AiProvider;
+  provider: AiRoute;
   chatUrl: string;
   apiKey: string;
   model: string;
+  syncKey?: string;
 }
 
 /**
@@ -48,6 +55,10 @@ export function chatUrlFor(baseUrl: string): string {
 
 /** The provider the student picked, with its key. Null when that provider has no key or URL yet. */
 export function resolveAiEndpoint(settings: Partial<AiSettings>): AiEndpoint | null {
+  if (settings.aiServer) {
+    const { url, syncKey } = settings.aiServer;
+    return url && syncKey ? { provider: 'server', chatUrl: url, apiKey: '', model: '', syncKey } : null;
+  }
   const provider: AiProvider = settings.aiProvider || 'openrouter';
   if (provider === 'ifm') {
     const apiKey = (settings.ifmApiKey || '').trim();
@@ -66,7 +77,7 @@ export function resolveAiEndpoint(settings: Partial<AiSettings>): AiEndpoint | n
 }
 
 /** Request headers. OpenRouter's attribution headers are only sent to OpenRouter. */
-export function aiRequestHeaders(provider: AiProvider, apiKey: string): Record<string, string> {
+export function aiRequestHeaders(provider: AiRoute, apiKey: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json'

@@ -130,8 +130,6 @@ export interface UserSettings {
   customAiBaseUrl?: string; // Any OpenAI-compatible service, e.g. https://api.example.com/v1
   customAiApiKey?: string;
   customAiModel?: string;
-  jevApiKey?: string;
-  useJevClassification?: boolean;
   autoScanOnPageLoad: boolean;
   badgeNotification: boolean;
   reminderHoursBefore: number;
@@ -156,8 +154,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   customAiBaseUrl: '',
   customAiApiKey: '',
   customAiModel: '',
-  jevApiKey: '',
-  useJevClassification: false,
   autoScanOnPageLoad: true,
   badgeNotification: true,
   reminderHoursBefore: 24,

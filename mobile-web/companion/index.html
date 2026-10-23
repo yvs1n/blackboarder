@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=69b6cde09fdb">
+  <link rel="stylesheet" href="./styles.css?v=7657182103ab">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -604,6 +604,10 @@
               </button>
             </div>
           </div>
+
+          <p id="web-ai-model-note" style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; margin: 0;">
+            AI model: pasted announcements use the model and key set in the extension (Settings &gt; Scanning), so change them there. The key stays encrypted on your server and never reaches this device. No key? The built-in parser is used automatically.
+          </p>
         </div>
       </div>
 
@@ -1175,7 +1179,7 @@
       </div>
       <div class="modal-body" style="padding: 16px;">
         <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
-          Paste any message, email, or announcement from Blackboard to pull out its deadlines, rooms, and grade weights.
+          Paste any message, email, or announcement from Blackboard to pull out its deadlines, rooms, and grade weights. It reads the text the same way the extension does, with the AI model set in the extension. To change the model or key, use the extension's Settings &gt; Scanning. No API key? The built-in parser reads it automatically.
         </p>
         <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label" for="extract-course-hint">Course <span style="font-weight: normal; color: var(--text-muted);">(Optional hint)</span></label>
@@ -1468,7 +1472,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=69b6cde09fdb"></script>
-  <script src="./app.js?v=69b6cde09fdb"></script>
+  <script src="./core.js?v=7657182103ab"></script>
+  <script src="./app.js?v=7657182103ab"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-DVi41uev.js"></script>
+  <script type="module" crossorigin src="../../assets/popup-CIbT2j2e.js"></script>
   <link rel="stylesheet" crossorigin href="../../assets/popup-D200RUf4.css">
 </head>
 <body>
@@ -705,14 +705,14 @@
               <span class="card-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
               <div>
                 <h3 class="settings-card-title">AI &amp; Extraction Engine</h3>
-                <p class="settings-card-subtitle">Local heuristic parser with Jev triage and Generative AI</p>
+                <p class="settings-card-subtitle">Built-in parser with an optional AI model</p>
               </div>
             </div>
             <span class="settings-pill pill-blue">Hybrid Engine</span>
           </div>
 
           <p class="settings-card-desc">
-            Analyzes course announcements with zero lag. Jev acts as an instant ~100ms gatekeeper before invoking deeper LLM extraction.
+            The built-in parser reads announcements on its own. If you add an API key, an AI model reads only the ones the parser cannot date. Without a key, the built-in parser is used automatically. The web app uses the same model through your server, so set it up here.
           </p>
 
           <!-- Toggle: Enable AI Deep Extraction -->
@@ -754,6 +754,7 @@
             <button type="button" class="btn-secondary" id="btn-test-ai">Test connection</button>
             <span class="ai-test-status" id="ai-test-status" aria-live="polite"></span>
           </div>
+          <span class="ai-provider-hint" id="ai-webapp-status" style="margin: -4px 0 10px;"></span>
 
           <div class="form-group ai-provider-field" id="ai-openrouter-model">
             <label class="form-label" for="setting-model">AI Model</label>
@@ -763,25 +764,6 @@
               <option value="google/gemini-flash-latest">Google Gemini Flash Latest</option>
               <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
             </select>
-          </div>
-
-          <!-- Jev Fast Classifier Panel -->
-          <div class="settings-panel-box" style="margin-top: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <label class="form-label" for="setting-jev-key" style="margin-bottom: 0; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
-                <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
-                <span>Jev Fast Classifier (TypeSafe AI)</span>
-              </label>
-              <span class="settings-pill pill-blue">~100ms Gatekeeper</span>
-            </div>
-            <input type="password" id="setting-jev-key" class="form-input" placeholder="apikey_...">
-            <span style="font-size: 10.5px; color: var(--text-muted); display: block; margin-top: 3px;">Instantly weeds out non-deadlines and locks category (Quiz, Exam, Homework) before invoking Generative AI.</span>
-            <div style="margin-top: 8px;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; cursor: pointer;">
-                <input type="checkbox" id="setting-use-jev" checked>
-                <span>Enable Jev Fast Classification Gatekeeper</span>
-              </label>
-            </div>
           </div>
 
           <!-- Toggle: Auto-scan announcements -->
@@ -1209,7 +1191,7 @@
     </div>
   </div>
 
-  <!-- MODAL: AI / Jev Announcement Extractor -->
+  <!-- MODAL: Announcement Extractor -->
   <div id="modal-ai-extract" class="modal-backdrop hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="extract-modal-title">
     <div class="modal-dialog extract-modal-card">
       <div class="modal-header">

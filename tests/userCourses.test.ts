@@ -329,6 +329,5 @@ describe('Dynamic User Courses & Adapters (userCourses.ts)', () => {
 
     const cached = getCachedSettingsSync();
     expect(cached.openRouterApiKey).toBe('');
-    expect(cached.jevApiKey).toBe('');
   });
 });

@@ -12,7 +12,6 @@ import {
   getCachedQuickLinksSync,
   getCachedSettingsSync
 } from '../src/utils/storage';
-import { classifyAnnouncementWithJev } from '../src/engine/jevClassifier';
 import { extractDeadlinesWithAi } from '../src/engine/aiExtractor';
 import { DeadlineTask, Announcement } from '../src/types';
 
@@ -232,33 +231,6 @@ describe('Extension Context Validation & Graceful Fallback Suite', () => {
   });
 
   describe('Content Script Engine Messaging Resilience', () => {
-    it('classifyAnnouncementWithJev falls back gracefully when extension context is invalidated in content script', async () => {
-      // Simulate content script environment (https page)
-      (globalThis as any).window = {
-        location: {
-          protocol: 'https:',
-          origin: 'https://elearning.sharjah.ac.ae'
-        }
-      };
-
-      // Invalidate extension context: chrome.runtime has no id
-      (globalThis as any).chrome = {
-        runtime: {
-          sendMessage: vi.fn().mockImplementation(() => {
-            throw new Error('Extension context invalidated.');
-          })
-        }
-      };
-
-      const result = await classifyAnnouncementWithJev(
-        'Quiz 1 is next Tuesday in room A8-103',
-        'dummy_key'
-      );
-      // Must not throw unhandled exception, should return fallback or direct result
-      expect(result).toBeDefined();
-      expect(result.priority).toBeDefined();
-    });
-
     it('extractDeadlinesWithAi falls back gracefully when extension context is invalidated in content script', async () => {
       (globalThis as any).window = {
         location: {

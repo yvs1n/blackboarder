@@ -5,7 +5,7 @@ import {
   OPENROUTER_CHAT_URL, IFM_MODEL
 } from '../src/engine/aiProviders';
 import { extractDeadlinesWithAi } from '../src/engine/aiExtractor';
-import { extractDeadlinesHybridDetailed } from '../src/engine/hybridExtractor';
+import { extractDeadlinesHybridDetailed, guessAssessmentType, wordingHint } from '../src/engine/hybridExtractor';
 import * as aiExtractor from '../src/engine/aiExtractor';
 import { Announcement } from '../src/types';
 
@@ -88,23 +88,70 @@ describe('AI extraction with IFM', () => {
     const spy = vi.spyOn(aiExtractor, 'extractDeadlinesWithAi').mockResolvedValue([]);
     const vague = { ...ann, title: 'Quiz reminder', contentText: 'Remember the quiz we discussed, it is the week after next on our usual day.' };
     await extractDeadlinesHybridDetailed(vague, { useAiExtraction: true, openRouterApiKey: '', openRouterModel: '', aiProvider: 'ifm', ifmApiKey: 'ifm-key' });
-    expect(spy).toHaveBeenCalledWith(vague, 'ifm-key', IFM_MODEL, undefined, { provider: 'ifm', chatUrl: 'https://api.ifm.ai/v1/chat/completions' });
+    expect(spy).toHaveBeenCalledWith(
+      vague, 'ifm-key', IFM_MODEL,
+      expect.objectContaining({ category: 'quiz', hasTime: false }),
+      expect.objectContaining({ provider: 'ifm', chatUrl: 'https://api.ifm.ai/v1/chat/completions' })
+    );
     spy.mockRestore();
   });
 });
 
+describe('without Jev', () => {
+  it('the wording decides the type, time and room hints', () => {
+    expect(guessAssessmentType('Midterm exam next week')).toBe('exam');
+    expect(guessAssessmentType('Quiz 3 on chapter 2')).toBe('quiz');
+    expect(guessAssessmentType('سيكون هناك كويز يوم الأحد')).toBe('quiz');
+    expect(guessAssessmentType('Submit HW2 on Blackboard')).toBe('assignment');
+    expect(guessAssessmentType('Welcome to the course')).toBeNull();
+    expect(wordingHint('Quiz at 12:30 in room A8-103')).toEqual({ category: 'quiz', hasTime: true, hasRoom: true });
+    expect(wordingHint('Quiz next week')).toEqual({ category: 'quiz', hasTime: false, hasRoom: false });
+  });
+
+  it('nothing in the extension still refers to Jev', () => {
+    for (const f of ['src/types.ts', 'src/popup/index.html', 'src/popup/popup.ts', 'src/background/serviceWorker.ts', 'src/engine/hybridExtractor.ts', 'src/engine/aiExtractor.ts', 'public/manifest.json', 'package.json', 'mobile-web/_worker.js']) {
+      expect(fs.readFileSync(f, 'utf8')).not.toMatch(/jev|typesafe/i);
+    }
+    expect(fs.existsSync('src/engine/jevClassifier.ts')).toBe(false);
+  });
+});
+
 describe('web app', () => {
-  it('never mentions or stores AI models and keys; pasted text uses the built-in parser', async () => {
+  const VAGUE = 'Remember the quiz we discussed, the week after next on our usual day.';
+
+  it('keeps no AI keys or model settings, and says models are set in the extension', () => {
     for (const f of ['mobile-web/companion/index.html', 'mobile-web/companion/app.js']) {
       const src = fs.readFileSync(f, 'utf8');
-      expect(src).not.toMatch(/openrouter|gemini|generative ai|jev classifier|jev gatekeeper/i);
+      expect(src).not.toMatch(/openrouter|gemini|jev/i);
       expect(src).not.toContain('saveAiSettings');
     }
+    const html = fs.readFileSync('mobile-web/companion/index.html', 'utf8');
+    expect(html.match(/set in the extension/g)!.length).toBeGreaterThanOrEqual(2);
+    expect(html.match(/built-in parser (?:reads it|is used) automatically/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('sends the extension prompt to its server by sync key, never a key', async () => {
     const BBCore = (await import('../src/mobile/core')).default as any;
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ok: true, data: { choices: [{ message: { content: QUIZ_JSON } }] } }) }));
     vi.stubGlobal('fetch', fetchMock);
-    await BBCore.extractFromText('Remember the quiz we discussed, the week after next on our usual day.', '');
-    expect(fetchMock).not.toHaveBeenCalled();
+    const res = await BBCore.extractFromText(VAGUE, 'Calculus I', { url: 'https://blackboarder.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    expect(res.tasks).toHaveLength(1);
+    const [url, init] = fetchMock.mock.calls[0] as any[];
+    expect(url).toBe('https://blackboarder.pages.dev/api/ai/extract');
+    const body = JSON.parse(init.body);
+    expect(body.syncKey).toBe('BBS-ABCDEFGHJK');
+    expect(body.messages[0].role).toBe('system');
+    expect(body.model).toBeUndefined();
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it('falls back to the built-in parser when the server has no key', async () => {
+    const BBCore = (await import('../src/mobile/core')).default as any;
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({ ok: false, error: 'No AI key set in the extension' }) })));
+    const res = await BBCore.extractFromText('Quiz 1 will be held on October 15 at 12:30 PM in A8-103', 'Calculus I', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    expect(res.tasks.length).toBeGreaterThan(0);
+    const none = await BBCore.extractFromText(VAGUE, '', { url: 'https://x.pages.dev/api/ai/extract', syncKey: 'BBS-ABCDEFGHJK' });
+    expect(none.tasks).toHaveLength(0);
   });
 });
 

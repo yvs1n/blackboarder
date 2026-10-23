@@ -1,8 +1,7 @@
-import { Announcement, DeadlineTask, UserSettings } from '../types';
+import { Announcement, DeadlineTask, TaskType, UserSettings } from '../types';
 import { extractDeadlinesLocally } from './localExtractor';
 import { extractDeadlinesWithAi } from './aiExtractor';
 import { AiSettings, resolveAiEndpoint } from './aiProviders';
-import { classifyAnnouncementWithJev } from './jevClassifier';
 import { resolveTaskWeight } from '../core/syllabusWeights';
 import { resolveTaskRoom } from '../core/courseSchedule';
 
@@ -72,18 +71,39 @@ export function titleCourseKeyFor(task: Pick<DeadlineTask, 'title' | 'courseCode
   return `${cleanC}_${cleanT}`;
 }
 
+const TYPE_WORDS: Array<[TaskType, RegExp]> = [
+  ['exam', /\b(midterms?|finals?|exams?)\b|امتحان|اختبار (?:نهائي|فصلي)/i],
+  ['quiz', /\b(quiz(?:zes)?)\b|كويز|اختبار قصير/i],
+  ['lab', /\b(labs?|experiments?)\b|مختبر|تجربة/i],
+  ['project', /\b(projects?|presentations?)\b|مشروع|عروض|عرض/i],
+  ['assignment', /\b(assignments?|homework|hw\d*|reports?|essays?|submit|submission)\b|واجب|تسليم|تقرير|بحث/i]
+];
+
+/** The assessment type the wording names first in this order, or null. */
+export function guessAssessmentType(text: string): TaskType | null {
+  for (const [type, re] of TYPE_WORDS) if (re.test(text)) return type;
+  return null;
+}
+
+/** What the text plainly states, passed to the AI so it does not guess a type, time or room. */
+export function wordingHint(text: string): { category?: TaskType; hasTime: boolean; hasRoom: boolean } {
+  const category = guessAssessmentType(text) || undefined;
+  const hasTime = /\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b|الساعة\s*\d/i.test(text);
+  const hasRoom = /\b(?:room|hall|lab)\s*[A-Z]?\d|\b[A-Z]\d{1,2}\s*[-:]\s*\d{2,3}\b|قاعة|مختبر\s*\d/i.test(text);
+  return { category, hasTime, hasRoom };
+}
+
 export interface HybridExtractionResult {
   tasks: DeadlineTask[];
   /** Which stage produced the result, shown to the user in the web app */
   tier: string;
-  /** True when the classifier decided the text is not about an assessment */
   rejected?: boolean;
   reason?: string;
 }
 
 /**
- * Hybrid extraction pipeline: runs local parser first, Jev fast triage gatekeeper,
- * and Generative AI for deep date timestamp synthesis when needed.
+ * Hybrid extraction pipeline: runs the local parser first, then a keyword check,
+ * and Generative AI for exact dates when the parser found nothing.
  */
 export async function extractDeadlinesHybrid(
   announcement: Announcement,
@@ -101,93 +121,41 @@ export async function extractDeadlinesHybridDetailed(
 ): Promise<HybridExtractionResult> {
   // Step 1: Run local parser (instant, offline)
   const localTasks = extractDeadlinesLocally(announcement);
-  const localTier = 'Tier 1: Local Regex';
+  const localTier = 'Built-in parser';
 
-  // If local found deadlines and has generic 'other' category, refine category with Jev
   if (localTasks.length > 0) {
-    if (settings.useJevClassification && settings.jevApiKey && localTasks.some(t => t.type === 'other')) {
-      try {
-        const jevRes = await classifyAnnouncementWithJev(
-          `${announcement.title}\n${announcement.contentText}`,
-          settings.jevApiKey
-        );
-        if (jevRes.isDeadline && jevRes.category !== 'not_a_task' && jevRes.category !== 'other') {
-          for (const t of localTasks) {
-            if (t.type === 'other') {
-              t.type = jevRes.category;
-              if (jevRes.priority) t.priority = jevRes.priority;
-            }
-          }
-        }
-      } catch (err) {
-        console.info('[HybridExtractor] Jev category refinement failed:', String(err));
-      }
+    // A generic 'other' gets the category the wording points to
+    const guessed = guessAssessmentType(`${announcement.title} ${announcement.contentText}`);
+    if (guessed) {
+      for (const t of localTasks) if (t.type === 'other') t.type = guessed;
     }
     return { tasks: localTasks, tier: localTier };
   }
 
-  // If AI is disabled or the chosen provider has no key, return local results
+  // If AI is off or the chosen provider has no key, the built-in parser's answer stands
   const aiEndpoint = settings.useAiExtraction ? resolveAiEndpoint(settings) : null;
   if (!aiEndpoint) {
     return { tasks: localTasks, tier: localTier };
   }
 
-  if (!hasAcademicKeywords(`${announcement.title} ${announcement.contentText}`)) {
+  // Step 2: skip the AI call for text that never mentions an assessment or deadline
+  const fullText = `${announcement.title} ${announcement.contentText}`;
+  if (!hasAcademicKeywords(fullText)) {
     return { tasks: localTasks, tier: 'No academic keywords detected' };
   }
 
-  // Step 2: Jev Fast Classification Gatekeeper (~100ms)
-  let jevCategoryHint: { category?: any; priority?: any; hasRoom?: boolean; hasTime?: boolean } | undefined;
-  if (settings.useJevClassification && settings.jevApiKey) {
-    try {
-      const jevResult = await classifyAnnouncementWithJev(
-        `${announcement.title}\n${announcement.contentText}`,
-        settings.jevApiKey
-      );
-
-      // Fast rejection: If Jev determines this is NOT a deadline or is general notice,
-      // skip slow generative AI completely.
-      if (!jevResult.isDeadline || jevResult.category === 'not_a_task') {
-        console.log(
-          `[Blackboarder] Jev filtered out non-deadline announcement: "${announcement.title}" (${jevResult.category}, prob=${jevResult.deadlineProbability}). Skipping Generative AI.`
-        );
-        return {
-          tasks: [],
-          tier: 'Tier 2: Jev Fast Gatekeeper',
-          rejected: true,
-          reason: `Filtered out as non-deadline (${jevResult.category}, prob=${jevResult.deadlineProbability}) without calling Generative AI!`
-        };
-      }
-
-      console.log(
-        `[Blackboarder] Jev confirmed deadline: "${announcement.title}" (${jevResult.category}, prob=${jevResult.deadlineProbability}, urgency=${jevResult.urgencyScore}). Invoking Generative AI.`
-      );
-      jevCategoryHint = {
-        category: jevResult.category,
-        priority: jevResult.priority,
-        hasRoom: jevResult.hasRoom,
-        hasTime: jevResult.hasTime
-      };
-    } catch (jevErr) {
-      console.info('[Blackboarder] Jev classifier error, falling back to Generative AI:', String(jevErr));
-    }
-  }
-
-  // Step 3: Generative AI (OpenRouter, IFM or a custom service) for exact ISO timestamp synthesis
+  // Step 3: Generative AI for exact dates, guided by what the wording already shows
   console.log(`[Blackboarder] Triggering Generative AI parser for announcement: "${announcement.title}"`);
   const aiTasks = await extractDeadlinesWithAi(
     announcement,
     aiEndpoint.apiKey,
     aiEndpoint.model,
-    jevCategoryHint,
-    { provider: aiEndpoint.provider, chatUrl: aiEndpoint.chatUrl }
+    wordingHint(fullText),
+    { provider: aiEndpoint.provider, chatUrl: aiEndpoint.chatUrl, syncKey: aiEndpoint.syncKey }
   );
 
   if (aiTasks.length > 0) {
-    return {
-      tasks: aiTasks,
-      tier: jevCategoryHint ? 'Tier 3: Generative AI (with Jev Gatekeeper Hint)' : 'Tier 3: Generative AI'
-    };
+    return { tasks: aiTasks, tier: 'AI model' };
   }
 
   return { tasks: localTasks, tier: 'Tier 1 Fallback (AI found nothing)' };

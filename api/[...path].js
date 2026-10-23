@@ -5,7 +5,7 @@
  * rate limits and the calendar feed behave identically on both hosts. Vercel serves the web app's
  * files itself (see vercel.json); only API requests reach this function.
  *
- * Optional environment variables: FIREBASE_DB_URL, SYNC_SECRET, JEV_API_KEY, OPENROUTER_API_KEY.
+ * Optional environment variables: FIREBASE_DB_URL, SYNC_SECRET, AI_KEY_SECRET (lets the web app use the extension's AI model; see docs/HOSTING_GUIDE.md).
  */
 import pagesWorker from '../mobile-web/_worker.js';
 
@@ -37,8 +37,7 @@ export default async function handler(req, res) {
   const env = {
     FIREBASE_DB_URL: process.env.FIREBASE_DB_URL,
     SYNC_SECRET: process.env.SYNC_SECRET,
-    JEV_API_KEY: process.env.JEV_API_KEY,
-    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY
+    AI_KEY_SECRET: process.env.AI_KEY_SECRET
   };
   const response = await pagesWorker.fetch(await toWorkerRequest(req), env, {});
   res.statusCode = response.status;

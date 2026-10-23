@@ -40,13 +40,13 @@ describe('sync API requires a sync key', () => {
     expect(limited).toBeGreaterThan(0);
   });
 
-  it('only lends the server AI key to paired devices', async () => {
+  it('runs server AI only for paired devices', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    const aiEnv = { ...env, OPENROUTER_API_KEY: 'server-key' };
+    const aiEnv = { ...env, AI_KEY_SECRET: 'test-secret' };
     const res = await worker.fetch(new Request('https://x.test/api/ai/extract', {
       method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.12' }, body: JSON.stringify({ text: 'Quiz on Sunday' })
     }), aiEnv, {} as any);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

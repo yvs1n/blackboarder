@@ -17,7 +17,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 ## What is where
 
 - `src/core/`: courses, schedule, room and weight rules, syllabus data. Single source of truth for course logic.
-- `src/engine/`: deadline extraction. Local regex first, then Jev classifier, then generative AI. The provider (OpenRouter, IFM, or a custom OpenAI-compatible URL) is chosen in `src/engine/aiProviders.ts`; content scripts reach it through the service worker.
+- `src/engine/`: deadline extraction. Local regex first, then a keyword check, then an optional AI model (no key means the built-in parser's answer stands). The provider (OpenRouter, IFM, or a custom OpenAI-compatible URL) is chosen in `src/engine/aiProviders.ts`; content scripts reach it through the service worker.
 - `src/utils/`: storage, Firebase sync, task merge, gradebook marks, marks and syllabus-progress lists, announcement merge, stream parsing.
 - `src/content/scraper.ts`: runs on Blackboard pages. Scans announcements, the stream and the gradebook, then saves tasks.
 - `src/background/`: service worker (alarms, badge, sync, update checks).
@@ -36,6 +36,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 - **Rooms**: announced room first, then the saved room if it looks real (`isPlausibleRoom`), then the course schedule.
 - **Marks card and Syllabus Progress card**: `src/utils/marks.ts` and `src/utils/syllabusProgress.ts`, rendered by both the popup and the phone app. Marks are listed newest first.
 - **Popup**: opens on the calendar. Unfinished add, edit and settings work is restored (`src/popup/popupDraft.ts`). Course fields are pickers (`src/popup/coursePicker.ts`). Settings has one page per group.
+- **AI on the web app**: models and keys are set only in the extension. `src/utils/aiKeyLock.ts` sends the key to the student's server (`/api/ai/key`), which encrypts it with `AI_KEY_SECRET` plus the sync key and stores only the encrypted text at `users/{syncKey}/ai`. The web app sends the extension's prompt to `/api/ai/extract` and the server adds the key. Without `AI_KEY_SECRET` or a key, the web app uses the built-in parser.
 - **Sync**: tasks, quick links, courses and tombstones live at `users/{syncKey}/data` in Firebase. The newer `updatedAt` wins per task.
 - **Phone app** (`mobile-web/companion/`): phones use a bottom tab bar, 900px and wider is a two-column dashboard.
 - **Website and SEO**: the landing page at `/` has Schema.org JSON-LD (WebApplication, FAQPage), OpenGraph/Twitter cards, and canonical links. `robots.txt` and `sitemap.xml` are served at the root, and fonts and icons are cached long-term (immutable) by the worker.
@@ -51,7 +52,7 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 6. **Real faults use `console.error`; expected situations use `console.info`.** Brave lists every `console.warn` on the extension's Errors page.
 7. **Two colours only** (near-black and near-white, plus greys), no gradients, `border-radius: 0 !important`, no em-dashes anywhere. Course colours and the red/amber stats numbers are the only exceptions. Checked by `tests/theme.test.ts` and lint.
 8. **Never break sync isolation**: every Firebase read and write is scoped to `users/{syncKey}`. Never write to the root. Sync keys are `BBS-` plus 10 characters.
-9. **No secrets in the repo.** Never commit the owner's backups, API keys, Jev key or sync key. Tests use made-up scores.
+9. **No secrets in the repo.** Never commit the owner's backups, API keys or sync key. The web app never stores an AI key, and the server never returns one. Tests use made-up scores.
 10. **Firebase object keys cannot contain `. $ # [ ] /`.** Maps keyed by task id (deletion records) go through `encodeCloudKeys` when written and `decodeCloudKeys` when read, in the extension, the phone app and the worker. Never use an id or title as a key without that.
 11. **Course logic lives in `src/core`.** Do not copy it into `mobile-web/companion/app.js`; add it to `src/mobile/core.ts` and use `BBCore`.
 

@@ -479,7 +479,7 @@
   border-color: rgba(113, 113, 122, 0.35);
   color: #d4d4d8;
 }
-[data-theme="dark"] .badge-jev-tag {
+[data-theme="dark"] .badge-type-tag {
   background: var(--surface-hover);
   color: var(--text-main);
 }
@@ -4164,7 +4164,7 @@ input:checked + .slider:before {
   line-height: 1.5;
 }
 
-.badge-jev-tag {
+.badge-type-tag {
   display: inline-flex;
   align-items: center;
   gap: 5px;

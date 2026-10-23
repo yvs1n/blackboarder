@@ -2645,21 +2645,6 @@ var BBCoreBundle = (function() {
 			return false;
 		}
 	}
-	/**
-	* True only on pages where a same-origin `/api/ai/*` edge proxy can plausibly exist (the hosted
-	* web app). Content scripts run on the university's Blackboard origin; posting an API key there
-	* would hand it to the university's server, so those hosts are always excluded.
-	*/
-	function canUseSameOriginProxy() {
-		try {
-			if (typeof window === "undefined" || !window.location) return false;
-			const { protocol, hostname } = window.location;
-			if (protocol !== "http:" && protocol !== "https:") return false;
-			return !/(^|\.)(sharjah\.ac\.ae|blackboard\.com)$/i.test(hostname);
-		} catch {
-			return false;
-		}
-	}
 	var memoryStorage = /* @__PURE__ */ new Map();
 	function canUseLocalStorage() {
 		try {
@@ -2729,6 +2714,16 @@ var BBCoreBundle = (function() {
 	}
 	/** The provider the student picked, with its key. Null when that provider has no key or URL yet. */
 	function resolveAiEndpoint(settings) {
+		if (settings.aiServer) {
+			const { url, syncKey } = settings.aiServer;
+			return url && syncKey ? {
+				provider: "server",
+				chatUrl: url,
+				apiKey: "",
+				model: "",
+				syncKey
+			} : null;
+		}
 		const provider = settings.aiProvider || "openrouter";
 		if (provider === "ifm") {
 			const apiKey = (settings.ifmApiKey || "").trim();
@@ -2793,20 +2788,20 @@ var BBCoreBundle = (function() {
 	* Extracts deadlines and academic tasks from an announcement with the generative AI the student
 	* picked: OpenRouter by default, or IFM or any OpenAI-compatible service through `endpoint`.
 	*/
-	async function extractDeadlinesWithAi(announcement, apiKey, model = "google/gemini-3.8-flash", jevHint, endpoint = {
+	async function extractDeadlinesWithAi(announcement, apiKey, model = "google/gemini-3.8-flash", hint, endpoint = {
 		provider: "openrouter",
 		chatUrl: OPENROUTER_CHAT_URL
 	}) {
-		if (!apiKey || !apiKey.trim()) {
+		const viaServer = endpoint.provider === "server";
+		if (viaServer ? !endpoint.syncKey : !apiKey || !apiKey.trim()) {
 			console.info("AI API key not configured.");
 			return [];
 		}
 		const isOpenRouter = endpoint.provider === "openrouter";
 		const baseDate = announcement.postedAt ? new Date(announcement.postedAt) : /* @__PURE__ */ new Date();
-		const baseDateStr = baseDate.toISOString().slice(0, 10);
 		const systemPrompt = `You are an expert academic assistant designed to extract due dates, assignments, quizzes, midterms, labs, exams, and projects from university Blackboard course announcements (English and Arabic).
 Reference Context:
-- Reference Date for relative terms ("tomorrow", "next Tuesday", "this Friday"): ${baseDateStr}.
+- Reference Date for relative terms ("tomorrow", "next Tuesday", "this Friday"): ${baseDate.toISOString().slice(0, 10)}.
 - Current Year: ${baseDate.getFullYear()}.
 - Course: ${announcement.courseCode} - ${announcement.courseName}.
 
@@ -2839,10 +2834,10 @@ CRITICAL TIME & DATE RULES:
 If no deadlines or tasks are found, return { "deadlines": [] }. Output valid JSON only.`;
 		const cleanBody = sanitizeDoctorAnnouncementText(announcement.contentText, announcement.courseName, announcement.courseCode, announcement.title);
 		const hintLines = [];
-		if (jevHint?.category && jevHint.category !== "not_a_task") hintLines.push(`Assessment Type: "${jevHint.category}" with priority: "${jevHint.priority || "medium"}". Use this type unless clear evidence indicates otherwise.`);
-		if (jevHint?.hasRoom !== void 0) hintLines.push(jevHint.hasRoom ? "Doctor mentions an explicit room/location in text: YES (You MUST extract this exact room/hall/lab into \"room\")." : "Doctor mentions an explicit room/location in text: NO (Leave \"room\" as null; do not guess or hallucinate a room so the schedule default room is preserved).");
-		if (jevHint?.hasTime !== void 0) hintLines.push(jevHint.hasTime ? "Doctor states an explicit clock time: YES (Extract the start time and set \"hasSpecificTime\": true)." : "Doctor states an explicit clock time: NO (Set \"hasSpecificTime\": false so the schedule class time is preserved).");
-		const hintBlock = hintLines.length > 0 ? `PRE-CLASSIFICATION GUIDANCE (from fast classifier):\n${hintLines.map((h) => `- ${h}`).join("\n")}\n` : "";
+		if (hint?.category) hintLines.push(`Assessment Type: "${hint.category}" with priority: "${hint.priority || "medium"}". Use this type unless clear evidence indicates otherwise.`);
+		if (hint?.hasRoom !== void 0) hintLines.push(hint.hasRoom ? "Doctor mentions an explicit room/location in text: YES (You MUST extract this exact room/hall/lab into \"room\")." : "Doctor mentions an explicit room/location in text: NO (Leave \"room\" as null; do not guess or hallucinate a room so the schedule default room is preserved).");
+		if (hint?.hasTime !== void 0) hintLines.push(hint.hasTime ? "Doctor states an explicit clock time: YES (Extract the start time and set \"hasSpecificTime\": true)." : "Doctor states an explicit clock time: NO (Set \"hasSpecificTime\": false so the schedule class time is preserved).");
+		const hintBlock = hintLines.length > 0 ? `PRE-CLASSIFICATION GUIDANCE (from the announcement wording):\n${hintLines.map((h) => `- ${h}`).join("\n")}\n` : "";
 		const userContent = `Course: ${announcement.courseCode} ${announcement.courseName}
 Announcement Title: ${announcement.title}
 Posted Date (METADATA ONLY - DO NOT USE AS ASSESSMENT TIME): ${announcement.postedAt || "Unknown"}
@@ -2857,22 +2852,6 @@ ${cleanBody}`;
 		for (const currentModel of candidateModels) try {
 			let response = null;
 			let data = null;
-			if (isOpenRouter && canUseSameOriginProxy()) try {
-				const proxyRes = await fetch("/api/ai/extract", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						text: cleanBody,
-						context: `Course: ${announcement.courseCode} ${announcement.courseName}\nTitle: ${announcement.title}\nRefDate: ${baseDateStr}`,
-						model: currentModel,
-						apiKey: apiKey.trim()
-					})
-				});
-				if (proxyRes.ok) {
-					const proxyJson = await proxyRes.json();
-					if (proxyJson && proxyJson.ok && proxyJson.data) data = proxyJson.data;
-				}
-			} catch (e) {}
 			const requestPayload = {
 				model: currentModel,
 				messages: [{
@@ -2886,6 +2865,23 @@ ${cleanBody}`;
 				temperature: .1,
 				max_tokens: isOpenRouter ? 1e3 : 4e3
 			};
+			if (viaServer) {
+				const { model: _model, ...forServer } = requestPayload;
+				const res = await fetch(endpoint.chatUrl, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						...forServer,
+						syncKey: endpoint.syncKey
+					})
+				});
+				const json = await res.json().catch(() => null);
+				if (!res.ok || !json?.ok || !json.data) {
+					console.info("[AI] Server AI unavailable:", json?.error || res.status);
+					return [];
+				}
+				data = json.data;
+			}
 			const isContentScript = typeof window !== "undefined" && window.location?.protocol !== "chrome-extension:" && (window.location?.protocol === "http:" || window.location?.protocol === "https:") && isExtensionContextValid();
 			if (!data && isContentScript) try {
 				const bgResp = await new Promise((resolve, reject) => {
@@ -2950,7 +2946,7 @@ ${cleanBody}`;
 					announcementText: cleanBody,
 					title: item.title
 				});
-				const resolvedType = item.type && item.type !== "other" ? item.type : jevHint?.category && jevHint.category !== "not_a_task" && jevHint.category !== "other" ? jevHint.category : item.type || "other";
+				const resolvedType = item.type && item.type !== "other" ? item.type : hint?.category && hint.category !== "other" ? hint.category : item.type || "other";
 				const roomInfo = resolveTaskRoom({
 					courseNameOrCode: announcement.courseName || item.courseCode || announcement.courseCode,
 					announcementText: cleanBody,
@@ -2958,7 +2954,7 @@ ${cleanBody}`;
 					existingRoom: item.room,
 					type: resolvedType
 				});
-				const resolvedPriority = item.priority || jevHint?.priority || "medium";
+				const resolvedPriority = item.priority || hint?.priority || "medium";
 				return {
 					id: `task_ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
 					announcementId: announcement.id,
@@ -2985,839 +2981,6 @@ ${cleanBody}`;
 		}
 		return [];
 	}
-	// node_modules/@typesafe-ai/sdk/dist/index.mjs
-	var requestIdFrom = (headers) => headers.get("x-typesafe-request-id") ?? void 0;
-	/**
-	* A promise for the parsed result with access to the HTTP response.
-	*
-	* Non-2xx responses reject with an `APIError`, including through `asResponse()`.
-	*/
-	var APIPromise = class APIPromise extends Promise {
-		#responsePromise;
-		#parseResponse;
-		#parsed;
-		constructor(responsePromise, parseResponse) {
-			super((resolve) => resolve(void 0));
-			this.#responsePromise = responsePromise;
-			this.#parseResponse = parseResponse;
-		}
-		/**
-		* Resolves to the raw `Response` without parsing the body. SDK requests buffer the full
-		* body under the request timeout before handoff; reading it afterwards is caller-owned.
-		* The caller owns the body; don't also `await` the parsed result on the same promise.
-		*/
-		asResponse() {
-			return this.#responsePromise;
-		}
-		/** Return the parsed result, HTTP response, and request ID. */
-		async withResponse() {
-			const [data, response] = await Promise.all([this.#parse(), this.#responsePromise]);
-			return {
-				data,
-				response,
-				requestId: requestIdFrom(response.headers)
-			};
-		}
-		/** Transform the parsed result, sharing the HTTP response and a single body parse. */
-		map(fn) {
-			return new APIPromise(this.#responsePromise, () => this.#parse().then(fn));
-		}
-		#parse() {
-			this.#parsed ??= this.#responsePromise.then(this.#parseResponse);
-			return this.#parsed;
-		}
-		then(onfulfilled, onrejected) {
-			return this.#parse().then(onfulfilled, onrejected);
-		}
-		catch(onrejected) {
-			return this.#parse().catch(onrejected);
-		}
-		finally(onfinally) {
-			return this.#parse().finally(onfinally);
-		}
-	};
-	/** Environment variable names for client configuration. Explicit options take precedence. */
-	var ENV = {
-		/** Required API key; used when `apiKey` is omitted. */
-		apiKey: "TYPESAFE_API_KEY",
-		/** API root; defaults to `https://api.typesafe.ai`. */
-		baseURL: "TYPESAFE_BASE_URL",
-		/** Default model name; defaults to `jev-latest`. */
-		defaultModel: "TYPESAFE_DEFAULT_MODEL",
-		/** Log level; defaults to `warn`. */
-		logLevel: "TYPESAFE_LOG_LEVEL"
-	};
-	/** Read a trimmed environment value, returning `undefined` for missing or blank values. */
-	var readEnv = (name) => {
-		if (typeof process === "undefined" || !process.env) return void 0;
-		return process.env[name]?.trim() || void 0;
-	};
-	/** Return the explicit value, falling back to the environment. */
-	var fromCodeOrEnv = (fromCode, envVar) => fromCode ?? readEnv(envVar);
-	var range = (from, to) => Array.from({ length: to - from }, (_, i) => from + i);
-	/** Default SDK retry policy. */
-	var DEFAULT_RETRY_POLICY = {
-		maxRetries: 2,
-		backoffInitialMs: 500,
-		backoffMaxMs: 5e3,
-		backoffJitter: .25,
-		/** HTTP 408, 429, and 5xx responses. */
-		httpStatuses: /* @__PURE__ */ new Set([
-			408,
-			429,
-			...range(500, 600)
-		]),
-		respectRetryAfter: true,
-		/** Maximum server retry delay before falling back to backoff. */
-		maxRetryAfterMs: 6e4,
-		apiConnectionError: true,
-		apiTimeoutError: true
-	};
-	DEFAULT_RETRY_POLICY.maxRetries;
-	/** Whether the policy retries an HTTP status code. */
-	var isRetryableStatus = (status, policy = DEFAULT_RETRY_POLICY) => policy.httpStatuses.has(status);
-	/**
-	* Parse `retry-after-ms` or `Retry-After` into milliseconds, preferring `retry-after-ms`.
-	*
-	* Return `undefined` when neither header contains a valid delay.
-	*/
-	var parseRetryAfter = (headers, now = Date.now()) => {
-		const ms = Number(headers.get("retry-after-ms"));
-		if (headers.has("retry-after-ms") && Number.isFinite(ms) && ms >= 0) return ms;
-		const raw = headers.get("retry-after");
-		if (raw === null) return void 0;
-		const seconds = Number(raw);
-		if (Number.isFinite(seconds)) return seconds >= 0 ? seconds * 1e3 : void 0;
-		const date = Date.parse(raw);
-		if (!Number.isNaN(date)) return Math.max(0, date - now);
-	};
-	/**
-	* Calculate the delay in milliseconds for a zero-based retry attempt.
-	*
-	* Use an allowed server delay; otherwise use capped exponential backoff with jitter.
-	*/
-	var retryDelayMs = (attempt, headers, policy = DEFAULT_RETRY_POLICY, random = Math.random) => {
-		if (policy.respectRetryAfter && headers !== void 0) {
-			const retryAfter = parseRetryAfter(headers);
-			if (retryAfter !== void 0 && retryAfter <= policy.maxRetryAfterMs) return retryAfter;
-		}
-		const exponential = Math.min(policy.backoffInitialMs * 2 ** attempt, policy.backoffMaxMs);
-		return Math.round(exponential * (1 - random() * policy.backoffJitter));
-	};
-	/** Wait `ms` milliseconds, rejecting with `signal.reason` on cancellation. */
-	var sleep = (ms, signal) => new Promise((resolve, reject) => {
-		if (signal?.aborted) return reject(signal.reason);
-		const onAbort = () => {
-			clearTimeout(timer);
-			reject(signal?.reason);
-		};
-		const timer = setTimeout(() => {
-			signal?.removeEventListener("abort", onAbort);
-			resolve();
-		}, ms);
-		signal?.addEventListener("abort", onAbort, { once: true });
-	});
-	/** Base class for SDK errors. */
-	var TypeSafeError = class extends Error {
-		constructor(message, options) {
-			super(message, options);
-			this.name = new.target.name;
-		}
-	};
-	var isRecord = (value) => typeof value === "object" && value !== null;
-	/** Extract a message from a text, error, or validation response body. */
-	var extractMessage = (body) => {
-		if (typeof body === "string") return body || void 0;
-		if (!isRecord(body)) return void 0;
-		const { error, message, detail } = body;
-		if (typeof error === "string") return error;
-		if (isRecord(error) && typeof error.message === "string") return error.message;
-		if (typeof message === "string") return message;
-		if (typeof detail === "string") return detail;
-		if (isRecord(detail) && typeof detail.message === "string") return detail.message;
-		if (Array.isArray(detail)) return describeValidationErrors(detail);
-	};
-	/** Format validation errors as semicolon-separated `path: message` entries. */
-	var describeValidationErrors = (errors) => {
-		const parts = errors.flatMap((e) => {
-			if (!isRecord(e) || typeof e.msg !== "string") return [];
-			const loc = Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body").join(".") : "";
-			return [loc ? `${loc}: ${e.msg}` : e.msg];
-		});
-		return parts.length > 0 ? parts.join("; ") : void 0;
-	};
-	var MAX_RAW_BODY_IN_MESSAGE = 200;
-	/** An unsuccessful HTTP response from the API. */
-	var APIError = class APIError extends TypeSafeError {
-		/** HTTP response status code. */
-		status;
-		/** HTTP response headers. */
-		headers;
-		/** Parsed JSON, response text, or `undefined` for an empty body. */
-		body;
-		/** Request ID from `x-typesafe-request-id`, or `undefined` when absent. */
-		requestId;
-		constructor(status, body, headers, message) {
-			super(message ?? APIError.describe(status, body));
-			this.status = status;
-			this.body = body;
-			this.headers = headers;
-			this.requestId = requestIdFrom(headers);
-		}
-		static describe(status, body) {
-			const detail = extractMessage(body);
-			if (detail) return `${status} ${detail}`;
-			if (body === void 0) return `${status} status code (no body)`;
-			const raw = typeof body === "string" ? body : JSON.stringify(body);
-			return `${status} ${raw.length > MAX_RAW_BODY_IN_MESSAGE ? `${raw.slice(0, MAX_RAW_BODY_IN_MESSAGE)}…` : raw}`;
-		}
-		/** Create the error subclass for an HTTP status code. */
-		static fromResponse(status, body, headers) {
-			if (status === 400) return new BadRequestError(status, body, headers);
-			if (status === 401) return new AuthenticationError(status, body, headers);
-			if (status === 403) return new PermissionDeniedError(status, body, headers);
-			if (status === 404) return new NotFoundError(status, body, headers);
-			if (status === 422) return new UnprocessableEntityError(status, body, headers);
-			if (status === 429) return new RateLimitError(status, body, headers);
-			if (status >= 500) return new InternalServerError(status, body, headers);
-			return new APIError(status, body, headers);
-		}
-	};
-	/** HTTP 400: the request is invalid. */
-	var BadRequestError = class extends APIError {};
-	/** HTTP 401: authentication failed. */
-	var AuthenticationError = class extends APIError {};
-	/** HTTP 403: access is denied. */
-	var PermissionDeniedError = class extends APIError {};
-	/** HTTP 404: the resource was not found. */
-	var NotFoundError = class extends APIError {};
-	/** HTTP 422: request validation failed. */
-	var UnprocessableEntityError = class extends APIError {};
-	/** HTTP 429: the rate limit was exceeded. */
-	var RateLimitError = class extends APIError {
-		/** Server retry delay in milliseconds, or `undefined` when absent or invalid. */
-		retryAfterMs = parseRetryAfter(this.headers);
-	};
-	/** HTTP 5xx: the server failed to handle the request. */
-	var InternalServerError = class extends APIError {};
-	/** The request or response-body delivery failed (DNS, TLS, connection closed, etc.). */
-	var APIConnectionError = class extends TypeSafeError {
-		constructor(message = "Connection error.", options) {
-			super(message, options);
-		}
-	};
-	/** The full response did not arrive within the timeout. A kind of `APIConnectionError`. */
-	var APITimeoutError = class extends APIConnectionError {
-		/** Configured timeout in milliseconds. */
-		timeoutMs;
-		constructor(timeoutMs, options) {
-			super(`Request timed out after ${timeoutMs}ms.`, options);
-			this.timeoutMs = timeoutMs;
-		}
-	};
-	/** The caller cancelled the request through an `AbortSignal`. */
-	var APIUserAbortError = class extends TypeSafeError {
-		constructor(message = "Request was aborted.", options) {
-			super(message, options);
-		}
-	};
-	/** Supported log levels, from most to least verbose. */
-	var LOG_LEVELS = [
-		"debug",
-		"info",
-		"warn",
-		"error",
-		"off"
-	];
-	var DEFAULT_LOG_LEVEL = "warn";
-	var isLogLevel = (value) => LOG_LEVELS.includes(value);
-	/** Validate a configured log level, throwing `TypeSafeError` for unknown values. */
-	var parseLogLevel = (value, source) => {
-		if (isLogLevel(value)) return value;
-		throw new TypeSafeError(`Invalid log level "${value}" from ${source}. Expected one of: ${LOG_LEVELS.join(", ")}.`);
-	};
-	var PREFIX = "[typesafe-sdk]";
-	/** Default console logger with the `[typesafe-sdk]` prefix. */
-	var consoleLogger = {
-		debug: (message, ...args) => console.debug(`${PREFIX} ${message}`, ...args),
-		info: (message, ...args) => console.info(`${PREFIX} ${message}`, ...args),
-		warn: (message, ...args) => console.warn(`${PREFIX} ${message}`, ...args),
-		error: (message, ...args) => console.error(`${PREFIX} ${message}`, ...args)
-	};
-	var RANK = {
-		debug: 0,
-		info: 1,
-		warn: 2,
-		error: 3,
-		off: 4
-	};
-	var drop = () => {};
-	/** Filter logger calls to the configured level and above. */
-	var withLevel = (sink, level) => {
-		const enabled = (at) => RANK[at] >= RANK[level];
-		return {
-			debug: enabled("debug") ? (message, ...args) => sink.debug(message, ...args) : drop,
-			info: enabled("info") ? (message, ...args) => sink.info(message, ...args) : drop,
-			warn: enabled("warn") ? (message, ...args) => sink.warn(message, ...args) : drop,
-			error: enabled("error") ? (message, ...args) => sink.error(message, ...args) : drop
-		};
-	};
-	/** Credential headers that retain a key suffix for identification. */
-	var KEY_HEADERS = /* @__PURE__ */ new Set([
-		"authorization",
-		"proxy-authorization",
-		"x-api-key"
-	]);
-	/** Headers whose values are redacted in full. */
-	var OPAQUE_HEADERS = /* @__PURE__ */ new Set(["cookie", "set-cookie"]);
-	/** Mask a key, preserving its scheme and the last four characters of secrets longer than eight. */
-	var redactKey = (value) => {
-		const [scheme, secret] = value.includes(" ") ? value.split(/\s+/, 2) : [void 0, value];
-		const tail = secret && secret.length > 8 ? secret.slice(-4) : "";
-		return `${scheme ? `${scheme} ` : ""}***${tail}`;
-	};
-	var redact = (name, value) => {
-		const lower = name.toLowerCase();
-		if (KEY_HEADERS.has(lower)) return redactKey(value);
-		if (OPAQUE_HEADERS.has(lower)) return "***";
-		return value;
-	};
-	/** Copy headers with known credential values redacted. */
-	var redactHeaders = (headers) => Object.fromEntries(Object.entries(headers).map(([name, value]) => [name, redact(name, value)]));
-	/**
-	* Create a yes/no question with optional descriptions for either outcome.
-	*
-	* @param instructions - The question as text, a JSON object or array; defaults to `null`.
-	* @param criteria - Optional descriptions of the yes and no outcomes.
-	*/
-	var noul = (instructions = null, criteria) => ({
-		type: "noul",
-		instructions,
-		criteria
-	});
-	/**
-	* Create a score question using an ordered rubric.
-	*
-	* @param instructions - The question as text, a JSON object or array, or `null`.
-	* @param criteria - At least two descriptions indexed by score from zero; entries may be `null`.
-	*/
-	var score = (instructions, criteria) => {
-		if (!Array.isArray(criteria)) throw new TypeSafeError("Score criteria must be a list of descriptions indexed by score from zero, not a map.");
-		return {
-			type: "score",
-			instructions,
-			criteria
-		};
-	};
-	/**
-	* Create a question that selects between named alternatives.
-	*
-	* @param instructions - The question as text, a JSON object or array, or `null`.
-	* @param criteria - Labels mapped to descriptions, or `null` for undescribed labels.
-	*/
-	var choice = (instructions, criteria) => {
-		if (Array.isArray(criteria)) throw new TypeSafeError("Choice criteria must be a map of labels to descriptions, not a list.");
-		return {
-			type: "choice",
-			instructions,
-			criteria
-		};
-	};
-	/** Reject empty question sets and score questions without a list of at least two criteria. */
-	var validateQuestions = (questions) => {
-		if (Object.keys(questions).length === 0) throw new TypeSafeError("At least one question is required.");
-		for (const [name, question] of Object.entries(questions)) {
-			if (question.type !== "score") continue;
-			if (!Array.isArray(question.criteria)) throw new TypeSafeError(`Score question "${name}" has criteria that are not a list; score criteria must be a list of descriptions indexed by score from zero.`);
-			if (question.criteria.length < 2) throw new TypeSafeError(`Score question "${name}" has ${question.criteria.length} criteria; at least two scores are required.`);
-		}
-	};
-	/** Access to the Models API resource. */
-	var Models = class {
-		#transport;
-		constructor(transport) {
-			this.#transport = transport;
-		}
-		/** List the models available to the account. */
-		list(options = {}) {
-			return this.#transport.request("GET", "/v1/models", options).map(unwrapModels);
-		}
-	};
-	var unwrapModels = (wire) => {
-		if (Array.isArray(wire?.models)) return wire.models;
-		throw new TypeSafeError("Unexpected response shape from GET /v1/models; expected { models: [...] }.");
-	};
-	var g = globalThis;
-	/** Whether browser page globals are present. */
-	var isBrowser = () => typeof g.window !== "undefined" && typeof g.window.document !== "undefined" && typeof g.navigator !== "undefined";
-	/** Runtime name, version, and platform for the `X-TypeSafe-Runtime` header. */
-	var describeRuntime = () => {
-		const platform = g.process?.platform && g.process?.arch ? ` (${g.process.platform}; ${g.process.arch})` : "";
-		if (g.Bun?.version) return `bun/${g.Bun.version}${platform}`;
-		if (g.Deno?.version?.deno) return `deno/${g.Deno.version.deno}${platform}`;
-		if (g.EdgeRuntime !== void 0) return "vercel-edge";
-		if (g.navigator?.userAgent === "Cloudflare-Workers") return "cloudflare-workers";
-		if (g.process?.versions?.node) return `node/${g.process.versions.node}${platform}`;
-		if (isBrowser()) return "browser";
-		return "unknown";
-	};
-	var VERSION = "0.6.0";
-	var missingApiKey = () => {
-		throw new TypeSafeError(`No API key was provided. Pass \`apiKey\` to the TypeSafeClient constructor or set the ${ENV.apiKey} environment variable.`);
-	};
-	var missingFetch = () => {
-		throw new TypeSafeError("No global `fetch` is available in this runtime. Pass a `fetch` implementation to the TypeSafeClient constructor.");
-	};
-	var refuseBrowser = () => {
-		throw new TypeSafeError("TypeSafeClient is running in a browser, which would expose your API key to anyone using the page. Call the API from a server instead, or pass `dangerouslyAllowBrowser: true` if you understand the risk.");
-	};
-	/** Call global `fetch` with its required receiver in browsers. */
-	var defaultFetch = (input, init) => globalThis.fetch(input, init);
-	var assertNonNegativeInteger = (name, value) => {
-		if (!Number.isInteger(value) || value < 0) throw new TypeSafeError(`\`${name}\` must be a non-negative integer, got ${String(value)}.`);
-		return value;
-	};
-	var assertPositiveMs = (name, value) => {
-		if (!Number.isFinite(value) || value <= 0) throw new TypeSafeError(`\`${name}\` must be a positive number of milliseconds, got ${String(value)}.`);
-		return value;
-	};
-	var assertNonNegativeMs = (name, value) => {
-		if (!Number.isFinite(value) || value < 0) throw new TypeSafeError(`\`${name}\` must be a non-negative number of milliseconds, got ${String(value)}.`);
-		return value;
-	};
-	var assertFraction = (name, value) => {
-		if (!Number.isFinite(value) || value < 0 || value > 1) throw new TypeSafeError(`\`${name}\` must be between 0 and 1, got ${String(value)}.`);
-		return value;
-	};
-	var assertStatusSet = (name, statuses) => {
-		for (const status of statuses) if (!Number.isInteger(status) || status < 100 || status > 999) throw new TypeSafeError(`\`${name}\` must contain HTTP status codes, got ${String(status)}.`);
-		return statuses;
-	};
-	/** Merge and validate retry overrides, copying the status set to isolate later mutations. */
-	var resolveRetryPolicy = (base, overrides) => {
-		const o = overrides ?? {};
-		return {
-			maxRetries: o.maxRetries === void 0 ? base.maxRetries : assertNonNegativeInteger("retry.maxRetries", o.maxRetries),
-			backoffInitialMs: o.backoffInitialMs === void 0 ? base.backoffInitialMs : assertNonNegativeMs("retry.backoffInitialMs", o.backoffInitialMs),
-			backoffMaxMs: o.backoffMaxMs === void 0 ? base.backoffMaxMs : assertNonNegativeMs("retry.backoffMaxMs", o.backoffMaxMs),
-			backoffJitter: o.backoffJitter === void 0 ? base.backoffJitter : assertFraction("retry.backoffJitter", o.backoffJitter),
-			httpStatuses: new Set(o.httpStatuses === void 0 ? base.httpStatuses : assertStatusSet("retry.httpStatuses", o.httpStatuses)),
-			respectRetryAfter: o.respectRetryAfter ?? base.respectRetryAfter,
-			maxRetryAfterMs: o.maxRetryAfterMs === void 0 ? base.maxRetryAfterMs : assertNonNegativeMs("retry.maxRetryAfterMs", o.maxRetryAfterMs),
-			apiConnectionError: o.apiConnectionError ?? base.apiConnectionError,
-			apiTimeoutError: o.apiTimeoutError ?? base.apiTimeoutError
-		};
-	};
-	/** Whether the policy retries a connection error or timeout. */
-	var isRetryableError = (err, policy) => {
-		if (err instanceof APITimeoutError) return policy.apiTimeoutError;
-		if (err instanceof APIConnectionError) return policy.apiConnectionError;
-		return false;
-	};
-	/** Resolve and validate the log level from configuration or the environment. */
-	var resolveLogLevel = (fromCode) => {
-		if (fromCode !== void 0) return parseLogLevel(fromCode, "the `logLevel` option");
-		const fromEnv = readEnv(ENV.logLevel);
-		if (fromEnv !== void 0) return parseLogLevel(fromEnv, ENV.logLevel);
-		return DEFAULT_LOG_LEVEL;
-	};
-	var stripTrailingSlashes = (url) => url.replace(/\/+$/, "");
-	/** Last value wins regardless of casing; undefined removes a protected header. */
-	var mergeHeaders = (...sources) => {
-		const entries = /* @__PURE__ */ new Map();
-		for (const source of sources) for (const [name, value] of Object.entries(source)) if (value === void 0) entries.delete(name.toLowerCase());
-		else entries.set(name.toLowerCase(), [name, value]);
-		return Object.fromEntries(entries.values());
-	};
-	/** Drain a clone so the original response retains its metadata and a readable, buffered body. */
-	var bufferResponse = async (response, signal) => {
-		const reader = response.clone().body?.getReader();
-		if (!reader) return;
-		const cancel = () => {
-			reader.cancel(signal.reason).catch(() => {});
-			response.body?.cancel(signal.reason).catch(() => {});
-		};
-		signal.addEventListener("abort", cancel, { once: true });
-		try {
-			if (signal.aborted) cancel();
-			signal.throwIfAborted();
-			while (!(await reader.read()).done) signal.throwIfAborted();
-			signal.throwIfAborted();
-		} finally {
-			signal.removeEventListener("abort", cancel);
-			reader.releaseLock();
-		}
-	};
-	/** Runtime description cached for the process lifetime. */
-	var RUNTIME = describeRuntime();
-	/** Client for the TypeSafe AI API. */
-	var TypeSafeClient = class {
-		/** API key excluded from serialization and public properties. */
-		#apiKey;
-		/** API root with trailing slashes removed. */
-		baseURL;
-		/** Model used when a request omits `model`. */
-		defaultModel;
-		/** Configured log verbosity. */
-		logLevel;
-		/** The configured logger, filtered to `logLevel`. */
-		logger;
-		/** Retry settings with constructor overrides applied. */
-		retry;
-		/** Timeout per attempt in milliseconds. */
-		timeout;
-		/** Additional headers sent with each request. */
-		defaultHeaders;
-		/** HTTP fetch implementation. */
-		fetch;
-		/** The models available to the account. */
-		models;
-		#requestCount = 0;
-		/**
-		* Create a client for the TypeSafe AI API.
-		*
-		* Explicit options take precedence over environment variables, then SDK defaults.
-		* Empty or whitespace-only environment values are ignored.
-		*
-		* @throws {TypeSafeError} The API key is missing, configuration is invalid, or the runtime is unsupported.
-		*/
-		constructor(config = {}) {
-			if (isBrowser() && !config.dangerouslyAllowBrowser) refuseBrowser();
-			this.#apiKey = fromCodeOrEnv(config.apiKey, ENV.apiKey) ?? missingApiKey();
-			this.baseURL = stripTrailingSlashes(fromCodeOrEnv(config.baseURL, ENV.baseURL) ?? "https://api.typesafe.ai");
-			this.defaultModel = fromCodeOrEnv(config.defaultModel, ENV.defaultModel) ?? "jev-latest";
-			this.logLevel = resolveLogLevel(config.logLevel);
-			this.logger = withLevel(config.logger ?? consoleLogger, this.logLevel);
-			this.retry = resolveRetryPolicy(DEFAULT_RETRY_POLICY, config.retry);
-			this.timeout = assertPositiveMs("timeout", config.timeout ?? 1e4);
-			this.defaultHeaders = { ...config.defaultHeaders };
-			if (config.fetch === void 0 && typeof globalThis.fetch !== "function") missingFetch();
-			this.fetch = config.fetch ?? defaultFetch;
-			const transport = {
-				request: (method, path, options) => this.#request(method, path, options),
-				defaultModel: this.defaultModel
-			};
-			this.models = new Models(transport);
-		}
-		/**
-		* Answer named questions about text or structured state.
-		*
-		* @param request - State, questions, and an optional model override.
-		* @param options - Per-call timeout, retry, headers, and cancellation settings.
-		* @returns Answers typed by question name and criteria, with model and token usage.
-		* @throws {TypeSafeError} Questions are empty, or score criteria are not a list of at least two entries.
-		* @throws {APIError} The server returns a non-2xx response after retries.
-		* @throws {APIConnectionError} The request cannot connect or times out after retries.
-		* @throws {APIUserAbortError} The caller aborts the request.
-		*
-		* @example
-		* ```ts
-		* const { answers } = await client.systemOne({
-		*   state: "I was charged twice. Please help.",
-		*   questions: { billing: noul("Is this about billing?") },
-		* });
-		* console.log(answers.billing.noul);
-		* ```
-		*/
-		systemOne(request, options = {}) {
-			validateQuestions(request.questions);
-			const body = {
-				...request,
-				model: request.model ?? this.defaultModel
-			};
-			return this.#request("POST", "/v1/systemone", {
-				...options,
-				body
-			});
-		}
-		/** Send a request and parse its response body. */
-		#request(method, path, options = {}) {
-			const resolved = {
-				method,
-				path,
-				body: options.body,
-				headers: mergeHeaders(this.defaultHeaders, options.headers ?? {}),
-				signal: options.signal,
-				timeout: options.timeout === void 0 ? this.timeout : assertPositiveMs("timeout", options.timeout),
-				retry: resolveRetryPolicy(this.retry, options.retry)
-			};
-			const tag = `#${++this.#requestCount} ${method} ${path}`;
-			return new APIPromise(this.fetchWithRetries(tag, resolved), async (res) => {
-				const parsed = await parseBody(res);
-				this.logger.debug(`${tag} <- body`, parsed);
-				return parsed;
-			});
-		}
-		/** Retry eligible failures, logging attempt summaries at `info` and headers and bodies at `debug`. */
-		async fetchWithRetries(tag, req) {
-			const url = `${this.baseURL}${req.path}`;
-			const headers = mergeHeaders(req.headers, {
-				Authorization: `Bearer ${this.#apiKey}`,
-				Accept: "application/json",
-				"User-Agent": `typesafe-sdk/${VERSION}`,
-				"X-TypeSafe-SDK": `typesafe-sdk/${VERSION}`,
-				"X-TypeSafe-Runtime": RUNTIME,
-				"Content-Type": req.body === void 0 ? void 0 : "application/json",
-				"X-TypeSafe-Retry-Count": void 0
-			});
-			const body = req.body === void 0 ? void 0 : JSON.stringify(req.body);
-			for (let attempt = 0;; attempt++) {
-				const retriesLeft = req.retry.maxRetries - attempt;
-				const attemptHeaders = attempt === 0 ? headers : {
-					...headers,
-					"X-TypeSafe-Retry-Count": String(attempt)
-				};
-				this.logger.debug(`${tag} -> ${url}`, {
-					headers: redactHeaders(attemptHeaders),
-					body: req.body
-				});
-				const started = Date.now();
-				let res;
-				try {
-					res = await this.attempt(tag, url, {
-						method: req.method,
-						headers: attemptHeaders,
-						body
-					}, req);
-				} catch (err) {
-					if (err instanceof APIUserAbortError || retriesLeft <= 0) throw err;
-					if (!isRetryableError(err, req.retry)) throw err;
-					await this.backOff(tag, attempt, retriesLeft, err.message, void 0, req);
-					continue;
-				}
-				const requestId = requestIdFrom(res.headers);
-				this.logger.info(`${tag} <- ${res.status} in ${Date.now() - started}ms${requestId ? ` (request ${requestId})` : ""}`);
-				if (res.ok) return res;
-				const errorBody = await parseBody(res);
-				this.logger.debug(`${tag} <- error body`, errorBody);
-				const error = APIError.fromResponse(res.status, errorBody, res.headers);
-				if (retriesLeft <= 0 || !isRetryableStatus(res.status, req.retry)) throw error;
-				await this.backOff(tag, attempt, retriesLeft, `${res.status}`, res.headers, req);
-			}
-		}
-		/**
-		* One HTTP round trip, including body delivery, with a timeout. The caller's signal and our
-		* timer both abort the same controller; we check which fired to choose the error class.
-		*/
-		async attempt(tag, url, init, { signal, timeout }) {
-			const controller = new AbortController();
-			const abortFromCaller = () => controller.abort(signal?.reason);
-			if (signal?.aborted) abortFromCaller();
-			signal?.addEventListener("abort", abortFromCaller, { once: true });
-			let timedOut = false;
-			const timer = setTimeout(() => {
-				timedOut = true;
-				controller.abort();
-			}, timeout);
-			const started = Date.now();
-			const elapsed = () => `${Date.now() - started}ms`;
-			try {
-				const response = await this.fetch(url, {
-					...init,
-					signal: controller.signal
-				});
-				await bufferResponse(response, controller.signal);
-				return response;
-			} catch (err) {
-				if (signal?.aborted) {
-					this.logger.info(`${tag} aborted by caller after ${elapsed()}`);
-					throw new APIUserAbortError(void 0, { cause: err });
-				}
-				if (timedOut) {
-					this.logger.info(`${tag} timed out after ${elapsed()}`);
-					throw new APITimeoutError(timeout, { cause: err });
-				}
-				this.logger.info(`${tag} connection error after ${elapsed()}`, err);
-				throw new APIConnectionError(err instanceof Error ? `Connection error: ${err.message}` : void 0, { cause: err });
-			} finally {
-				clearTimeout(timer);
-				signal?.removeEventListener("abort", abortFromCaller);
-			}
-		}
-		/** Wait before retrying; caller cancellation throws `APIUserAbortError`. */
-		async backOff(tag, attempt, retriesLeft, reason, headers, { retry, signal }) {
-			const delay = retryDelayMs(attempt, headers, retry);
-			const nth = attempt + 1;
-			const total = attempt + retriesLeft;
-			this.logger.info(`${tag} retrying in ${delay}ms (retry ${nth}/${total}) after ${reason}`);
-			try {
-				await sleep(delay, signal);
-			} catch (err) {
-				this.logger.info(`${tag} aborted by caller while waiting to retry`);
-				throw new APIUserAbortError(void 0, { cause: err });
-			}
-		}
-	};
-	var parseBody = async (res) => {
-		const text = await res.text();
-		if (text.length === 0) return void 0;
-		if ((res.headers.get("content-type") ?? "").includes("application/json")) try {
-			return JSON.parse(text);
-		} catch {
-			return text;
-		}
-		try {
-			return JSON.parse(text);
-		} catch {
-			return text;
-		}
-	};
-	// src/engine/jevClassifier.ts
-	/**
-	* Executes Jev System One classification directly using TypeSafeClient or edge proxy.
-	* Used by the Background Service Worker and Node.js test environment.
-	*/
-	async function classifyAnnouncementDirectly(text, apiKey, timeoutMs = 6e3) {
-		const fallbackResult = {
-			isDeadline: true,
-			deadlineProbability: .5,
-			category: "other",
-			categoryConfidence: .5,
-			priority: "medium",
-			urgencyScore: 2
-		};
-		if (!apiKey || !apiKey.trim() || !text || !text.trim()) return fallbackResult;
-		if (canUseSameOriginProxy()) try {
-			const proxyRes = await fetch("/api/ai/classify", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					text,
-					apiKey
-				})
-			});
-			if (proxyRes.ok) {
-				const proxyData = await proxyRes.json();
-				if (proxyData && proxyData.ok && proxyData.data) {
-					const resp = proxyData.data;
-					const isDead = resp.is_deadline ?? resp.isDeadline ?? false;
-					const cat = resp.category || "other";
-					const urg = typeof resp.urgency === "number" ? resp.urgency : 2.5;
-					let prio = "medium";
-					if (urg >= 4) prio = "high";
-					else if (urg < 2) prio = "low";
-					return {
-						isDeadline: isDead,
-						deadlineProbability: isDead ? .95 : .05,
-						category: cat,
-						categoryConfidence: .9,
-						priority: prio,
-						urgencyScore: urg,
-						hasRoom: Boolean(resp.has_room),
-						hasTime: Boolean(resp.has_time)
-					};
-				}
-			}
-		} catch (e) {}
-		try {
-			const client = new TypeSafeClient({
-				apiKey: apiKey.trim(),
-				dangerouslyAllowBrowser: true,
-				timeout: timeoutMs
-			});
-			const stateSnippet = text.length > 1200 ? text.slice(0, 1200) : text;
-			const answers = (await client.systemOne({
-				state: stateSnippet,
-				questions: {
-					is_deadline: noul("Does this text announce or discuss a specific academic deadline, due date, quiz, exam, test, homework, lab, or academic submission?"),
-					category: choice("What type of academic task or event is described?", {
-						quiz: "A quiz, pop quiz, short assessment, or test",
-						exam: "A midterm exam, final exam, or major examination",
-						assignment: "A homework assignment, problem set, essay, paper, or exercise",
-						lab: "A laboratory session, lab report, lab experiment, or lab manual work",
-						project: "A semester project, group project, milestone, presentation, or term project",
-						not_a_task: "General announcement, lecture slides notice, office hours, syllabus info, or greetings with no upcoming assessment"
-					}),
-					urgency: score("How urgent or high-priority is this academic event?", [
-						"Low priority or non-mandatory notice",
-						"Standard homework or recurring reading",
-						"Medium priority assignment or lab report",
-						"High priority quiz or milestone",
-						"Critical high-stakes midterm or final exam"
-					]),
-					has_room: noul("Does this text specify a particular room number, hall, classroom, auditorium, or lab location to attend in (e.g. room A8-103, hall TH005, lab 105, Central Lab)?"),
-					has_time: noul("Does this text specify an explicit clock time or time range for the assessment (e.g. at 12:30 pm, from 11:00 to 12:15, الساعة 12:30)?")
-				}
-			})).answers;
-			const isDeadlineProb = answers.is_deadline?.noul ?? .5;
-			const chosenCategory = answers.category?.choice ?? "not_a_task";
-			const categoryConf = answers.category?.confidence ?? .5;
-			const rawUrgency = answers.urgency?.score ?? 2;
-			const hasRoomProb = answers.has_room?.noul ?? .5;
-			const hasTimeProb = answers.has_time?.noul ?? .5;
-			const hasRoom = hasRoomProb >= .5;
-			const hasTime = hasTimeProb >= .5;
-			let priority = "medium";
-			if (rawUrgency >= 2.8) priority = "high";
-			else if (rawUrgency < 1.3) priority = "low";
-			const isNotTask = chosenCategory === "not_a_task";
-			const isDeadline = !isNotTask && isDeadlineProb >= .35;
-			let mappedType = "other";
-			if (isNotTask) mappedType = "not_a_task";
-			else if (chosenCategory === "quiz" || chosenCategory === "exam" || chosenCategory === "assignment" || chosenCategory === "lab" || chosenCategory === "project") mappedType = chosenCategory;
-			return {
-				isDeadline,
-				deadlineProbability: isDeadlineProb,
-				category: mappedType,
-				categoryConfidence: categoryConf,
-				priority,
-				urgencyScore: rawUrgency,
-				hasRoom,
-				hasRoomProbability: hasRoomProb,
-				hasTime,
-				hasTimeProbability: hasTimeProb
-			};
-		} catch (error) {
-			console.info("[Jev Classifier] Triage failed or timed out, falling back:", String(error));
-			return fallbackResult;
-		}
-	}
-	/**
-	* Fast System One classifier using Jev (TypeSafe AI).
-	* Automatically detects Chrome Extension content script context and routes requests
-	* via background service worker messaging to circumvent Blackboard page CSP restrictions.
-	*/
-	async function classifyAnnouncementWithJev(text, apiKey, timeoutMs = 6e3) {
-		const fallbackResult = {
-			isDeadline: true,
-			deadlineProbability: .5,
-			category: "other",
-			categoryConfidence: .5,
-			priority: "medium",
-			urgencyScore: 2
-		};
-		if (!apiKey || !apiKey.trim() || !text || !text.trim()) return fallbackResult;
-		if (typeof window !== "undefined" && window.location?.protocol !== "chrome-extension:" && (window.location?.protocol === "http:" || window.location?.protocol === "https:") && isExtensionContextValid()) try {
-			const bgResp = await new Promise((resolve, reject) => {
-				try {
-					if (!isExtensionContextValid()) {
-						reject(/* @__PURE__ */ new Error("Extension context invalidated"));
-						return;
-					}
-					chrome.runtime.sendMessage({
-						type: "PROXY_JEV_CLASSIFY",
-						text,
-						apiKey: apiKey.trim(),
-						timeoutMs
-					}, (response) => {
-						try {
-							if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
-							else resolve(response);
-						} catch (cbErr) {
-							reject(cbErr);
-						}
-					});
-				} catch (callErr) {
-					reject(callErr);
-				}
-			});
-			if (bgResp && bgResp.ok && (bgResp.result || bgResp.data)) return bgResp.result || bgResp.data;
-		} catch (err) {
-			if (err?.message?.includes("Extension context invalidated")) console.info("[Jev Classifier] Extension context invalidated; falling back to direct triage.");
-			else console.info("[Jev Classifier] Service worker proxy failed, falling back to direct:", String(err));
-		}
-		return classifyAnnouncementDirectly(text, apiKey, timeoutMs);
-	}
 	// src/engine/hybridExtractor.ts
 	var ENGLISH_ACADEMIC = /\b(quiz(?:zes)?|exams?|midterms?|finals?|tests?|assignments?|homework|hw|projects?|labs?|presentations?|reports?|essays?|submit|submission|due|deadline|postponed|rescheduled)\b/i;
 	var ARABIC_ACADEMIC = /(واجب|كويز|امتحان|اختبار|تسليم|تأجيل|عروض|عرض|مشروع|تقرير|بحث|مناقشة|موعد)/;
@@ -3828,23 +2991,36 @@ ${cleanBody}`;
 	function hasAcademicKeywords(text) {
 		return ENGLISH_ACADEMIC.test(text) || ARABIC_ACADEMIC.test(text);
 	}
+	var TYPE_WORDS = [
+		["exam", /\b(midterms?|finals?|exams?)\b|امتحان|اختبار (?:نهائي|فصلي)/i],
+		["quiz", /\b(quiz(?:zes)?)\b|كويز|اختبار قصير/i],
+		["lab", /\b(labs?|experiments?)\b|مختبر|تجربة/i],
+		["project", /\b(projects?|presentations?)\b|مشروع|عروض|عرض/i],
+		["assignment", /\b(assignments?|homework|hw\d*|reports?|essays?|submit|submission)\b|واجب|تسليم|تقرير|بحث/i]
+	];
+	/** The assessment type the wording names first in this order, or null. */
+	function guessAssessmentType(text) {
+		for (const [type, re] of TYPE_WORDS) if (re.test(text)) return type;
+		return null;
+	}
+	/** What the text plainly states, passed to the AI so it does not guess a type, time or room. */
+	function wordingHint(text) {
+		return {
+			category: guessAssessmentType(text) || void 0,
+			hasTime: /\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b|الساعة\s*\d/i.test(text),
+			hasRoom: /\b(?:room|hall|lab)\s*[A-Z]?\d|\b[A-Z]\d{1,2}\s*[-:]\s*\d{2,3}\b|قاعة|مختبر\s*\d/i.test(text)
+		};
+	}
 	/**
 	* Same pipeline as extractDeadlinesHybrid, but also reports which stage produced the tasks.
 	*/
 	async function extractDeadlinesHybridDetailed(announcement, settings) {
 		const localTasks = extractDeadlinesLocally(announcement);
-		const localTier = "Tier 1: Local Regex";
+		const localTier = "Built-in parser";
 		if (localTasks.length > 0) {
-			if (settings.useJevClassification && settings.jevApiKey && localTasks.some((t) => t.type === "other")) try {
-				const jevRes = await classifyAnnouncementWithJev(`${announcement.title}\n${announcement.contentText}`, settings.jevApiKey);
-				if (jevRes.isDeadline && jevRes.category !== "not_a_task" && jevRes.category !== "other") {
-					for (const t of localTasks) if (t.type === "other") {
-						t.type = jevRes.category;
-						if (jevRes.priority) t.priority = jevRes.priority;
-					}
-				}
-			} catch (err) {
-				console.info("[HybridExtractor] Jev category refinement failed:", String(err));
+			const guessed = guessAssessmentType(`${announcement.title} ${announcement.contentText}`);
+			if (guessed) {
+				for (const t of localTasks) if (t.type === "other") t.type = guessed;
 			}
 			return {
 				tasks: localTasks,
@@ -3856,40 +3032,20 @@ ${cleanBody}`;
 			tasks: localTasks,
 			tier: localTier
 		};
-		if (!hasAcademicKeywords(`${announcement.title} ${announcement.contentText}`)) return {
+		const fullText = `${announcement.title} ${announcement.contentText}`;
+		if (!hasAcademicKeywords(fullText)) return {
 			tasks: localTasks,
 			tier: "No academic keywords detected"
 		};
-		let jevCategoryHint;
-		if (settings.useJevClassification && settings.jevApiKey) try {
-			const jevResult = await classifyAnnouncementWithJev(`${announcement.title}\n${announcement.contentText}`, settings.jevApiKey);
-			if (!jevResult.isDeadline || jevResult.category === "not_a_task") {
-				console.log(`[Blackboarder] Jev filtered out non-deadline announcement: "${announcement.title}" (${jevResult.category}, prob=${jevResult.deadlineProbability}). Skipping Generative AI.`);
-				return {
-					tasks: [],
-					tier: "Tier 2: Jev Fast Gatekeeper",
-					rejected: true,
-					reason: `Filtered out as non-deadline (${jevResult.category}, prob=${jevResult.deadlineProbability}) without calling Generative AI!`
-				};
-			}
-			console.log(`[Blackboarder] Jev confirmed deadline: "${announcement.title}" (${jevResult.category}, prob=${jevResult.deadlineProbability}, urgency=${jevResult.urgencyScore}). Invoking Generative AI.`);
-			jevCategoryHint = {
-				category: jevResult.category,
-				priority: jevResult.priority,
-				hasRoom: jevResult.hasRoom,
-				hasTime: jevResult.hasTime
-			};
-		} catch (jevErr) {
-			console.info("[Blackboarder] Jev classifier error, falling back to Generative AI:", String(jevErr));
-		}
 		console.log(`[Blackboarder] Triggering Generative AI parser for announcement: "${announcement.title}"`);
-		const aiTasks = await extractDeadlinesWithAi(announcement, aiEndpoint.apiKey, aiEndpoint.model, jevCategoryHint, {
+		const aiTasks = await extractDeadlinesWithAi(announcement, aiEndpoint.apiKey, aiEndpoint.model, wordingHint(fullText), {
 			provider: aiEndpoint.provider,
-			chatUrl: aiEndpoint.chatUrl
+			chatUrl: aiEndpoint.chatUrl,
+			syncKey: aiEndpoint.syncKey
 		});
 		if (aiTasks.length > 0) return {
 			tasks: aiTasks,
-			tier: jevCategoryHint ? "Tier 3: Generative AI (with Jev Gatekeeper Hint)" : "Tier 3: Generative AI"
+			tier: "AI model"
 		};
 		return {
 			tasks: localTasks,
@@ -3898,11 +3054,12 @@ ${cleanBody}`;
 	}
 	// src/mobile/core.ts
 	/**
-	* Reads deadlines from text pasted into the web app with the built-in parser only. The web app
-	* shows what the extension scanned and never calls an AI service.
+	* Reads deadlines from text pasted into the web app with the extension's own pipeline. The AI step
+	* goes through the web app's server, which holds the extension's key locked; without a key there,
+	* the built-in parser's answer stands.
 	* Without a course hint, the course is detected from the text the same way stored tasks are resolved.
 	*/
-	async function extractFromText(text, courseHint) {
+	async function extractFromText(text, courseHint, aiServer) {
 		const body = (text || "").trim();
 		if (!body) return {
 			tasks: [],
@@ -3931,11 +3088,8 @@ ${cleanBody}`;
 			sourceUrl: "",
 			scannedAt: now
 		}, {
-			useAiExtraction: false,
-			openRouterApiKey: "",
-			openRouterModel: "",
-			useJevClassification: false,
-			jevApiKey: ""
+			useAiExtraction: Boolean(aiServer),
+			aiServer
 		});
 	}
 	var BBCore = {

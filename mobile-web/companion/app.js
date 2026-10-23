@@ -213,13 +213,18 @@ function resolveTaskRoom(task) {
   }).room;
 }
 
-// The web app only shows what the extension scanned, so it keeps no AI keys. Older versions
-// stored some here; they are removed so they never end up in a backup file.
+// The web app keeps no AI keys. Older versions stored some here; they are removed so they never
+// end up in a backup file.
 try { localStorage.removeItem('bbs_ai_settings'); } catch (e) {}
 
-// Pasted text is read with the built-in parser only
+// Pasted text goes through the extension's own pipeline. The AI step runs on this site's server,
+// which holds the extension's key encrypted; without a key there, the built-in parser answers.
 async function extractAnnouncementHybrid(text, courseHint = '') {
-  return BB.extractFromText(text, courseHint);
+  const syncKey = getSyncKey();
+  const aiServer = syncKey && /^https?:$/.test(location.protocol)
+    ? { url: `${location.origin}/api/ai/extract`, syncKey }
+    : undefined;
+  return BB.extractFromText(text, courseHint, aiServer);
 }
 
 // Backup & Data Export Utilities
@@ -957,7 +962,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"69b6cde09fdb","version":"1.1.0","shortCommit":"40d5c1a","timestamp":"2026-10-23T09:48:35.449Z"};
+const APP_BUILD = {"build":"7657182103ab","version":"1.1.0","shortCommit":"572187a","timestamp":"2026-10-23T10:13:19.940Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -4225,7 +4230,7 @@ function initModals() {
                     <span>${getSvgIcon('calendar', 'mr-1')} ${dateStr} at ${timeStr}</span>
                     ${task.room ? `<span class="badge-room-tag">${getSvgIcon('pin', 'mr-1')} ${escapeHtml(task.room)}</span>` : ''}
                     ${task.weightDisplay ? `<span class="badge-weight-tag">${getSvgIcon('scale', 'mr-1')} ${escapeHtml(task.weightDisplay)}</span>` : ''}
-                    <span class="badge-jev-tag">${escapeHtml((task.type || 'assignment').toUpperCase())}</span>
+                    <span class="badge-type-tag">${escapeHtml((task.type || 'assignment').toUpperCase())}</span>
                   </div>
                 </div>
                 <button type="button" class="btn-primary-action btn-add-extracted-item" data-idx="${idx}" style="font-size: 11px; padding: 6px 12px; height: 34px; white-space: nowrap;">

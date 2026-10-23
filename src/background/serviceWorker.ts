@@ -2,7 +2,6 @@ import { DeadlineTask, UserSettings, DEFAULT_SETTINGS } from '../types';
 import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
-import { classifyAnnouncementDirectly } from '../engine/jevClassifier';
 import { OPENROUTER_CHAT_URL, aiRequestHeaders, isAllowedAiChatUrl } from '../engine/aiProviders';
 import { getUserCourses, getCoursesUpdatedAt, saveUserCourses } from '../utils/storage';
 import { initAutoUpdate } from './autoUpdate';
@@ -279,14 +278,6 @@ chrome.alarms.onAlarm.addListener(alarm => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  // 1. Content Script Proxy: Jev Classification (bypasses Blackboard page CSP)
-  if (message.type === 'PROXY_JEV_CLASSIFY' || message.type === 'CLASSIFY_JEV') {
-    classifyAnnouncementDirectly(message.text, message.apiKey, message.timeoutMs)
-      .then(result => sendResponse({ ok: true, result, data: result }))
-      .catch(err => sendResponse({ ok: false, error: String(err) }));
-    return true; // Keep message channel open for async response
-  }
-
   // 2. Content Script Proxy: generative AI chat (bypasses Blackboard page CSP).
   // OpenRouter by default; IFM or a custom OpenAI-compatible URL when the student picked one.
   if (message.type === 'PROXY_OPENROUTER_CHAT') {
