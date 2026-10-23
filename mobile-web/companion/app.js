@@ -1008,7 +1008,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"48b11da208d4","version":"1.1.0","shortCommit":"6f6ca3e","timestamp":"2026-10-23T13:42:50.420Z"};
+const APP_BUILD = {"build":"9284ec06840e","version":"1.1.0","shortCommit":"fb7c7e7","timestamp":"2026-10-23T16:24:59.766Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1963,34 +1963,6 @@ async function fetchTasksFromServer(isManual = false) {
         updateAllViews();
       }
       updateSyncBanner();
-
-      // Check for newly announced upcoming deadlines
-      const knownIdsRaw = localStorage.getItem('bbs_known_task_ids');
-      if (knownIdsRaw) {
-        try {
-          const knownIds = new Set(JSON.parse(knownIdsRaw));
-          const isPushEnabled = localStorage.getItem('bbs_push_enabled') === 'true' && Notification.permission === 'granted';
-          if (isPushEnabled) {
-            for (const t of state.tasks) {
-              if (!knownIds.has(t.id) && t.status !== 'completed') {
-                const dueMs = new Date(t.dueDate).getTime();
-                if (dueMs > Date.now()) {
-                  sendMobileNotification(`📢 New Deadline Added: ${t.title}`, {
-                    body: `New ${t.type || 'task'} scheduled for ${t.courseCode || t.courseName}.`,
-                    tag: `bbs-new-${t.id}`,
-                    renotify: true,
-                    data: { url: './index.html', taskId: t.id }
-                  });
-                }
-              }
-            }
-          }
-        } catch (e) {}
-      }
-      try {
-        const currentIds = (state.tasks || []).map(t => t.id);
-        localStorage.setItem('bbs_known_task_ids', JSON.stringify(currentIds));
-      } catch (e) {}
 
       syncTasksToServiceWorker();
       checkUpcomingDeadlines(false);

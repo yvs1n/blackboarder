@@ -334,3 +334,20 @@ describe('push scheduler worker (self-hosted/push-cron)', () => {
     expect(fs.readFileSync('self-hosted/push-cron/wrangler.toml', 'utf8')).toContain('crons = ["*/5 * * * *"]');
   });
 });
+
+describe('reminders only', () => {
+  it('the phone app no longer announces new deadlines, only reminds before they are due', () => {
+    const app = fs.readFileSync('mobile-web/companion/app.js', 'utf8');
+    expect(app).not.toContain('New Deadline Added');
+    expect(app).not.toContain("localStorage.setItem('bbs_known_task_ids'");
+  });
+
+  it('the tick says why a push failed', async () => {
+    const { env, kv } = kvEnv();
+    await post(env, '/api/push/subscribe?key=BBS-PUSHTEST01', { subscription: subscription() });
+    kv.set('bbs_tasks_BBS-PUSHTEST01', JSON.stringify({ tasks: [{ id: 'q1', title: 'Quiz 1', dueDate: inHours(1), status: 'pending' }] }));
+    vi.stubGlobal('fetch', async () => new Response('BadJwtToken', { status: 403 }));
+    const result = await (await post(env, '/api/push/tick', {}, { 'x-tick-secret': 'made-up-tick-secret-1234' })).json();
+    expect(result.errors).toEqual([{ host: 'fcm.googleapis.com', status: 403, reason: 'BadJwtToken' }]);
+  });
+});

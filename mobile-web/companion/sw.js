@@ -1,5 +1,5 @@
 // Filled in by scripts/build.js; a new build changes this file, so browsers install the new worker
-const BUILD_ID = '48b11da208d4';
+const BUILD_ID = '9284ec06840e';
 const CACHE_NAME = 'blackboarder-web-' + BUILD_ID;
 // Notification schedule lives in its own cache so app updates never wipe it
 const NOTIF_STORE_NAME = 'sidekick-notif-store';
@@ -470,7 +470,16 @@ self.addEventListener('push', event => {
       msg = { body: event.data.text() };
     }
   }
-  event.waitUntil(handlePushMessage(msg));
+  // Whatever goes wrong, a notification must still appear, or the phone stops delivering pushes
+  event.waitUntil(handlePushMessage(msg).catch(err => {
+    console.error('[SW] Push reminder failed:', err);
+    return self.registration.showNotification('Blackboarder reminder', {
+      body: 'A deadline is coming up. Open the app to see it.',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      data: { url: './index.html' }
+    });
+  }));
 });
 
 // Notification click: focus the open app (it is usually at /companion/, not index.html) and open the task

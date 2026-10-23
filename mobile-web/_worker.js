@@ -679,7 +679,11 @@ function pushTaskFields(t) {
 async function runPushTick(env, now = Date.now()) {
   const users = await listPushUsers(env);
   let budget = PUSH_FETCH_BUDGET;
-  const result = { users: users.length, sent: 0, removed: 0, failed: 0, more: false };
+  const result = { users: users.length, sent: 0, removed: 0, failed: 0, more: false, errors: [] };
+  // Why a push failed (push service host, status, its message), so the scheduler's output explains it
+  const noteError = (sub, status, reason) => {
+    if (result.errors.length < 5) result.errors.push({ host: new URL(sub.endpoint).hostname, status, reason: String(reason || '').slice(0, 200) });
+  };
   for (const user of users) {
     if (budget <= 1) { result.more = true; break; }
     const data = user.data || await getStoredTasks(env, user.key);
@@ -707,15 +711,21 @@ async function runPushTick(env, now = Date.now()) {
           res = await sendWebPush(env, sub, { v: 1, key: r.key, label: r.label, task: pushTaskFields(task) });
         } catch (e) {
           result.failed++;
+          noteError(sub, 0, e && e.message);
           continue;
         }
         if (res.status === 404 || res.status === 410) {
+          noteError(sub, res.status, 'subscription gone, removed');
           delete subs[id];
           result.removed++;
           changed = true;
           break;
         }
-        if (!res.ok) { result.failed++; continue; }
+        if (!res.ok) {
+          result.failed++;
+          noteError(sub, res.status, await res.text().catch(() => ''));
+          continue;
+        }
         sent[encodeKey(r.key)] = now;
         sentHere++;
         result.sent++;
@@ -728,6 +738,7 @@ async function runPushTick(env, now = Date.now()) {
       await writePush(env, user.key, { subs });
     }
   }
+  if (!result.errors.length) delete result.errors;
   return result;
 }
 

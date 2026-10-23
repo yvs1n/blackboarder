@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "48b11da208d4",
-  "commit": "6f6ca3ea1c6219ef4c1ed470c8ebe52bd6d7ff2a",
-  "shortCommit": "6f6ca3e",
-  "timestamp": "2026-10-23T13:42:50.420Z",
-  "message": "Background reminders, settings tab scroll, CI fix, auto-updating releases",
+  "build": "9284ec06840e",
+  "commit": "fb7c7e7cc121c201fab5be28212e00e29c846a81",
+  "shortCommit": "fb7c7e7",
+  "timestamp": "2026-10-23T16:24:59.766Z",
+  "message": "Push reminders: on-time scheduler as a Cloudflare Worker cron",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }
