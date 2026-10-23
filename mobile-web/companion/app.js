@@ -213,50 +213,21 @@ function resolveTaskRoom(task) {
   }).room;
 }
 
-// AI & Jev Configuration
-const DEFAULT_AI_SETTINGS = {
-  jevApiKey: '',
-  useJevClassification: false,
-  openRouterApiKey: '',
-  openRouterModel: 'google/gemini-3.8-flash',
-  useAiExtraction: false
-};
+// The web app only shows what the extension scanned, so it keeps no AI keys. Older versions
+// stored some here; they are removed so they never end up in a backup file.
+try { localStorage.removeItem('bbs_ai_settings'); } catch (e) {}
 
-function getAiSettings() {
-  try {
-    const raw = localStorage.getItem('bbs_ai_settings');
-    if (raw) {
-      return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(raw) };
-    }
-  } catch (e) {}
-  return { ...DEFAULT_AI_SETTINGS };
-}
-
-function saveAiSettings(settings) {
-  try {
-    const current = getAiSettings();
-    const updated = { ...current, ...settings };
-    localStorage.setItem('bbs_ai_settings', JSON.stringify(updated));
-    return updated;
-  } catch (e) {
-    return DEFAULT_AI_SETTINGS;
-  }
-}
-
-// Paste-an-announcement extraction runs the extension's pipeline: local parser, then the optional
-// Jev classifier and OpenRouter model configured in Settings.
+// Pasted text is read with the built-in parser only
 async function extractAnnouncementHybrid(text, courseHint = '') {
-  return BB.extractFromText(text, courseHint, getAiSettings());
+  return BB.extractFromText(text, courseHint);
 }
 
 // Backup & Data Export Utilities
 function exportJsonBackup() {
-  const settings = getAiSettings();
   const backupData = {
     version: (typeof APP_BUILD !== 'undefined' && APP_BUILD.version) ? APP_BUILD.version : '1.1.0',
     exportedAt: new Date().toISOString(),
-    tasks: state.tasks,
-    settings
+    tasks: state.tasks
   };
 
   const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -290,10 +261,6 @@ async function handleRestoreJson(file) {
     // syncToCloudAndLocal below saves the merged list
     state.tasks = Array.from(taskMap.values()).sort(compareTasksByTime);
     updateAllViews();
-
-    if (data.settings) {
-      saveAiSettings(data.settings);
-    }
 
     await syncToCloudAndLocal();
     showToast(`Successfully restored ${restored.length} deadlines!`);
@@ -990,7 +957,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"a3fbc86cc01f","version":"1.1.0","shortCommit":"db322da","timestamp":"2026-10-23T09:41:17.375Z"};
+const APP_BUILD = {"build":"69b6cde09fdb","version":"1.1.0","shortCommit":"40d5c1a","timestamp":"2026-10-23T09:48:35.449Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -4039,7 +4006,7 @@ function initModals() {
     if (e.target.id === 'modal-room-picker') closeRoomPicker();
   });
 
-  // AI Extract Modal Open, Close & Backdrop
+  // Paste-an-announcement modal: open, close & backdrop
   const extractModal = document.getElementById('modal-ai-extract');
   function closeExtractModal() {
     if (extractModal) {
@@ -4202,7 +4169,7 @@ function initModals() {
       statusBox.style.display = 'block';
       statusBox.innerHTML = `
         <div class="extract-status-pill loading">
-          <span>${getSvgIcon('bolt', 'mr-1')} Running 3-Tier Hybrid Extraction (Regex + Jev Gatekeeper + Generative AI)...</span>
+          <span>${getSvgIcon('bolt', 'mr-1')} Reading the announcement...</span>
         </div>
       `;
     }
@@ -4238,7 +4205,7 @@ function initModals() {
       if (statusBox) {
         statusBox.innerHTML = `
           <div class="extract-status-pill success">
-            <span>${getSvgIcon('check', 'mr-1')} Found ${result.tasks.length} deadline(s) via ${escapeHtml(result.tier)}!</span>
+            <span>${getSvgIcon('check', 'mr-1')} Found ${result.tasks.length} deadline(s)</span>
           </div>
         `;
       }

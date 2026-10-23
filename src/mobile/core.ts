@@ -42,13 +42,13 @@ import {
 } from '../utils/taskMerge';
 import { createGoogleCalendarUrl, generateIcsContent, formatCountdown, getTaskSortTimestamp, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesHybridDetailed, HybridExtractionResult } from '../engine/hybridExtractor';
-import { AiSettings } from '../engine/aiProviders';
 
 /**
- * Runs the extension's extraction pipeline on text pasted into the web app.
+ * Reads deadlines from text pasted into the web app with the built-in parser only. The web app
+ * shows what the extension scanned and never calls an AI service.
  * Without a course hint, the course is detected from the text the same way stored tasks are resolved.
  */
-async function extractFromText(text: string, courseHint: string, settings: AiSettings): Promise<HybridExtractionResult> {
+async function extractFromText(text: string, courseHint: string): Promise<HybridExtractionResult> {
   const body = (text || '').trim();
   if (!body) return { tasks: [], tier: 'Tier 1: Local Regex' };
 
@@ -73,7 +73,13 @@ async function extractFromText(text: string, courseHint: string, settings: AiSet
     sourceUrl: '',
     scannedAt: now
   };
-  return extractDeadlinesHybridDetailed(announcement, settings);
+  return extractDeadlinesHybridDetailed(announcement, {
+    useAiExtraction: false,
+    openRouterApiKey: '',
+    openRouterModel: '',
+    useJevClassification: false,
+    jevApiKey: ''
+  });
 }
 
 const BBCore = {

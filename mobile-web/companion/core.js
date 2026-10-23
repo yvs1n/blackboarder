@@ -3898,10 +3898,11 @@ ${cleanBody}`;
 	}
 	// src/mobile/core.ts
 	/**
-	* Runs the extension's extraction pipeline on text pasted into the web app.
+	* Reads deadlines from text pasted into the web app with the built-in parser only. The web app
+	* shows what the extension scanned and never calls an AI service.
 	* Without a course hint, the course is detected from the text the same way stored tasks are resolved.
 	*/
-	async function extractFromText(text, courseHint, settings) {
+	async function extractFromText(text, courseHint) {
 		const body = (text || "").trim();
 		if (!body) return {
 			tasks: [],
@@ -3929,7 +3930,13 @@ ${cleanBody}`;
 			postedAt: now,
 			sourceUrl: "",
 			scannedAt: now
-		}, settings);
+		}, {
+			useAiExtraction: false,
+			openRouterApiKey: "",
+			openRouterModel: "",
+			useJevClassification: false,
+			jevApiKey: ""
+		});
 	}
 	var BBCore = {
 		sanitizeCloudTasks,

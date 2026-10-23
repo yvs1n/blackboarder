@@ -93,6 +93,21 @@ describe('AI extraction with IFM', () => {
   });
 });
 
+describe('web app', () => {
+  it('never mentions or stores AI models and keys; pasted text uses the built-in parser', async () => {
+    for (const f of ['mobile-web/companion/index.html', 'mobile-web/companion/app.js']) {
+      const src = fs.readFileSync(f, 'utf8');
+      expect(src).not.toMatch(/openrouter|gemini|generative ai|jev classifier|jev gatekeeper/i);
+      expect(src).not.toContain('saveAiSettings');
+    }
+    const BBCore = (await import('../src/mobile/core')).default as any;
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await BBCore.extractFromText('Remember the quiz we discussed, the week after next on our usual day.', '');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('extension wiring', () => {
   it('the manifest can reach IFM and may ask for a custom host', () => {
     const manifest = JSON.parse(fs.readFileSync('public/manifest.json', 'utf8'));
