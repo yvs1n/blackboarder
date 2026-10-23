@@ -133,6 +133,12 @@ describe('extension side of the locker', () => {
     expect(JSON.stringify(store)).not.toContain(API_KEY);
     await syncAiKeyLock({ ...settings, openRouterModel: 'openai/gpt-4o-mini' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Forced (Save Settings), and once the last send is a day old
+    await syncAiKeyLock({ ...settings, openRouterModel: 'openai/gpt-4o-mini' }, true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    store.bbs_ai_lock.at = new Date(Date.now() - 25 * 3600 * 1000).toISOString();
+    await syncAiKeyLock({ ...settings, openRouterModel: 'openai/gpt-4o-mini' });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(describeAiLock('server-off')).toContain('AI_KEY_SECRET');
   });
 });

@@ -7,6 +7,7 @@ import { DEFAULT_OPENROUTER_MODEL, IFM_MODEL } from '../engine/aiProviders';
  * that server without ever holding the key. Only sent again when something changed.
  */
 export const AI_LOCK_STATE_KEY = 'bbs_ai_lock';
+const RESEND_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export type AiLockStatus = 'locked' | 'cleared' | 'server-off' | 'unsupported' | 'no-sync' | 'error';
 
@@ -84,7 +85,9 @@ export async function syncAiKeyLock(settings: Partial<LockSettings>, force = fal
   // The fingerprint is a one-way hash; the key itself is never kept anywhere new
   const fingerprint = await fingerprintOf(JSON.stringify({ url, ...request }));
   const previous = await readState();
-  if (!force && previous?.fingerprint === fingerprint && previous.status !== 'error') return previous.status;
+  // Sent again once a day too, so a changed AI_KEY_SECRET on the server heals by itself
+  const fresh = previous ? Date.now() - new Date(previous.at).getTime() < RESEND_AFTER_MS : false;
+  if (!force && fresh && previous?.fingerprint === fingerprint && previous.status !== 'error') return previous.status;
 
   let status: AiLockStatus = 'error';
   try {

@@ -13,11 +13,11 @@ export interface BuildInfo {
 
 export const BUILD_INFO: BuildInfo = {
   "version": "1.1.0",
-  "build": "110547349536",
-  "commit": "572187a937ec1a19a0cdd970cf35cdd29a7cb6ef",
-  "shortCommit": "572187a",
-  "timestamp": "2026-10-23T10:13:19.745Z",
-  "message": "Merge CI build commit",
+  "build": "c801c4f5e0b5",
+  "commit": "ad3b687c3f930e98faef6e0da13f046800caff70",
+  "shortCommit": "ad3b687",
+  "timestamp": "2026-10-23T10:27:09.518Z",
+  "message": "Web app uses the extension's AI model through a server key locker; remove Jev",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 };

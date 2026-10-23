@@ -3400,7 +3400,8 @@ function setupEvents() {
     });
 
     await setBlackboardDarkMode(bbDark);
-    void refreshAiKeyLock();
+    // Save always re-sends, e.g. after AI_KEY_SECRET was changed on the server
+    void refreshAiKeyLock(true);
 
     if (syncKey && syncKey !== prevSyncKey) {
       await pullTasksFromFirebaseIfNewer();
