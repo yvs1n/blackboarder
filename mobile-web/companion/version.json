@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "af2581b4bdcc",
-  "commit": "75b6b0040757e8fbdac292e25a8db8721c9352a6",
-  "shortCommit": "75b6b00",
-  "timestamp": "2026-10-23T11:20:20.234Z",
-  "message": "Require an AI pass so the sync key alone cannot use the AI",
+  "build": "77101f96fcc8",
+  "commit": "6ae479ab86f5e6c6247b8e7305b0ffdeee91434f",
+  "shortCommit": "6ae479a",
+  "timestamp": "2026-10-23T11:23:19.299Z",
+  "message": "Phone app: the sync key box accepts the whole pairing link",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }
