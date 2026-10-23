@@ -1008,7 +1008,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"d6a03caa6b4f","version":"1.1.0","shortCommit":"e95a974","timestamp":"2026-10-23T12:21:29.159Z"};
+const APP_BUILD = {"build":"60f31811ebea","version":"1.1.0","shortCommit":"9ccf564","timestamp":"2026-10-23T12:37:40.945Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1278,7 +1278,9 @@ function syncTasksToServiceWorker() {
     enabled: pushEnabled,
     advanceHours: getNotifAdvanceHours(),
     urgentHours: getNotifUrgentHours(),
-    dueAlertEnabled: getNotifDueAlertEnabled()
+    dueAlertEnabled: getNotifDueAlertEnabled(),
+    // Lets a background check fetch the newest deadlines before deciding what to remind about
+    dataUrl: getSyncKey() ? getFirebaseDataUrl() : null
   };
 
   if (navigator.serviceWorker.controller) {
@@ -1290,10 +1292,15 @@ function syncTasksToServiceWorker() {
   }
 }
 
+// Background checks while the app is closed. periodicSync lives on the service worker
+// registration (Chrome and Edge on Android and desktop, for installed apps only).
 async function registerPeriodicSync() {
-  if ('serviceWorker' in navigator && 'periodicSync' in navigator.serviceWorker) {
+  if (!('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  if (reg && 'periodicSync' in reg) {
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const status = await navigator.permissions?.query({ name: 'periodic-background-sync' }).catch(() => null);
+      if (status && status.state === 'denied') return;
       const tags = await reg.periodicSync.getTags();
       if (!tags.includes('check-deadlines')) {
         await reg.periodicSync.register('check-deadlines', {
@@ -1365,6 +1372,14 @@ async function checkUpcomingDeadlines(isInteractive = false) {
   const notifiedRaw = localStorage.getItem('bbs_notified_map') || '{}';
   let notifiedMap = {};
   try { notifiedMap = JSON.parse(notifiedRaw); } catch (e) {}
+  // Reminders the service worker already showed while the app was closed are not repeated
+  try {
+    const saved = await (await caches.open('sidekick-notif-store')).match('/__bbs_scheduled_tasks__');
+    const swMap = saved ? ((await saved.json()).notifiedMap || {}) : {};
+    for (const [k, v] of Object.entries(swMap)) {
+      if (typeof v === 'number' && v > (notifiedMap[k] || 0)) notifiedMap[k] = v;
+    }
+  } catch (e) {}
 
   let changed = false;
   let notificationsTriggered = 0;
@@ -4972,10 +4987,8 @@ function initSettingsGroups() {
   const tabs = Array.from(document.querySelectorAll('.settings-group-tab'));
   if (tabs.length === 0) return;
   tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => {
-      openSettingsGroup(tab.dataset.settingsGroup);
-      document.getElementById('view-settings')?.scrollIntoView({ block: 'start' });
-    });
+    // Switching tabs keeps the page where it is (no scrolling)
+    tab.addEventListener('click', () => openSettingsGroup(tab.dataset.settingsGroup));
     tab.addEventListener('keydown', e => {
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
       e.preventDefault();

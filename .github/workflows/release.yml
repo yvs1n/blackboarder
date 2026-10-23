@@ -1,34 +1,48 @@
+# Keeps the GitHub release (and the website's "Download Extension ZIP" link, which points at
+# releases/latest) up to date. Runs after every successful Build on main: the release for the
+# current version (package.json, e.g. v1.1.0) is moved to the newest commit and its zips are
+# replaced. Bumping the version creates a new release. Pushing a v* tag or running it by hand
+# also works.
 name: Release
 
 on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
   push:
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v1.1.0)'
-        required: true
-        default: 'v1.1.0'
+        description: 'Release tag (leave empty to use the version in package.json)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
+# Only the newest run matters; an older one would upload older zips
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: true
 
 jobs:
   release:
+    # After Build, only when it passed
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      # After Build this is the tip of main, including Build's generated-files commit
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -52,56 +66,72 @@ jobs:
 
       - name: Determine tag name
         id: tag_info
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.tag_info.outputs.tag }}
-          name: Blackboarder ${{ steps.tag_info.outputs.tag }}
-          draft: false
-          prerelease: false
-          body: |
-            ## Blackboarder ${{ steps.tag_info.outputs.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag_name }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="v$(node -p "require('./package.json').version")"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $tag"
 
-            Student companion for Blackboard Learn Ultra at the University of Sharjah (`elearning.sharjah.ac.ae`). Reads announcements and gradebooks, extracts deadlines and marks, provides an offline-first calendar and phone companion syncing via Firebase.
+      # Points the tag at this commit, so the release matches what was built.
+      # Tag pushes made with the workflow token do not start workflows, so this cannot loop.
+      - name: Move tag to this commit
+        if: github.event_name != 'push'
+        env:
+          TAG: ${{ steps.tag_info.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG"
+          git push -f origin "refs/tags/$TAG"
 
-            ### Quick 60-Second Installation Guide
+      - name: Write release notes
+        env:
+          TAG: ${{ steps.tag_info.outputs.tag }}
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          built_at="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          cat > release-notes.md <<EOF
+          ## Blackboarder ${TAG}
 
-            1. Download **`blackboarder-extension.zip`** from the Assets below.
-            2. Extract/unzip the file on your computer (keep the extracted folder in a safe place like Documents or Desktop).
-            3. Open your Chromium browser extensions page:
-               - **Google Chrome**: `chrome://extensions`
-               - **Microsoft Edge**: `edge://extensions`
-               - **Brave**: `brave://extensions`
-               - **Opera**: `opera://extensions`
-            4. Turn on the **Developer mode** toggle (top right).
-            5. Click **Load unpacked** and select the unzipped folder.
-            6. Pin Blackboarder to your toolbar, open [University of Sharjah Blackboard](https://elearning.sharjah.ac.ae/ultra/stream), and click the floating **Scan Blackboard** pill!
+          Built from \`${short_sha}\` on ${built_at}. These files are rebuilt after every change to \`main\`, so this download is always the newest version. See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for what changed.
 
-            ### Included Assets
+          Student companion for Blackboard Learn Ultra at the University of Sharjah (\`elearning.sharjah.ac.ae\`). It reads announcements and the gradebook, turns them into deadlines and marks, and shows them in a browser extension and a phone app that works offline.
 
-            - **`blackboarder-extension.zip`**: The ready-to-load browser extension (Chrome, Edge, Brave, Opera, Vivaldi).
-            - **`blackboarder-website.zip`**: The web companion app and landing page ready to host on Cloudflare Pages or Vercel.
-            - **`blackboarder-full-product.zip`**: Full bundle containing extension, web app, and documentation.
-            - **`INSTALL_EXTENSION.md`**: Step-by-step setup documentation.
+          ### Install in 60 seconds
 
-            ### Features & Updates in v1.1.0
+          1. Download **\`blackboarder-extension.zip\`** below.
+          2. Unzip it somewhere you will keep (for example Documents). Moving or deleting the folder removes the extension.
+          3. Open your browser's extensions page: \`chrome://extensions\`, \`edge://extensions\`, \`brave://extensions\` or \`opera://extensions\`.
+          4. Turn on **Developer mode** and click **Load unpacked**, then pick the unzipped folder.
+          5. Pin Blackboarder, open [Blackboard](https://elearning.sharjah.ac.ae/ultra/stream) and click **Scan Blackboard** at the bottom right.
 
-            - **Gradebook Marks & Submission Tracking**: Reads posted marks directly from Blackboard gradebook columns and highlights submitted work.
-            - **Multi-Tenant Sync Isolation**: Fully private sync scoping with unique 10-character `BBS-` Pairing Keys and strict Firebase rules.
-            - **Live Calendar Subscription**: RFC 5545 `.ics` feed subscribable on iPhone, Android, Google Calendar, and Outlook.
-            - **Two-Tone Swiss Grid Design**: Strict monochrome high-contrast theme with 0px sharp geometry.
-            - **SEO & Discoverability**: Full Schema.org JSON-LD structured data and fast edge caching.
-          files: |
-            release/blackboarder-extension.zip
-            release/blackboarder-website.zip
-            release/blackboarder-full-product.zip
-            docs/INSTALL_EXTENSION.md
+          Already installed from a git clone? The extension updates itself; nothing to download.
+
+          ### Files
+
+          - **\`blackboarder-extension.zip\`**: the extension (Chrome, Edge, Brave, Opera, Vivaldi).
+          - **\`blackboarder-website.zip\`**: the landing page and phone app, ready for Cloudflare Pages or Vercel.
+          - **\`blackboarder-full-product.zip\`**: extension, website and documentation together.
+          - **\`INSTALL_EXTENSION.md\`**: step-by-step setup.
+          EOF
+          sed -i 's/^          //' release-notes.md
+
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag_info.outputs.tag }}
+        run: |
+          files="release/blackboarder-extension.zip release/blackboarder-website.zip release/blackboarder-full-product.zip docs/INSTALL_EXTENSION.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $files --clobber
+            gh release edit "$TAG" --title "Blackboarder $TAG" --notes-file release-notes.md --draft=false --prerelease=false --latest
+          else
+            gh release create "$TAG" $files --title "Blackboarder $TAG" --notes-file release-notes.md --latest
+          fi

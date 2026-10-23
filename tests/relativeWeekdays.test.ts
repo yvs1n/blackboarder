@@ -8,9 +8,10 @@ function dayOf(text: string, postedAt = '2026-10-23T09:00:00+04:00'): string {
     postedAt, sourceUrl: '', scannedAt: postedAt
   } as any);
   if (!task) return 'none';
+  // The parser works in the device's local time, like a student's browser, so read the date the
+  // same way. This passes on a UAE laptop and on GitHub's UTC runners alike.
   const d = new Date(task.dueDate);
-  // The date as seen in the UAE
-  return new Date(d.getTime() + 4 * 3600 * 1000).toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 describe('relative weekdays', () => {

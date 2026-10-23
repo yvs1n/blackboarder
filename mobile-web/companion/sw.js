@@ -1,5 +1,5 @@
 // Filled in by scripts/build.js; a new build changes this file, so browsers install the new worker
-const BUILD_ID = 'd6a03caa6b4f';
+const BUILD_ID = '60f31811ebea';
 const CACHE_NAME = 'blackboarder-web-' + BUILD_ID;
 // Notification schedule lives in its own cache so app updates never wipe it
 const NOTIF_STORE_NAME = 'sidekick-notif-store';
@@ -246,13 +246,19 @@ async function saveStoredTasksForNotifications(data) {
   try {
     const cache = await caches.open(NOTIF_STORE_NAME);
     const existing = await getStoredTasksForNotifications();
+    // Keep the latest time each reminder was shown, by the app or by this worker
+    const notifiedMap = { ...(existing.notifiedMap || {}) };
+    for (const [k, v] of Object.entries(data.notifiedMap || {})) {
+      if (typeof v === 'number' && v > (notifiedMap[k] || 0)) notifiedMap[k] = v;
+    }
     const merged = {
       tasks: data.tasks !== undefined ? data.tasks : existing.tasks,
-      notifiedMap: data.notifiedMap !== undefined ? data.notifiedMap : existing.notifiedMap,
+      notifiedMap,
       pushEnabled: data.pushEnabled !== undefined ? data.pushEnabled : existing.pushEnabled,
       advanceHours: data.advanceHours !== undefined ? data.advanceHours : (existing.advanceHours !== undefined ? existing.advanceHours : 24),
       urgentHours: data.urgentHours !== undefined ? data.urgentHours : (existing.urgentHours !== undefined ? existing.urgentHours : 2),
-      dueAlertEnabled: data.dueAlertEnabled !== undefined ? data.dueAlertEnabled : (existing.dueAlertEnabled !== undefined ? existing.dueAlertEnabled : true)
+      dueAlertEnabled: data.dueAlertEnabled !== undefined ? data.dueAlertEnabled : (existing.dueAlertEnabled !== undefined ? existing.dueAlertEnabled : true),
+      dataUrl: data.dataUrl !== undefined ? data.dataUrl : (existing.dataUrl || null)
     };
     await cache.put(
       new Request(NOTIF_CACHE_URL),
@@ -471,10 +477,32 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// Periodic Background Sync (runs in background on Android/Chromium PWAs)
+// While the app is closed there is no page to send new deadlines, so fetch them first.
+// Only the fields reminders need are kept. Offline, the last saved list is used.
+async function refreshTasksForNotifications() {
+  try {
+    const store = await getStoredTasksForNotifications();
+    if (!store.dataUrl || store.pushEnabled === false) return;
+    const res = await fetch(store.dataUrl, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !Array.isArray(data.tasks)) return;
+    const tasks = data.tasks
+      .filter(t => t && t.id && t.dueDate)
+      .map(t => ({
+        id: t.id, title: t.title, dueDate: t.dueDate, status: t.status, type: t.type,
+        courseName: t.courseName, courseCode: t.courseCode, room: t.room, weight: t.weight
+      }));
+    await saveStoredTasksForNotifications({ tasks });
+  } catch (e) {
+    // Offline or the server is unreachable: keep the saved list
+  }
+}
+
+// Periodic Background Sync (Chrome and Edge, installed app only; the browser picks how often)
 self.addEventListener('periodicsync', event => {
   if (event.tag === 'check-deadlines' || event.tag === 'bbs-check-deadlines') {
-    event.waitUntil(checkDeadlinesInServiceWorker());
+    event.waitUntil(refreshTasksForNotifications().then(() => checkDeadlinesInServiceWorker()));
   }
 });
 
@@ -513,7 +541,8 @@ self.addEventListener('message', event => {
         pushEnabled: event.data.enabled !== false,
         advanceHours: event.data.advanceHours,
         urgentHours: event.data.urgentHours,
-        dueAlertEnabled: event.data.dueAlertEnabled
+        dueAlertEnabled: event.data.dueAlertEnabled,
+        dataUrl: event.data.dataUrl
       }).then(() => checkDeadlinesInServiceWorker())
     );
   } else if (event.data.type === 'CHECK_DEADLINES') {

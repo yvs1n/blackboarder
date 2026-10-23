@@ -41,6 +41,8 @@ Run `npm run lint` and `npm test` before every commit. Commit generated files (`
 - **Phone app** (`mobile-web/companion/`): phones use a bottom tab bar, 900px and wider is a two-column dashboard. Settings is split into Sync, Calendar, Alerts and General tabs (last one remembered; an unpaired phone opens on Sync).
 - **Offline**: `companion/sw.js` caches the app; the root `sw.js` sends offline launches at `/` to it (never make it remove itself). Offline, pasting is off, while done, edit, add and delete save on the phone and mark the queue (`bbs_offline_mutation_queue`); any failed push marks it too, and it is retried on reconnect, on open and every 10 seconds until the server accepts it.
 - **Website and SEO**: the landing page at `/` has Schema.org JSON-LD (WebApplication, FAQPage), OpenGraph/Twitter cards, and canonical links. `robots.txt` and `sitemap.xml` are served at the root, and fonts and icons are cached long-term (immutable) by the worker.
+- **Reminders**: the app checks while open; `companion/sw.js` also checks on `periodicsync` (registered on the service worker registration; installed Chrome and Edge only) after fetching the sync data URL the app gave it. Both share the "already reminded" map in the `sidekick-notif-store` cache. iPhones get reminders from the calendar feed's alarms.
+- **Releases**: `.github/workflows/release.yml` runs after every passing Build on main, moves the `v<version>` tag (from `package.json`) to the newest commit and replaces the release zips. Bump the version for a new release.
 - **Updates**: the extension checks GitHub every 15 minutes; a git clone updates with `git pull --ff-only` through a small helper (`updater/`).
 
 ## Rules
