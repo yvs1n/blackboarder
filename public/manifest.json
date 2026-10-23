@@ -60,7 +60,8 @@
     "notifications",
     "sidePanel",
     "tabs",
-    "nativeMessaging"
+    "nativeMessaging",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "https://blackboard.sharjah.ac.ae/*",

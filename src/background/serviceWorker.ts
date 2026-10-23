@@ -2,7 +2,7 @@ import { DeadlineTask, UserSettings, DEFAULT_SETTINGS } from '../types';
 import { pushTasksToSyncServer } from '../utils/syncClient';
 import { pushTasksToFirebase, fetchTasksFromFirebase } from '../utils/firebaseSync';
 import { mergeCloudTasks, mergeTombstones } from '../utils/taskMerge';
-import { OPENROUTER_CHAT_URL, aiRequestHeaders, isAllowedAiChatUrl } from '../engine/aiProviders';
+import { OPENROUTER_CHAT_URL, aiRequestHeaders, isAllowedAiChatUrl, ifmOriginRule, IFM_ORIGIN_RULE_ID } from '../engine/aiProviders';
 import { getUserCourses, getCoursesUpdatedAt, saveUserCourses } from '../utils/storage';
 import { initAutoUpdate } from './autoUpdate';
 
@@ -242,6 +242,12 @@ reinjectDarkModeIntoOpenBlackboardTabs();
 
 // Updates itself from GitHub (see autoUpdate.ts)
 initAutoUpdate();
+
+// IFM blocks requests with a browser Origin header; drop it from our own requests to api.ifm.ai
+chrome.declarativeNetRequest?.updateDynamicRules({
+  removeRuleIds: [IFM_ORIGIN_RULE_ID],
+  addRules: [ifmOriginRule(chrome.runtime.id)]
+}).catch(err => console.error('[AI] Could not set the IFM header rule:', err));
 
 // Listeners
 chrome.runtime.onInstalled.addListener((details) => {

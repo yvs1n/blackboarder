@@ -77,6 +77,28 @@ export function resolveAiEndpoint(settings: Partial<AiSettings>): AiEndpoint | n
     : null;
 }
 
+/**
+ * IFM refuses requests that carry a browser Origin header ("model_origin_not_allowed", shown as
+ * "The model ... is not available"), and a browser always adds one. This rule removes it from the
+ * extension's own requests to api.ifm.ai. Websites' requests are left alone.
+ */
+export const IFM_ORIGIN_RULE_ID = 4101;
+export function ifmOriginRule(extensionId: string): chrome.declarativeNetRequest.Rule {
+  return {
+    id: IFM_ORIGIN_RULE_ID,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+      requestHeaders: [{ header: 'origin', operation: 'remove' as chrome.declarativeNetRequest.HeaderOperation }]
+    },
+    condition: {
+      urlFilter: '||api.ifm.ai/',
+      initiatorDomains: [extensionId],
+      resourceTypes: ['xmlhttprequest' as chrome.declarativeNetRequest.ResourceType, 'other' as chrome.declarativeNetRequest.ResourceType]
+    }
+  };
+}
+
 /** Request headers. OpenRouter's attribution headers are only sent to OpenRouter. */
 export function aiRequestHeaders(provider: AiRoute, apiKey: string): Record<string, string> {
   const headers: Record<string, string> = {
@@ -130,10 +152,15 @@ export async function testAiEndpoint(endpoint: AiEndpoint): Promise<{ ok: boolea
     if (res.ok) return { ok: true, message: `Connected to ${endpoint.model}` };
     const text = await res.text().catch(() => '');
     let detail = '';
+    let code = '';
     try {
       const j = JSON.parse(text);
       detail = j?.error?.message || j?.message || '';
+      code = j?.error?.code || '';
     } catch {}
+    if (code === 'model_origin_not_allowed') {
+      return { ok: false, message: 'IFM refused the browser request. Reload the extension (it removes the header IFM blocks), then test again.' };
+    }
     if (res.status === 401 || res.status === 403) return { ok: false, message: `Key refused (${res.status})${detail ? ': ' + detail : ''}` };
     return { ok: false, message: `Error ${res.status}${detail ? ': ' + detail : ''}` };
   } catch (err) {

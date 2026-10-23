@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **IFM K2 Horizon works from the extension.** IFM refuses any request that a browser sends (it answers "The model ... is not available", 403), so Test connection and scans failed with a valid key. The extension now removes the browser header IFM blocks from its own requests to api.ifm.ai, and Test connection says what to do if it still happens. The phone app was not affected (its server calls IFM).
 - **Reminders while the phone app is closed.** The background check was never registered (it was looked up in the wrong place), so reminders only came while the app was open. On Android and desktop Chrome or Edge, an installed app now checks for due deadlines in the background, fetching the newest list from sync first. How often is up to the browser, often a few times a day. iPhones do not run background checks for web apps; they get reminders from the new push reminders (above) or the calendar feed (Settings > Calendar), whose events carry alerts a day and two hours before. A reminder shown in the background is not shown again when the app opens.
 - **Settings tabs no longer scroll the page** when you switch between them.
 - **Releases update themselves.** After every passing build on main, the GitHub release (and the website's download link) is rebuilt from the newest commit. A test that only passed in UAE time no longer fails the build on GitHub.
