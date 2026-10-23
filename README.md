@@ -29,7 +29,7 @@ It is built for the **University of Sharjah** (`elearning.sharjah.ac.ae`, `black
 | Part | What it does |
 | :--- | :--- |
 | **Browser extension** | Scans Blackboard, finds deadlines, and shows them in a popup or the browser's side panel. |
-| **Phone app (PWA)** | The same calendar and deadlines on your phone. Installs to the home screen and works offline: mark deadlines done and edit them, and changes sync when you are back online. |
+| **Phone app (PWA)** | The same calendar and deadlines on your phone. Installs to the home screen and works offline: mark deadlines done and edit them, and changes sync when you are back online. Sends deadline reminders, even while closed (iPhone included) once push reminders are set up. |
 | **Calendar feed** | A live `.ics` link for Apple Calendar, Google Calendar or Outlook. |
 
 Data syncs through **Firebase**, each student under their own private sync key. No account or sign-in is needed.
@@ -46,6 +46,7 @@ Data syncs through **Firebase**, each student under their own private sync key. 
 - **Syllabus progress.** For each course, how much of the syllabus weight is done, pending, or not announced yet.
 - **Add deadlines quickly.** The course field lists your courses and narrows as you type. Closing the popup while adding or editing a deadline, or in Settings, reopens right there.
 - **Quick links.** One-tap links to marks, attendance, study plan, library and your own custom links, synced to the phone.
+- **Reminders before deadlines.** The phone app reminds you a set time before each deadline, again shortly before, and when it is due (timings in Settings > Alerts). With push reminders set up on the server ([Hosting Guide](docs/HOSTING_GUIDE.md)), they arrive while the app is closed, on iPhone home screen apps and Android.
 - **Private sync.** Every install gets its own sync key (`BBS-` plus 10 random characters). Changes on the laptop show up on the phone and the other way round.
 - **Dark mode** for the extension, the phone app, and Blackboard itself.
 - **Updates itself from GitHub**, the way a Chrome Web Store extension would (see [Automatic updates](#-automatic-updates)).
@@ -136,7 +137,7 @@ Other hosts: **Vercel** (deploy from the repository root; `api/[...path].js` run
 
 Pushing to `main` updates everything without a store:
 
-- **GitHub Actions** (`.github/workflows/build.yml`) builds, type-checks, lints and tests every push, then commits the generated files (`dist/`, `mobile-web/core.js`, the `version.json` files and the standalone worker).
+- **GitHub Actions** (`.github/workflows/build.yml`) builds, type-checks, lints and tests every push, then commits the generated files (`dist/`, `mobile-web/core.js`, the `version.json` files and the standalone worker). After each passing build, **Release** (`.github/workflows/release.yml`) rebuilds the zips on the latest GitHub release, so the download link always gets the newest version. **Push reminders** (`.github/workflows/push-reminders.yml`) is an hourly backup for the reminder scheduler.
 - **Phone app:** Cloudflare Pages deploys the push. The app notices the new build and reloads into it when you open it or come back to it, never while you are typing.
 - **Extension:** once `update.bat` / `update.sh` has run, the extension checks GitHub every 15 minutes. The helper downloads the new build into the extension folder, and the extension restarts once its popup and side panel are closed. **In a git clone** the helper runs `git pull --ff-only` instead, and only when the clone is on `main` with no uncommitted changes, so it never overwrites your work. Otherwise **Settings** shows why it skipped.
 
