@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=ebd49ba133ca">
+  <link rel="stylesheet" href="./styles.css?v=0e8eebaea5c1">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -1332,30 +1332,30 @@
           <div class="onboarding-step-hero">
             <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-terminal"></use></svg></span>
             <div class="step-hero-content">
-              <h4 class="step-hero-title">1. Install the Chrome Extension</h4>
-              <p class="step-hero-desc">The extension runs on your computer browser to safely parse your registered Blackboard courses and upcoming assignments.</p>
+              <h4 class="step-hero-title">1. Install the Browser Extension</h4>
+              <p class="step-hero-desc">The extension runs in your computer's browser (Chrome, Edge, Brave, Opera or Vivaldi). It reads your Blackboard announcements and gradebook and sends the deadlines to this app.</p>
             </div>
           </div>
           <ol class="onboarding-instructions-list">
             <li>
-              <strong>Unzip the extension:</strong> Download the latest <code>blackboarder-extension.zip</code> and extract it to a folder on your computer.
+              <strong>Unzip it:</strong> Download <code>blackboarder-extension.zip</code> and extract it to a folder you will keep (moving or deleting the folder removes the extension).
             </li>
             <li>
-              <strong>Open Extensions:</strong> In Google Chrome or Microsoft Edge, navigate to <code>chrome://extensions</code> in your address bar.
+              <strong>Open Extensions:</strong> Go to <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>, Brave: <code>brave://extensions</code>).
             </li>
             <li>
-              <strong>Enable Developer mode:</strong> Turn on the <em>Developer mode</em> toggle switch in the top-right corner.
+              <strong>Turn on Developer mode:</strong> Use the switch in the top-right corner (left sidebar in Edge).
             </li>
             <li>
-              <strong>Load unpacked:</strong> Click <em>Load unpacked</em> at the top left, then select the extracted extension folder.
+              <strong>Load unpacked:</strong> Click <em>Load unpacked</em> and pick the extracted folder (the one with <code>manifest.json</code>).
             </li>
             <li>
-              <strong>Pin to toolbar:</strong> Click the puzzle piece icon in Chrome's toolbar and pin <strong>Blackboarder</strong> for one-click access.
+              <strong>Pin it:</strong> Click the puzzle piece icon in the toolbar and pin <strong>Blackboarder</strong>.
             </li>
           </ol>
           <div class="onboarding-note-box">
             <svg class="ui-icon"><use href="#icon-info"></use></svg>
-            <span><strong>Private &amp; Secure:</strong> Blackboarder runs entirely on your device. Your Blackboard password and university login credentials never leave your browser.</span>
+            <span><strong>Private:</strong> You sign in to Blackboard yourself, and your password never leaves your browser. Deadlines sync through your own private space, reachable only with your sync key.</span>
           </div>
         </div>
 
@@ -1364,55 +1364,54 @@
           <div class="onboarding-step-hero">
             <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
             <div class="step-hero-content">
-              <h4 class="step-hero-title">2. Scan Blackboard Ultra Once</h4>
-              <p class="step-hero-desc">Let Blackboarder automatically read your stream to extract deadlines, calculate syllabus weightings, and map lecture rooms.</p>
+              <h4 class="step-hero-title">2. Scan Blackboard</h4>
+              <p class="step-hero-desc">Blackboarder reads your announcements and gradebook and turns them into deadlines, rooms, weights and marks.</p>
             </div>
           </div>
           <ol class="onboarding-instructions-list">
             <li>
-              <strong>Open Blackboard:</strong> Go to <a href="https://elearning.sharjah.ac.ae" target="_blank" rel="noopener">elearning.sharjah.ac.ae</a> and sign in with your student account.
+              <strong>Open Blackboard:</strong> Go to <a href="https://elearning.sharjah.ac.ae" target="_blank" rel="noopener">elearning.sharjah.ac.ae</a> and sign in.
             </li>
             <li>
-              <strong>Click "Scan Blackboard":</strong> A floating blue button will appear at the bottom right. Click it, or click the Blackboarder extension icon and select <em>Scan Now</em>.
+              <strong>Scan:</strong> Click the <em>Scan Blackboard</em> button at the bottom right of the page, or open the extension and click <em>Scan</em> (shortcut <code>Alt+B</code>).
             </li>
             <li>
-              <strong>Automatic Processing:</strong> Blackboarder identifies your active courses (Calculus 1, Physics 1, Intro to Comp, EAP, Islamic Culture, etc.), calculates dynamic syllabus weights (e.g. 10% for Quizzes 1 of 2), and matches your class rooms.
+              <strong>Done automatically:</strong> Your courses are found, each deadline gets its weight from the course syllabus and its room from your schedule, and posted marks are added to their deadlines.
             </li>
           </ol>
           <div class="onboarding-note-box">
             <svg class="ui-icon"><use href="#icon-check"></use></svg>
-            <span><strong>Smart Deduplication:</strong> When professors edit or repost announcements, Blackboarder merges them automatically without cluttering your schedule with duplicates.</span>
+            <span><strong>AI is optional:</strong> The built-in parser reads most announcements. For vague ones, add an AI key in the extension's Settings &gt; Scanning. Models and keys are set only in the extension.</span>
           </div>
         </div>
 
-        <!-- Step 3: Pair Devices (Sync Key) -->
-        <!-- Step 3: Pair Devices (Extension Link) -->
+        <!-- Step 3: Pair this device -->
         <div class="onboarding-step-pane" id="onboarding-step-3" style="display: none;">
           <div class="onboarding-step-hero">
-            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-sync"></use></svg></span>
+            <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-link"></use></svg></span>
             <div class="step-hero-content">
-              <h4 class="step-hero-title">3. Pair Seamlessly via Extension</h4>
-              <p class="step-hero-desc">Keys are generated and secured entirely in your Chrome extension. You never need to type or remember codes manually.</p>
+              <h4 class="step-hero-title">3. Pair This Phone</h4>
+              <p class="step-hero-desc">The extension makes your sync key. Its pairing link connects this phone with no typing.</p>
             </div>
           </div>
-          
+
           <div class="onboarding-pairing-card">
             <div class="onboarding-instructions-list">
               <div class="instruction-row">
                 <span class="instruction-step-num">1</span>
-                <span>In Chrome on your laptop, open the <strong>Blackboarder</strong> extension popup.</span>
+                <span>On your computer, open the <strong>Blackboarder</strong> extension.</span>
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">2</span>
-                <span>Go to <strong>Settings</strong> and click <strong>"Copy Phone Pairing Link"</strong> (or click <em>"Open Mobile App"</em>).</span>
+                <span>Go to <strong>Settings &gt; Sync</strong> and click <strong>Copy Phone Pairing Link</strong>.</span>
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">3</span>
-                <span>Open that unique link on your phone (send it via WhatsApp, AirDrop, or email).</span>
+                <span>Send it to yourself and open it on your phone. It pairs right away.</span>
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">4</span>
-                <span>Your phone pairs instantly and securely with zero manual typing required!</span>
+                <span><strong>Home screen app on iPhone?</strong> It cannot open links, so paste the whole link into <strong>Settings &gt; Personal Sync Key or pairing link</strong> here and tap <strong>Pair Key</strong>.</span>
               </div>
             </div>
             <div id="onboarding-pairing-status" class="onboarding-pairing-status" style="margin-top: 12px; padding: 10px; background: var(--surface-hover); border-radius: 8px;"></div>
@@ -1420,44 +1419,52 @@
 
           <div class="onboarding-note-box">
             <svg class="ui-icon"><use href="#icon-sparkles"></use></svg>
-            <span><strong>Privacy Guarantee:</strong> Your sync code stays locked to your devices. Each student gets their own private cloud partition that nobody else can access.</span>
+            <span><strong>Keep the link to yourself:</strong> It also carries an AI pass that lets this phone use your AI model. Typing only the sync key syncs your deadlines, and pasted announcements then use the built-in parser.</span>
           </div>
         </div>
 
-        <!-- Step 4: Phone & Calendar Integration -->
+        <!-- Step 4: Phone, offline, calendar & widgets -->
         <div class="onboarding-step-pane" id="onboarding-step-4" style="display: none;">
           <div class="onboarding-step-hero">
             <span class="step-hero-icon"><svg class="ui-icon"><use href="#icon-smartphone"></use></svg></span>
             <div class="step-hero-content">
-              <h4 class="step-hero-title">4. Mobile App, Calendar &amp; Widgets</h4>
-              <p class="step-hero-desc">Access your academic deadlines on your phone with full offline caching and lock-screen alerts.</p>
+              <h4 class="step-hero-title">4. Phone App, Offline, Calendar &amp; Widgets</h4>
+              <p class="step-hero-desc">Your deadlines on your phone, with or without internet.</p>
             </div>
           </div>
-          
+
           <div class="onboarding-feature-grid">
             <div class="onboarding-feature-item">
               <div class="feature-item-title">
                 <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
-                <strong>Install PWA on Phone</strong>
+                <strong>Add to Home Screen</strong>
               </div>
-              <p><strong>iOS (Safari):</strong> Tap the <em>Share</em> button at the bottom (box with arrow) &gt; <em>Add to Home Screen</em>.<br>
-              <strong>Android (Chrome):</strong> Tap the 3-dot menu &gt; <em>Add to Home screen</em> / <em>Install</em>.</p>
+              <p><strong>iPhone (Safari):</strong> Tap <em>Share</em> &gt; <em>Add to Home Screen</em>.<br>
+              <strong>Android (Chrome):</strong> Tap the 3-dot menu &gt; <em>Install app</em> or <em>Add to Home screen</em>.</p>
+            </div>
+
+            <div class="onboarding-feature-item">
+              <div class="feature-item-title">
+                <svg class="ui-icon"><use href="#icon-refresh"></use></svg>
+                <strong>Works Offline</strong>
+              </div>
+              <p>Open it once online and it keeps a copy. Offline you can still mark deadlines done, edit, add and delete them; changes sync when you are back online. Pasting announcements needs internet.</p>
             </div>
 
             <div class="onboarding-feature-item">
               <div class="feature-item-title">
                 <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
-                <strong>Live Calendar Subscription</strong>
+                <strong>Live Calendar Feed</strong>
               </div>
-              <p>Subscribe to the WebCal calendar feed in Apple Calendar or Google Calendar so deadlines appear directly alongside your class lectures.</p>
+              <p>Subscribe to the calendar feed (Settings here, or the extension's Settings &gt; Sync) in Apple or Google Calendar to see deadlines next to your classes.</p>
             </div>
 
             <div class="onboarding-feature-item">
               <div class="feature-item-title">
                 <svg class="ui-icon"><use href="#icon-timer"></use></svg>
-                <strong>Lock Screen Widgets</strong>
+                <strong>iPhone Widgets</strong>
               </div>
-              <p>Add the Scriptable widget to see your next upcoming quiz and room number directly on your iPhone lock screen.</p>
+              <p>Use the free Scriptable app to show your next deadline and its room on the Home or Lock Screen. Steps are in Settings &gt; iOS Home &amp; Lock Screen Widgets.</p>
             </div>
           </div>
         </div>
@@ -1476,7 +1483,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=ebd49ba133ca"></script>
-  <script src="./app.js?v=ebd49ba133ca"></script>
+  <script src="./core.js?v=0e8eebaea5c1"></script>
+  <script src="./app.js?v=0e8eebaea5c1"></script>
 </body>
 </html>

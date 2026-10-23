@@ -1007,7 +1007,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"ebd49ba133ca","version":"1.1.0","shortCommit":"cfef666","timestamp":"2026-10-23T11:33:33.618Z"};
+const APP_BUILD = {"build":"0e8eebaea5c1","version":"1.1.0","shortCommit":"12b4d7d","timestamp":"2026-10-23T12:13:12.565Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -4997,12 +4997,12 @@ function setOnboardingStep(step) {
       if (currentKey) {
         statusDiv.innerHTML = `<span style="color: var(--text-main); display: inline-flex; align-items: center; gap: 6px;">
           <span style="display: inline-block; width: 8px; height: 8px; border-radius: 0; background: var(--text-main);"></span>
-          <span>✓ <strong>Device Paired:</strong> Connected to sync code <strong>${escapeHtml(currentKey)}</strong>. Your private cloud deadlines and calendar feed are live!</span>
+          <span>✓ <strong>Paired</strong> with <strong>${escapeHtml(currentKey)}</strong>. Deadlines and the calendar feed are live. ${getAiPass(currentKey) ? 'This phone can use your AI model.' : 'Pasted announcements use the built-in parser until you open the pairing link here.'}</span>
         </span>`;
       } else {
         statusDiv.innerHTML = `<span style="color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
-          <span>Status: <strong>Not Paired</strong>. Open this page via the pairing link from your Chrome extension to connect.</span>
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 0; background: var(--text-muted);"></span>
+          <span>Status: <strong>Not paired</strong>. Open the pairing link from the extension, or paste it in Settings.</span>
         </span>`;
       }
     }

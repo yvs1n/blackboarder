@@ -4568,7 +4568,7 @@ async function initWalkthroughModal() {
     }
 
     if (btnNext) {
-      btnNext.textContent = currentStep === totalSteps ? 'Get Started' : 'Next Step ->';
+      btnNext.textContent = currentStep === totalSteps ? 'Get Started' : 'Next Step →';
     }
   }
 
@@ -4638,6 +4638,11 @@ async function initWalkthroughModal() {
         showToast(`Sync Key: ${key}`);
       }
     }
+  });
+
+  // Same as Settings > Sync > Copy Phone Pairing Link (it carries the AI pass)
+  document.getElementById('btn-wt-copy-pairing-link')?.addEventListener('click', () => {
+    document.getElementById('btn-copy-pairing-link')?.click();
   });
 
   btnReplay?.addEventListener('click', () => {

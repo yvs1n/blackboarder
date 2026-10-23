@@ -1515,7 +1515,7 @@
       <div class="walkthrough-stepper">
         <button type="button" class="walkthrough-step-btn active" data-step="1">
           <span class="wt-step-num">1</span>
-          <span>Sync</span>
+          <span>Phone</span>
         </button>
         <div class="wt-step-line"></div>
         <button type="button" class="walkthrough-step-btn" data-step="2">
@@ -1535,20 +1535,20 @@
       </div>
 
       <div class="walkthrough-body">
-        <!-- Step 1: Auto-Generated Sync Key -->
+        <!-- Step 1: Sync key and phone -->
         <div class="walkthrough-pane active" id="walkthrough-pane-1">
           <div class="walkthrough-hero">
             <div class="walkthrough-hero-icon">
               <svg class="ui-icon"><use href="#icon-smartphone"></use></svg>
             </div>
             <div>
-              <h4 class="walkthrough-hero-title">1. Your Private Cloud Sync Key</h4>
-              <p class="walkthrough-hero-desc">Blackboarder automatically generated a unique key for your device. Your schedule, courses, and marks stay private and isolated.</p>
+              <h4 class="walkthrough-hero-title">1. Your Sync Key and Phone</h4>
+              <p class="walkthrough-hero-desc">Blackboarder made a private sync key for you. Your deadlines, courses and marks sync only to devices that have it.</p>
             </div>
           </div>
 
           <div class="walkthrough-sync-card">
-            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Your Auto-Generated Sync Key</div>
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Your Sync Key</div>
             <div class="walkthrough-key-display">
               <span class="walkthrough-key-value" id="wt-key-display">BBS-XXXX</span>
               <button type="button" class="btn-secondary" id="btn-wt-copy-key" style="font-size: 10.5px; padding: 3px 8px;">
@@ -1556,104 +1556,112 @@
                 <span>Copy</span>
               </button>
             </div>
+            <button type="button" class="btn-outline-action" id="btn-wt-copy-pairing-link" style="margin-top: 8px; width: 100%; justify-content: center; font-size: 11px; padding: 6px 10px;">
+              <svg class="ui-icon mr-1"><use href="#icon-link"></use></svg>
+              <span>Copy Phone Pairing Link</span>
+            </button>
           </div>
 
           <div class="walkthrough-feature-list">
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Phone PWA &amp; Widgets:</strong> Open the pairing link on Safari or Chrome mobile to install the app on your home screen.</span>
+              <span><strong>Phone app:</strong> Open the pairing link on your phone (also in Settings &gt; Sync), then add it to your Home Screen. It works offline.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Live Calendar Feed:</strong> Subscribe natively in Apple Calendar (iOS/Mac) or Google Calendar via WebCal.</span>
+              <span><strong>Keep the link to yourself:</strong> It also lets that phone use your AI model. The sync key alone only syncs deadlines.</span>
+            </div>
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Calendar feed:</strong> Subscribe in Apple or Google Calendar from Settings &gt; Sync.</span>
             </div>
           </div>
         </div>
 
-        <!-- Step 2: 1-Click Blackboard Scanner -->
+        <!-- Step 2: Scan Blackboard -->
         <div class="walkthrough-pane" id="walkthrough-pane-2">
           <div class="walkthrough-hero">
             <div class="walkthrough-hero-icon">
               <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
             </div>
             <div>
-              <h4 class="walkthrough-hero-title">2. Scan Blackboard in 1-Click</h4>
-              <p class="walkthrough-hero-desc">Whenever you log into Blackboard, Blackboarder is ready to extract your schedule automatically.</p>
+              <h4 class="walkthrough-hero-title">2. Scan Blackboard</h4>
+              <p class="walkthrough-hero-desc">Each scan reads your announcements and gradebook.</p>
             </div>
           </div>
 
           <div class="walkthrough-feature-list">
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">1</span>
-              <span>Open <strong>elearning.sharjah.ac.ae</strong> in any tab and sign in.</span>
+              <span>Open <strong>elearning.sharjah.ac.ae</strong> and sign in.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">2</span>
-              <span>Click the floating <strong>"Scan Blackboard"</strong> pill or the <strong>Scan</strong> button in this popup.</span>
+              <span>Click <strong>Scan Blackboard</strong> at the bottom right of the page, or <strong>Scan</strong> in this popup (<strong>Alt+B</strong>).</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">3</span>
-              <span><strong>Auto Course Discovery:</strong> All your enrolled subjects are discovered automatically with unique, vibrant colors.</span>
+              <span><strong>Courses found for you:</strong> each gets its own colour, and reposted or edited announcements are merged, not duplicated.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">4</span>
-              <span><strong>Zero Duplicates:</strong> When professors repost or update announcements, smart deduplication merges them cleanly.</span>
+              <span><strong>AI is optional:</strong> the built-in parser reads most announcements. For vague ones, add a key in Settings &gt; Scanning (OpenRouter, IFM or a custom provider).</span>
             </div>
           </div>
         </div>
 
-        <!-- Step 3: Courses, Colors & Syllabus Settings -->
+        <!-- Step 3: Courses, colours and syllabus -->
         <div class="walkthrough-pane" id="walkthrough-pane-3">
           <div class="walkthrough-hero">
             <div class="walkthrough-hero-icon">
               <svg class="ui-icon"><use href="#icon-settings"></use></svg>
             </div>
             <div>
-              <h4 class="walkthrough-hero-title">3. Customize Courses &amp; Syllabus</h4>
-              <p class="walkthrough-hero-desc">Tailor every subject to your exact schedule and syllabus mark distributions.</p>
+              <h4 class="walkthrough-hero-title">3. Courses and Syllabus</h4>
+              <p class="walkthrough-hero-desc">Weights and rooms come from your courses, so check them once.</p>
             </div>
           </div>
 
           <div class="walkthrough-feature-list">
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Custom Colors:</strong> Click any course in Settings to change its calendar color via the palette or hex picker.</span>
+              <span><strong>Edit a course:</strong> In Settings &gt; Courses, edit any course to change its colour (palette or hex code).</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Class Rooms &amp; Times:</strong> Set your lecture times and room numbers (e.g. A8-103) for automatic exam location filling.</span>
+              <span><strong>Class times and rooms:</strong> Add them (e.g. A8-103) and exams without a room use your class room.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Syllabus Allocations:</strong> Add mark distributions (e.g. 10% Quizzes, 30% Midterm) or paste your course syllabus text for auto-parsing.</span>
+              <span><strong>Syllabus weights:</strong> Add the mark split (e.g. 10% quizzes, 30% midterm) or paste the syllabus text and it is read for you.</span>
             </div>
           </div>
         </div>
 
-        <!-- Step 4: Submissions & Marks Tracking -->
+        <!-- Step 4: Submissions and marks -->
         <div class="walkthrough-pane" id="walkthrough-pane-4">
           <div class="walkthrough-hero">
             <div class="walkthrough-hero-icon">
               <svg class="ui-icon"><use href="#icon-check"></use></svg>
             </div>
             <div>
-              <h4 class="walkthrough-hero-title">4. Track Submissions &amp; Grades</h4>
-              <p class="walkthrough-hero-desc">Never wonder if you submitted an assignment or what marks were posted.</p>
+              <h4 class="walkthrough-hero-title">4. Submissions and Marks</h4>
+              <p class="walkthrough-hero-desc">Every scan also reads your gradebook.</p>
             </div>
           </div>
 
           <div class="walkthrough-feature-list">
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Submission Confirmation:</strong> See green <span class="task-submitted-pill" style="font-size: 10px; padding: 1px 5px;">✓ Submitted</span> badges when you turn in work.</span>
+              <span><strong>Submitted:</strong> Work you turned in shows a <span class="task-submitted-pill" style="font-size: 10px; padding: 1px 5px;">✓ Submitted</span> badge.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Posted Marks:</strong> Scores released by professors appear on your calendar cards as <span class="task-grade-pill" style="font-size: 10px; padding: 1px 5px;">★ Graded: 9.5 / 10</span>.</span>
+              <span><strong>Marks:</strong> Posted marks appear on their deadline, like <span class="task-grade-pill" style="font-size: 10px; padding: 1px 5px;">★ 9.5 / 10</span>.</span>
             </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
-              <span><strong>Built-In Grade Tracker:</strong> View running cumulative scores and GPA predictions across all your enrolled courses.</span>
+              <span><strong>Marks and Syllabus Progress cards:</strong> See every mark by course, newest first, and how much of each course's weight is done, pending or not announced yet.</span>
             </div>
           </div>
         </div>

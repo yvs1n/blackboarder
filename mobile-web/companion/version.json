@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "ebd49ba133ca",
-  "commit": "cfef666cc6acf974eb10de8b1aad4a1b651f26b4",
-  "shortCommit": "cfef666",
-  "timestamp": "2026-10-23T11:33:33.618Z",
-  "message": "Phone app: sync key box gets the room on phones, Pair Key button sizes to its label",
+  "build": "0e8eebaea5c1",
+  "commit": "12b4d7d5479690e655277fcb6bb7b9f8f3823127",
+  "shortCommit": "12b4d7d",
+  "timestamp": "2026-10-23T12:13:12.565Z",
+  "message": "Bring back offline support for the phone app",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }
