@@ -1,0 +1,42 @@
+# Sends deadline reminders to phones while the app is closed. Every 10 minutes it asks the server
+# (POST /api/push/tick) to push any reminder that is due. GitHub can start scheduled runs late,
+# so a reminder may arrive a few minutes after its time.
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   PUSH_TICK_URL     the server's address, for example https://blackboarder.pages.dev
+#   PUSH_TICK_SECRET  the same value as the server's PUSH_TICK_SECRET
+# Without them the run does nothing. See docs/HOSTING_GUIDE.md.
+name: Push reminders
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: push-reminders
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the server to send due reminders
+        env:
+          PUSH_TICK_URL: ${{ secrets.PUSH_TICK_URL }}
+          PUSH_TICK_SECRET: ${{ secrets.PUSH_TICK_SECRET }}
+        run: |
+          if [ -z "$PUSH_TICK_URL" ] || [ -z "$PUSH_TICK_SECRET" ]; then
+            echo "PUSH_TICK_URL or PUSH_TICK_SECRET is not set; nothing to do."
+            exit 0
+          fi
+          # The server stops after a set number of pushes and says "more"; ask again until done
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            body=$(curl -sS --fail-with-body -X POST "${PUSH_TICK_URL%/}/api/push/tick" \
+              -H "x-tick-secret: $PUSH_TICK_SECRET" -H "Content-Type: application/json" -d '{}')
+            echo "$body"
+            echo "$body" | grep -q '"more":true' || break
+          done

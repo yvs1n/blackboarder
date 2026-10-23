@@ -3,6 +3,7 @@
     ".read": false,
     ".write": false,
     "users": {
+      ".indexOn": ["push/count"],
       "$syncKey": {
         ".read": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
         ".write": "$syncKey.length >= 8 && $syncKey.length <= 64 && $syncKey.matches(/^[A-Za-z0-9_-]+$/)",
@@ -11,6 +12,9 @@
         },
         "ai": {
           ".validate": "newData.isString() && newData.val().beginsWith('v1:') && newData.val().length < 4000"
+        },
+        "push": {
+          ".validate": "newData.hasChildren(['count', 'subs']) && newData.child('count').isNumber() && newData.child('count').val() >= 1 && newData.child('count').val() <= 10"
         },
         "$other": {
           ".validate": false

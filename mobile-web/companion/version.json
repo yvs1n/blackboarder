@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "60f31811ebea",
-  "commit": "9ccf5644ccbffe9ba6b7a0813cb0948407f85364",
-  "shortCommit": "9ccf564",
-  "timestamp": "2026-10-23T12:37:40.945Z",
-  "message": "Phone app: split Settings into Sync, Calendar, Alerts and General tabs",
+  "build": "48b11da208d4",
+  "commit": "6f6ca3ea1c6219ef4c1ed470c8ebe52bd6d7ff2a",
+  "shortCommit": "6f6ca3e",
+  "timestamp": "2026-10-23T13:42:50.420Z",
+  "message": "Background reminders, settings tab scroll, CI fix, auto-updating releases",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

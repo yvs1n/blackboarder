@@ -1,5 +1,5 @@
 // Filled in by scripts/build.js; a new build changes this file, so browsers install the new worker
-const BUILD_ID = '60f31811ebea';
+const BUILD_ID = '48b11da208d4';
 const CACHE_NAME = 'blackboarder-web-' + BUILD_ID;
 // Notification schedule lives in its own cache so app updates never wipe it
 const NOTIF_STORE_NAME = 'sidekick-notif-store';
@@ -421,49 +421,69 @@ async function checkDeadlinesInServiceWorker() {
   }
 }
 
-// Push notification received via WebPush server
-self.addEventListener('push', event => {
-  let data = {
-    title: '🚨 Blackboard Deadline Alert',
-    body: 'You have an upcoming university deadline!',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    data: { url: './index.html' }
-  };
-
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      data = { ...data, ...parsed };
-    } catch (e) {
-      data.body = event.data.text();
-    }
+// A reminder sent by the server (POST /api/push/tick) while the app is closed. Every push must show
+// a notification (iPhones stop delivering otherwise). It uses the same tag as the app's own reminder,
+// and when the app or a background check already showed this one, it replaces it quietly.
+async function handlePushMessage(msg) {
+  if (msg && msg.v === 1 && msg.task && msg.task.id && typeof msg.key === 'string') {
+    const task = msg.task;
+    const store = await getStoredTasksForNotifications();
+    const now = Date.now();
+    const already = Boolean((store.notifiedMap || {})[msg.key]);
+    const kind = msg.label === 'due' ? 'due' : (msg.key.includes('_urg_') ? 'urg' : 'adv');
+    const timeRemaining = new Date(task.dueDate).getTime() - now;
+    const { title, body } = formatSwNotification(task, msg.label, isNaN(timeRemaining) ? 0 : timeRemaining);
+    await self.registration.showNotification(title, {
+      body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: `bbs-${kind}-${task.id}`,
+      renotify: false,
+      silent: already,
+      vibrate: already ? undefined : (kind === 'urg' ? [300, 150, 300] : [200, 100, 200]),
+      data: { url: './index.html', taskId: task.id }
+    });
+    await saveStoredTasksForNotifications({ notifiedMap: { [msg.key]: now } });
+    return;
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: data.icon || './icon-192.png',
-      badge: data.badge || './icon-192.png',
-      vibrate: [200, 100, 200],
-      data: data.data || { url: './index.html' },
-      actions: [
-        { action: 'open', title: 'Open Dashboard' }
-      ]
-    })
-  );
+  const data = {
+    title: 'Blackboard Deadline Alert',
+    body: 'You have an upcoming university deadline.',
+    ...(msg && typeof msg === 'object' ? msg : {})
+  };
+  await self.registration.showNotification(String(data.title), {
+    body: String(data.body),
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    vibrate: [200, 100, 200],
+    data: { url: './index.html' }
+  });
+}
+
+self.addEventListener('push', event => {
+  let msg = null;
+  if (event.data) {
+    try {
+      msg = event.data.json();
+    } catch (e) {
+      msg = { body: event.data.text() };
+    }
+  }
+  event.waitUntil(handlePushMessage(msg));
 });
 
-// Notification click: Focus app and open target task
+// Notification click: focus the open app (it is usually at /companion/, not index.html) and open the task
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
   const taskId = event.notification.data && event.notification.data.taskId;
+  const scope = (self.registration && self.registration.scope) || '';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
-        if (client.url.includes('index.html') && 'focus' in client) {
+        if ((scope ? client.url.startsWith(scope) : client.url.includes('/companion/')) && 'focus' in client) {
           if (taskId) {
             client.postMessage({ type: 'OPEN_TASK', taskId });
           }

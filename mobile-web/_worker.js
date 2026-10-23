@@ -439,6 +439,289 @@ function cleanAiMessages(messages) {
   return total <= 20000 ? out : null;
 }
 
+/*
+ * Web Push reminders. Phones (iPhone home screen apps included) cannot run checks while the app is
+ * closed, so the server sends the reminder. Subscriptions live at users/{syncKey}/push, next to that
+ * key's deadlines, and a reminder only ever goes to the subscriptions of the key whose deadline it is.
+ * A scheduler (the "Push reminders" GitHub Action) calls POST /api/push/tick with PUSH_TICK_SECRET.
+ * Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT (made by `node scripts/vapid-keys.js`),
+ * and FIREBASE_AUTH (a database secret) so the tick can find the keys that have subscriptions.
+ * Payloads are encrypted for the phone (RFC 8291), so the push service never sees deadline titles.
+ */
+const PUSH_HOSTS = /^(fcm\.googleapis\.com|android\.googleapis\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)$/;
+const PUSH_MAX_SUBS = 10;
+const PUSH_MAX_PER_SUB = 5;
+const PUSH_SENT_KEEP_MS = 8 * 24 * 3600 * 1000;
+const PUSH_FETCH_BUDGET = 40;
+
+const b64url = (bytes) => b64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = (str) => unb64(String(str).replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((String(str).length + 3) % 4));
+const concatBytes = (...parts) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let i = 0;
+  for (const p of parts) { out.set(p, i); i += p.length; }
+  return out;
+};
+
+function isPushConfigured(env) {
+  return Boolean(env && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
+}
+
+/** A subscription as the browser gives it, kept only when it points at a known push service. */
+function cleanPushSubscription(sub) {
+  if (!sub || typeof sub.endpoint !== 'string' || sub.endpoint.length > 1000) return null;
+  let host;
+  try {
+    const u = new URL(sub.endpoint);
+    if (u.protocol !== 'https:') return null;
+    host = u.hostname;
+  } catch {
+    return null;
+  }
+  if (!PUSH_HOSTS.test(host)) return null;
+  const keys = sub.keys || {};
+  try {
+    if (unb64url(keys.p256dh).length !== 65 || unb64url(keys.auth).length !== 16) return null;
+  } catch {
+    return null;
+  }
+  return { endpoint: sub.endpoint, keys: { p256dh: String(keys.p256dh), auth: String(keys.auth) } };
+}
+
+function cleanPushPrefs(body) {
+  const num = (v, def, max) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 && n <= max ? n : def;
+  };
+  return {
+    advanceHours: num(body && body.advanceHours, 24, 168),
+    urgentHours: num(body && body.urgentHours, 2, 24),
+    dueAlertEnabled: !(body && body.dueAlertEnabled === false)
+  };
+}
+
+async function pushSubId(endpoint) {
+  return (await sha256Hex(endpoint)).slice(0, 24);
+}
+
+function pushStoreUrl(env, syncKey) {
+  const dbUrl = (env && env.SKIP_FIREBASE) ? null : ((env && env.FIREBASE_DB_URL) || FIREBASE_DB_URL);
+  return dbUrl ? `${dbUrl}/users/${syncKey}/push.json` : '';
+}
+
+async function readPush(env, syncKey) {
+  const target = pushStoreUrl(env, syncKey);
+  if (target) {
+    const res = await fetch(target, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`push read failed (${res.status})`);
+    const v = await res.json();
+    return v && typeof v === 'object' ? v : null;
+  }
+  if (env && env.TASKS_KV) {
+    const raw = await env.TASKS_KV.get(`bbs_push_${syncKey}`);
+    return raw ? JSON.parse(raw) : null;
+  }
+  return null;
+}
+
+/** Saves the whole push record, or removes it when no subscription is left. */
+async function writePush(env, syncKey, push) {
+  const subs = (push && push.subs) || {};
+  const count = Object.keys(subs).length;
+  const value = count ? { count, subs, updatedAt: new Date().toISOString() } : null;
+  const target = pushStoreUrl(env, syncKey);
+  if (target) {
+    const res = await fetch(target, value
+      ? { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }
+      : { method: 'DELETE' });
+    if (!res.ok) throw new Error(`push write failed (${res.status})`);
+  }
+  if (env && env.TASKS_KV) {
+    if (value) await env.TASKS_KV.put(`bbs_push_${syncKey}`, JSON.stringify(value));
+    else if (env.TASKS_KV.delete) await env.TASKS_KV.delete(`bbs_push_${syncKey}`);
+  }
+}
+
+/**
+ * Every sync key that has a subscription, with its push record and (from Firebase) its deadlines.
+ * Firebase only answers this with FIREBASE_AUTH, because the rules never let anyone list keys.
+ */
+async function listPushUsers(env) {
+  const dbUrl = (env && env.SKIP_FIREBASE) ? null : ((env && env.FIREBASE_DB_URL) || FIREBASE_DB_URL);
+  if (dbUrl) {
+    if (!env.FIREBASE_AUTH) throw new Error('FIREBASE_AUTH is not set');
+    const q = `orderBy=${encodeURIComponent('"push/count"')}&startAt=1&auth=${encodeURIComponent(env.FIREBASE_AUTH)}`;
+    const res = await fetch(`${dbUrl}/users.json?${q}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`push list failed (${res.status})`);
+    const all = (await res.json()) || {};
+    return Object.entries(all)
+      .filter(([key, v]) => cleanSyncKey(key) === key && v && v.push && v.push.subs)
+      .map(([key, v]) => ({ key, push: v.push, data: v.data || { tasks: [] } }));
+  }
+  if (env && env.TASKS_KV && env.TASKS_KV.list) {
+    const listed = await env.TASKS_KV.list({ prefix: 'bbs_push_' });
+    const out = [];
+    for (const { name } of listed.keys || []) {
+      const key = name.slice('bbs_push_'.length);
+      if (cleanSyncKey(key) !== key) continue;
+      const push = JSON.parse((await env.TASKS_KV.get(name)) || 'null');
+      if (push && push.subs) out.push({ key, push });
+    }
+    return out;
+  }
+  return [];
+}
+
+/** Which reminder a deadline is in for these settings, with the same names the phone uses. */
+function pushReminderFor(task, prefs, now) {
+  if (!task || !task.id || task.status === 'completed') return null;
+  const due = new Date(task.dueDate).getTime();
+  if (isNaN(due)) return null;
+  const left = due - now;
+  const hour = 3600 * 1000;
+  if (prefs.dueAlertEnabled && left <= 0 && left >= -hour) {
+    return { key: `${task.id}_due`, label: 'due' };
+  }
+  if (prefs.urgentHours > 0 && left > 0 && left <= prefs.urgentHours * hour) {
+    const h = prefs.urgentHours;
+    return { key: `${task.id}_urg_${h}h`, label: h < 1 ? `${Math.round(h * 60)}m` : `${h}h` };
+  }
+  if (prefs.advanceHours > 0 && left > Math.max(prefs.urgentHours, 0) * hour && left <= prefs.advanceHours * hour) {
+    const h = prefs.advanceHours;
+    return { key: `${task.id}_adv_${h}h`, label: h >= 24 ? `${Math.round(h / 24)}d` : `${h}h` };
+  }
+  return null;
+}
+
+async function vapidAuthHeader(env, endpoint) {
+  const pub = unb64url(env.VAPID_PUBLIC_KEY);
+  const jwk = { kty: 'EC', crv: 'P-256', d: env.VAPID_PRIVATE_KEY, x: b64url(pub.slice(1, 33)), y: b64url(pub.slice(33, 65)), ext: true };
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const enc = (obj) => b64url(new TextEncoder().encode(JSON.stringify(obj)));
+  const claims = {
+    aud: new URL(endpoint).origin,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+    sub: env.VAPID_SUBJECT || 'mailto:admin@blackboarder.invalid'
+  };
+  const unsigned = `${enc({ typ: 'JWT', alg: 'ES256' })}.${enc(claims)}`;
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(unsigned));
+  return `vapid t=${unsigned}.${b64url(sig)}, k=${env.VAPID_PUBLIC_KEY}`;
+}
+
+async function hkdf(salt, ikm, info, bytes) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, bytes * 8));
+}
+
+/** Encrypts a payload for one subscription (aes128gcm, RFC 8188 and RFC 8291). */
+async function encryptPushPayload(sub, text) {
+  const uaPublic = unb64url(sub.keys.p256dh);
+  const authSecret = unb64url(sub.keys.auth);
+  const local = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', local.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, local.privateKey, 256));
+  const te = new TextEncoder();
+  const ikm = await hkdf(authSecret, shared, concatBytes(te.encode('WebPush: info\0'), uaPublic, asPublic), 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, te.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, te.encode('Content-Encoding: nonce\0'), 12);
+  const aes = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const plain = concatBytes(te.encode(text), new Uint8Array([2]));
+  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aes, plain));
+  const header = new Uint8Array(21);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096);
+  header[20] = asPublic.length;
+  return concatBytes(header, asPublic, cipher);
+}
+
+async function sendWebPush(env, sub, message) {
+  const body = await encryptPushPayload(sub, JSON.stringify(message));
+  return fetch(sub.endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': await vapidAuthHeader(env, sub.endpoint),
+      'Content-Encoding': 'aes128gcm',
+      'Content-Type': 'application/octet-stream',
+      'TTL': '3600',
+      'Urgency': 'high'
+    },
+    body
+  });
+}
+
+/** Only the fields a reminder shows, so a push never carries notes or marks. */
+function pushTaskFields(t) {
+  const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : undefined);
+  return {
+    id: s(t.id, 200), title: s(t.title, 200), dueDate: s(t.dueDate, 40), type: s(t.type, 30),
+    courseName: s(t.courseName, 120), courseCode: s(t.courseCode, 40), room: s(t.room, 80),
+    weight: typeof t.weight === 'number' ? t.weight : undefined
+  };
+}
+
+/**
+ * One pass of the scheduler: for every subscribed key, sends each reminder that is due and not
+ * sent yet, remembers it (keys go through encodeKey, task ids can hold . # $ / [ ]) and drops
+ * subscriptions the push service says are gone. Stops at PUSH_FETCH_BUDGET outgoing requests
+ * (Cloudflare caps them per request) and reports `more`, so the scheduler calls again.
+ */
+async function runPushTick(env, now = Date.now()) {
+  const users = await listPushUsers(env);
+  let budget = PUSH_FETCH_BUDGET;
+  const result = { users: users.length, sent: 0, removed: 0, failed: 0, more: false };
+  for (const user of users) {
+    if (budget <= 1) { result.more = true; break; }
+    const data = user.data || await getStoredTasks(env, user.key);
+    const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    const subs = { ...user.push.subs };
+    let changed = false;
+    for (const [id, stored] of Object.entries(subs)) {
+      const sub = cleanPushSubscription(stored);
+      if (!sub) { delete subs[id]; changed = true; result.removed++; continue; }
+      const prefs = cleanPushPrefs(stored);
+      const sent = {};
+      for (const [k, t] of Object.entries(stored.sent || {})) {
+        if (typeof t === 'number' && now - t < PUSH_SENT_KEEP_MS) sent[k] = t;
+      }
+      if (Object.keys(sent).length !== Object.keys(stored.sent || {}).length) changed = true;
+      let sentHere = 0;
+      for (const task of tasks) {
+        if (sentHere >= PUSH_MAX_PER_SUB) break;
+        const r = pushReminderFor(task, prefs, now);
+        if (!r || sent[encodeKey(r.key)]) continue;
+        if (budget <= 1) { result.more = true; break; }
+        budget--;
+        let res;
+        try {
+          res = await sendWebPush(env, sub, { v: 1, key: r.key, label: r.label, task: pushTaskFields(task) });
+        } catch (e) {
+          result.failed++;
+          continue;
+        }
+        if (res.status === 404 || res.status === 410) {
+          delete subs[id];
+          result.removed++;
+          changed = true;
+          break;
+        }
+        if (!res.ok) { result.failed++; continue; }
+        sent[encodeKey(r.key)] = now;
+        sentHere++;
+        result.sent++;
+        changed = true;
+      }
+      if (subs[id]) subs[id] = { ...stored, sent };
+    }
+    if (changed) {
+      budget--;
+      await writePush(env, user.key, { subs });
+    }
+  }
+  return result;
+}
+
 const KEY_REQUIRED_MESSAGE = 'A sync key is required. Pair this device from Settings in the Blackboarder extension.';
 
 export default {
@@ -651,6 +934,64 @@ export default {
         return jsonResponse({ ok: res.ok, data: resData, status: res.status }, res.ok ? 200 : 502);
       } catch (e) {
         return jsonResponse({ ok: false, error: 'Could not reach the AI provider' }, 502);
+      }
+    }
+
+    // 5d. Web Push reminders (see the Web Push section above)
+    if (request.method === 'GET' && pathname === '/api/push/key') {
+      if (!isPushConfigured(env)) return jsonResponse({ ok: false, error: 'Push reminders are not set up on this server' }, 501);
+      return jsonResponse({ ok: true, publicKey: env.VAPID_PUBLIC_KEY });
+    }
+
+    if (request.method === 'POST' && (pathname === '/api/push/subscribe' || pathname === '/api/push/unsubscribe')) {
+      const body = await request.json().catch(() => ({}));
+      const activeKey = syncKey || cleanSyncKey(body && body.syncKey);
+      if (!activeKey) return jsonResponse({ ok: false, error: KEY_REQUIRED_MESSAGE }, 400);
+      if (isRateLimited(request, activeKey, 10)) {
+        return jsonResponse({ ok: false, error: 'Too many requests. Please slow down.' }, 429);
+      }
+      if (!isPushConfigured(env)) return jsonResponse({ ok: false, error: 'Push reminders are not set up on this server' }, 501);
+      const subscribing = pathname === '/api/push/subscribe';
+      const sub = subscribing ? cleanPushSubscription(body.subscription) : null;
+      const endpoint = subscribing ? (sub && sub.endpoint) : (typeof body.endpoint === 'string' ? body.endpoint : '');
+      if (!endpoint) return jsonResponse({ ok: false, error: 'Invalid push subscription' }, 400);
+      try {
+        const push = (await readPush(env, activeKey)) || {};
+        const subs = { ...(push.subs || {}) };
+        const id = await pushSubId(endpoint);
+        if (subscribing) {
+          // Reminders the phone already showed are marked sent, so they do not arrive twice
+          const sent = { ...((subs[id] && subs[id].sent) || {}) };
+          const reminded = Array.isArray(body.reminded) ? body.reminded.slice(0, 500) : [];
+          for (const k of reminded) if (typeof k === 'string' && k.length <= 300) sent[encodeKey(k)] = Date.now();
+          subs[id] = { ...sub, ...cleanPushPrefs(body), sent, createdAt: (subs[id] && subs[id].createdAt) || new Date().toISOString() };
+          if (Object.keys(subs).length > PUSH_MAX_SUBS) {
+            const oldest = Object.entries(subs).filter(([k]) => k !== id)
+              .sort((a, b) => String(a[1].createdAt).localeCompare(String(b[1].createdAt)))[0];
+            if (oldest) delete subs[oldest[0]];
+          }
+        } else {
+          delete subs[id];
+        }
+        await writePush(env, activeKey, { subs });
+        return jsonResponse({ ok: true, subscribed: subscribing, devices: Object.keys(subs).length });
+      } catch (e) {
+        console.error('Worker: push subscription save failed:', e);
+        return jsonResponse({ ok: false, error: 'Could not save the push subscription' }, 502);
+      }
+    }
+
+    if (request.method === 'POST' && pathname === '/api/push/tick') {
+      const given = request.headers.get('x-tick-secret') || '';
+      if (!env || !env.PUSH_TICK_SECRET || !sameText(given, env.PUSH_TICK_SECRET)) {
+        return jsonResponse({ ok: false, error: 'Invalid tick secret' }, 401);
+      }
+      if (!isPushConfigured(env)) return jsonResponse({ ok: false, error: 'Push reminders are not set up on this server' }, 501);
+      try {
+        return jsonResponse({ ok: true, ...(await runPushTick(env)) });
+      } catch (e) {
+        console.error('Worker: push tick failed:', e);
+        return jsonResponse({ ok: false, error: 'Push tick failed' }, 502);
       }
     }
 

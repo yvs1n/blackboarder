@@ -5,12 +5,12 @@
  * rate limits and the calendar feed behave identically on both hosts. Vercel serves the web app's
  * files itself (see vercel.json); only API requests reach this function.
  *
- * Optional environment variables: FIREBASE_DB_URL, SYNC_SECRET, AI_KEY_SECRET (lets the web app use the extension's AI model; see docs/HOSTING_GUIDE.md).
+ * Optional environment variables: FIREBASE_DB_URL, SYNC_SECRET, AI_KEY_SECRET (lets the web app use the extension's AI model), and FIREBASE_AUTH, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, PUSH_TICK_SECRET (push reminders); see docs/HOSTING_GUIDE.md.
  */
 import pagesWorker from '../mobile-web/_worker.js';
 
 // Request headers the backend reads; everything else stays out of the forwarded request
-const FORWARDED_HEADERS = ['content-type', 'x-sync-key', 'x-sync-secret', 'x-forwarded-for', 'cf-connecting-ip'];
+const FORWARDED_HEADERS = ['content-type', 'x-sync-key', 'x-sync-secret', 'x-tick-secret', 'x-forwarded-for', 'cf-connecting-ip'];
 
 export async function toWorkerRequest(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';
@@ -37,7 +37,12 @@ export default async function handler(req, res) {
   const env = {
     FIREBASE_DB_URL: process.env.FIREBASE_DB_URL,
     SYNC_SECRET: process.env.SYNC_SECRET,
-    AI_KEY_SECRET: process.env.AI_KEY_SECRET
+    AI_KEY_SECRET: process.env.AI_KEY_SECRET,
+    FIREBASE_AUTH: process.env.FIREBASE_AUTH,
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT,
+    PUSH_TICK_SECRET: process.env.PUSH_TICK_SECRET
   };
   const response = await pagesWorker.fetch(await toWorkerRequest(req), env, {});
   res.statusCode = response.status;

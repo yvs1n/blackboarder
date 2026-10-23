@@ -1008,7 +1008,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"60f31811ebea","version":"1.1.0","shortCommit":"9ccf564","timestamp":"2026-10-23T12:37:40.945Z"};
+const APP_BUILD = {"build":"48b11da208d4","version":"1.1.0","shortCommit":"6f6ca3e","timestamp":"2026-10-23T13:42:50.420Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -1290,6 +1290,96 @@ function syncTasksToServiceWorker() {
       reg.active?.postMessage(messageData);
     }).catch(() => {});
   }
+}
+
+// ==========================================================================
+// Server push reminders: the server sends reminders while the app is closed (POST /api/push/tick).
+// The only way an iPhone home screen app gets them. The subscription is saved per sync key.
+// ==========================================================================
+const SERVER_PUSH_STORE = 'bbs_server_push_enabled';
+const SERVER_PUSH_KEY_STORE = 'bbs_server_push_key';
+
+function isServerPushOn() {
+  return localStorage.getItem(SERVER_PUSH_STORE) === 'true';
+}
+
+function base64UrlToBytes(text) {
+  const b64 = String(text).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+  return Uint8Array.from(bin, c => c.charCodeAt(0));
+}
+
+/** Reminders already shown on this phone in the last week, so the server does not send them again. */
+function recentlyRemindedKeys() {
+  let map = {};
+  try { map = JSON.parse(localStorage.getItem('bbs_notified_map') || '{}'); } catch (e) {}
+  const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  return Object.entries(map).filter(([, t]) => typeof t === 'number' && t > weekAgo).map(([k]) => k).slice(0, 500);
+}
+
+async function postPushSubscription(path, body, syncKey = getSyncKey()) {
+  const res = await fetch(`${location.origin}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-sync-key': syncKey },
+    body: JSON.stringify({ ...body, syncKey })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/** Subscribes this phone (or refreshes its settings). Throws with a message the toast can show. */
+async function subscribeServerPush() {
+  if (!getSyncKey()) throw new Error('Pair this phone with the extension first.');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    throw new Error('This browser cannot get push reminders. On iPhone, add the app to your Home Screen first.');
+  }
+  const keyRes = await fetch(`${location.origin}/api/push/key`).catch(() => null);
+  const keyData = keyRes ? await keyRes.json().catch(() => ({})) : {};
+  if (!keyRes || !keyRes.ok || !keyData.publicKey) throw new Error('Push reminders are not set up on this server yet.');
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  // A subscription made with another server key cannot be used; replace it
+  const serverKey = base64UrlToBytes(keyData.publicKey);
+  const ownKey = sub && sub.options && sub.options.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+  if (sub && ownKey && ownKey.join(',') !== serverKey.join(',')) {
+    await sub.unsubscribe().catch(() => {});
+    sub = null;
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
+  // Paired with a new sync key: the old key's deadlines must stop reaching this phone
+  const oldKey = localStorage.getItem(SERVER_PUSH_KEY_STORE);
+  if (oldKey && oldKey !== getSyncKey()) {
+    await postPushSubscription('/api/push/unsubscribe', { endpoint: sub.endpoint }, oldKey).catch(() => {});
+  }
+  await postPushSubscription('/api/push/subscribe', {
+    subscription: sub.toJSON(),
+    advanceHours: getNotifAdvanceHours(),
+    urgentHours: getNotifUrgentHours(),
+    dueAlertEnabled: getNotifDueAlertEnabled(),
+    reminded: recentlyRemindedKeys()
+  });
+  localStorage.setItem(SERVER_PUSH_KEY_STORE, getSyncKey());
+}
+
+async function unsubscribeServerPush() {
+  localStorage.setItem(SERVER_PUSH_STORE, 'false');
+  if (!('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription().catch(() => null) : null;
+  if (!sub) return;
+  const key = localStorage.getItem(SERVER_PUSH_KEY_STORE) || getSyncKey();
+  if (key) await postPushSubscription('/api/push/unsubscribe', { endpoint: sub.endpoint }, key).catch(() => {});
+  localStorage.removeItem(SERVER_PUSH_KEY_STORE);
+  await sub.unsubscribe().catch(() => {});
+}
+
+/** On open and after a timing change: sends the current settings, and a new subscription if the browser replaced it. */
+function refreshServerPush() {
+  if (!isServerPushOn() || isOffline() || !('Notification' in window) || Notification.permission !== 'granted') return;
+  // Disconnected from sync: stop the old key's reminders instead of subscribing
+  if (!getSyncKey()) { unsubscribeServerPush().catch(() => {}); return; }
+  subscribeServerPush().catch(err => console.info('[Push] Could not refresh the push subscription:', err && err.message));
 }
 
 // Background checks while the app is closed. periodicSync lives on the service worker
@@ -3832,11 +3922,60 @@ function initSettings() {
 
   updateNotificationUi();
 
+  const toggleServerPush = document.getElementById('toggle-server-push');
+  const serverPushStatus = document.getElementById('server-push-status');
+  function updateServerPushUi() {
+    if (!toggleServerPush) return;
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    toggleServerPush.checked = supported && isServerPushOn() && Notification.permission === 'granted';
+    toggleServerPush.disabled = !supported;
+    if (serverPushStatus) {
+      serverPushStatus.textContent = !supported
+        ? 'Not supported here. On iPhone, add the app to your Home Screen first.'
+        : (toggleServerPush.checked ? 'On: the server sends reminders while the app is closed' : 'Sent by the server, works on iPhone home screen apps');
+    }
+  }
+  updateServerPushUi();
+  refreshServerPush();
+
+  toggleServerPush?.addEventListener('change', async () => {
+    if (!toggleServerPush.checked) {
+      await unsubscribeServerPush();
+      updateServerPushUi();
+      showToast('Reminders while closed turned off.');
+      return;
+    }
+    if (isOffline()) {
+      toggleServerPush.checked = false;
+      showToast('Connect to the internet to turn this on.');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      toggleServerPush.checked = false;
+      showToast('Notification permission was not granted.');
+      return;
+    }
+    try {
+      localStorage.setItem('bbs_push_enabled', 'true');
+      await subscribeServerPush();
+      localStorage.setItem(SERVER_PUSH_STORE, 'true');
+      updateNotificationUi();
+      syncTasksToServiceWorker();
+      showToast('Reminders while closed are on.');
+    } catch (err) {
+      localStorage.setItem(SERVER_PUSH_STORE, 'false');
+      showToast((err && err.message) || 'Could not turn on reminders while closed.');
+    }
+    updateServerPushUi();
+  });
+
   selAdvance?.addEventListener('change', () => {
     const val = parseFloat(selAdvance.value);
     localStorage.setItem('bbs_notif_advance_hours', String(val));
     updateNotificationUi();
     syncTasksToServiceWorker();
+    refreshServerPush();
     checkUpcomingDeadlines(false);
     showToast(val > 0 ? `Advance reminder set to ${val >= 24 ? val / 24 + ' days' : val + ' hours'} before.` : 'Advance reminder disabled.');
   });
@@ -3846,6 +3985,7 @@ function initSettings() {
     localStorage.setItem('bbs_notif_urgent_hours', String(val));
     updateNotificationUi();
     syncTasksToServiceWorker();
+    refreshServerPush();
     checkUpcomingDeadlines(false);
     showToast(val > 0 ? `Urgent countdown alert set to ${val < 1 ? (val * 60) + ' mins' : val + ' hours'} before.` : 'Urgent alert disabled.');
   });
@@ -3855,6 +3995,7 @@ function initSettings() {
     localStorage.setItem('bbs_notif_due_alert', String(val));
     updateNotificationUi();
     syncTasksToServiceWorker();
+    refreshServerPush();
     checkUpcomingDeadlines(false);
     showToast(val ? 'Due time alert enabled.' : 'Due time alert disabled.');
   });
@@ -3879,6 +4020,9 @@ function initSettings() {
       }
     } else {
       localStorage.setItem('bbs_push_enabled', 'false');
+      // No reminders at all means none from the server either
+      await unsubscribeServerPush();
+      updateServerPushUi();
       updateNotificationUi();
       syncTasksToServiceWorker();
       showToast('Mobile push notifications turned off.');
