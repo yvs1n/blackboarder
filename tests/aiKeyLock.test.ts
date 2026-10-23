@@ -153,6 +153,18 @@ describe('AI pass', () => {
     expect(app).toContain('{ url: `${location.origin}/api/ai/extract`, syncKey, aiPass }');
     expect(app).toContain('localStorage.removeItem(AI_PASS_STORE)');
   });
+
+  it('the sync key box takes a whole pairing link (for iPhone home screen apps) and keeps the pass\'s case', () => {
+    const app = fs.readFileSync('mobile-web/companion/app.js', 'utf8');
+    const src = app.match(/function readPairingInput\(raw\) \{[\s\S]*?\n\}/)![0];
+    const read = new Function('window', `${src}; return readPairingInput;`)({ location: { origin: 'https://blackboarder.pages.dev' } });
+    const link = pairingLink('https://blackboarder.pages.dev/companion/', SYNC, PASS);
+    expect(read(`  ${link}  `)).toEqual({ key: SYNC, pass: PASS });
+    expect(read('bbs-testkey123')).toEqual({ key: SYNC, pass: '' });
+    expect(read('https://blackboarder.pages.dev/companion/?key=BBS-TESTKEY123')).toEqual({ key: SYNC, pass: '' });
+    expect(read('https://x.dev/companion/?key=BBS-TESTKEY123#ai=short')).toEqual({ key: SYNC, pass: '' });
+    expect(fs.readFileSync('mobile-web/companion/index.html', 'utf8')).toMatch(/id="web-sync-key-input"[^>]*maxlength="400"/);
+  });
 });
 
 describe('extension side of the locker', () => {

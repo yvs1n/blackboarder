@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "69fa71c8cec6",
-  "commit": "f7b916bd1db31f0b2361ad3ba14536f6f19ebca3",
-  "shortCommit": "f7b916b",
-  "timestamp": "2026-10-23T10:40:49.051Z",
-  "message": "Parser: understand \"<day> after next\", \"a week from <day>\", \"<day> next week\" (English and Arabic)",
+  "build": "af2581b4bdcc",
+  "commit": "75b6b0040757e8fbdac292e25a8db8721c9352a6",
+  "shortCommit": "75b6b00",
+  "timestamp": "2026-10-23T11:20:20.234Z",
+  "message": "Require an AI pass so the sync key alone cannot use the AI",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

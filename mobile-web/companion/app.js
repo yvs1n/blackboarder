@@ -50,6 +50,26 @@ const AI_PASS_STORE = 'bbs_ai_pass';
   } catch (e) {}
 })();
 
+// The sync key box also takes the whole pairing link, for home screen apps
+// (iPhone) that cannot open links themselves. The pass stays on this device.
+function readPairingInput(raw) {
+  const text = String(raw || '').trim();
+  let key = text;
+  let pass = '';
+  if (/[?#]/.test(text)) {
+    try {
+      const url = new URL(text, window.location.origin);
+      key = url.searchParams.get('key') || '';
+      pass = new URLSearchParams(url.hash.slice(1)).get('ai') || '';
+    } catch (e) {
+      key = '';
+    }
+  }
+  key = key.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(pass)) pass = '';
+  return { key, pass };
+}
+
 function getAiPass(syncKey) {
   try {
     const saved = JSON.parse(localStorage.getItem(AI_PASS_STORE) || 'null');
@@ -985,7 +1005,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"69fa71c8cec6","version":"1.1.0","shortCommit":"f7b916b","timestamp":"2026-10-23T10:40:49.051Z"};
+const APP_BUILD = {"build":"af2581b4bdcc","version":"1.1.0","shortCommit":"75b6b00","timestamp":"2026-10-23T11:20:20.234Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -3517,7 +3537,7 @@ function initSettings() {
     if (aiPassStatus) {
       aiPassStatus.textContent = activeKey && getAiPass(activeKey)
         ? 'This device can use your AI model.'
-        : 'This device uses the built-in parser. To let it use your AI model, open the pairing link from the extension (Settings > Sync > Copy Phone Pairing Link) on it. Typing the sync key alone does not allow AI.';
+        : 'This device uses the built-in parser. To let it use your AI model, open the pairing link from the extension (Settings > Sync > Copy Phone Pairing Link) on it, or paste that whole link into the box above and tap Pair Key. Typing the sync key alone does not allow AI.';
     }
     if (activeKey) {
       if (syncKeyStatus) syncKeyStatus.textContent = `Paired: ${activeKey}`;
@@ -3538,15 +3558,18 @@ function initSettings() {
   updateDevicePairingCard();
 
   btnSaveSyncKey?.addEventListener('click', async () => {
-    const rawVal = inputSyncKey ? inputSyncKey.value.trim().toUpperCase() : '';
+    const rawVal = inputSyncKey ? inputSyncKey.value.trim() : '';
     if (!rawVal) {
       showToast('Please enter a Sync Key from your Chrome extension.');
       return;
     }
-    const clean = rawVal.replace(/[^a-zA-Z0-9_-]/g, '');
+    const { key: clean, pass: pastedPass } = readPairingInput(rawVal);
     if (!clean) {
-      showToast('Invalid key format. Please enter a valid Sync Key.');
+      showToast('Invalid key format. Please enter a valid Sync Key or pairing link.');
       return;
+    }
+    if (pastedPass) {
+      localStorage.setItem(AI_PASS_STORE, JSON.stringify({ key: clean, pass: pastedPass }));
     }
 
     const prevKey = getSyncKey();
@@ -3578,7 +3601,9 @@ function initSettings() {
 
     updateDevicePairingCard();
     activeFeedUrl = updateFeedUrls();
-    showToast(`Device paired with key ${clean}! Fetching deadlines...`);
+    showToast(pastedPass
+      ? `Device paired with key ${clean}, AI on. Fetching deadlines...`
+      : `Device paired with key ${clean}! Fetching deadlines...`);
     await fetchTasksFromServer(true);
     updateAllViews();
   });

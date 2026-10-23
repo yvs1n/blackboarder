@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=69fa71c8cec6">
+  <link rel="stylesheet" href="./styles.css?v=af2581b4bdcc">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -595,9 +595,9 @@
 
           <!-- Manual Key Input Row -->
           <div>
-            <label class="form-label" for="web-sync-key-input" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Personal Sync Key</label>
+            <label class="form-label" for="web-sync-key-input" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Personal Sync Key or pairing link</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="web-sync-key-input" class="mobile-input form-input" placeholder="e.g. BBS-9A2K" maxlength="24" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; flex: 1;">
+              <input type="text" id="web-sync-key-input" class="mobile-input form-input" placeholder="BBS-... or paste the pairing link" maxlength="400" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="font-family: monospace; font-weight: 700; letter-spacing: 0.05em; flex: 1; min-width: 0;">
               <button type="button" id="btn-save-web-sync-key" class="btn-primary-action" style="padding: 8px 14px; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
                 <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-check"></use></svg>
                 <span>Pair Key</span>
@@ -1473,7 +1473,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=69fa71c8cec6"></script>
-  <script src="./app.js?v=69fa71c8cec6"></script>
+  <script src="./core.js?v=af2581b4bdcc"></script>
+  <script src="./app.js?v=af2581b4bdcc"></script>
 </body>
 </html>
