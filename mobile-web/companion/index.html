@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0e8eebaea5c1">
+  <link rel="stylesheet" href="./styles.css?v=d6a03caa6b4f">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -560,382 +560,396 @@
 
     <!-- VIEW 4: Sync & Alerts Settings -->
     <section id="view-settings" class="view-section" role="tabpanel">
-      <!-- Cloud Sync & Extension Linking Card -->
-      <div class="settings-card" id="card-extension-sync-key">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Extension Sync Key</h3>
-              <p class="settings-card-subtitle">Pair your device with your laptop Chrome extension</p>
+      <!-- Settings are split into groups, like the extension. The last group opened is remembered. -->
+      <nav class="settings-group-nav" role="tablist" aria-label="Settings sections">
+        <button type="button" class="filter-chip settings-group-tab active" role="tab" id="settings-group-tab-sync" data-settings-group="sync" aria-controls="settings-group-sync" aria-selected="true" tabindex="0">Sync</button>
+        <button type="button" class="filter-chip settings-group-tab" role="tab" id="settings-group-tab-calendar" data-settings-group="calendar" aria-controls="settings-group-calendar" aria-selected="false" tabindex="-1">Calendar</button>
+        <button type="button" class="filter-chip settings-group-tab" role="tab" id="settings-group-tab-alerts" data-settings-group="alerts" aria-controls="settings-group-alerts" aria-selected="false" tabindex="-1">Alerts</button>
+        <button type="button" class="filter-chip settings-group-tab" role="tab" id="settings-group-tab-general" data-settings-group="general" aria-controls="settings-group-general" aria-selected="false" tabindex="-1">General</button>
+      </nav>
+
+      <div class="settings-group" id="settings-group-sync" data-settings-group="sync" role="tabpanel" aria-labelledby="settings-group-tab-sync">
+        <!-- Cloud Sync & Extension Linking Card -->
+        <div class="settings-card" id="card-extension-sync-key">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Extension Sync Key</h3>
+                <p class="settings-card-subtitle">Pair your device with your laptop Chrome extension</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="form-group" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
-          <!-- Pairing Status Box -->
-          <div id="web-sync-device-status-box" style="padding: 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span id="web-sync-status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block; flex-shrink: 0;"></span>
-                <span id="web-sync-key-status" style="font-size: 13px; font-weight: 600; color: var(--text-main);">Checking pairing status...</span>
+          <div class="form-group" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <!-- Pairing Status Box -->
+            <div id="web-sync-device-status-box" style="padding: 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="web-sync-status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block; flex-shrink: 0;"></span>
+                  <span id="web-sync-key-status" style="font-size: 13px; font-weight: 600; color: var(--text-main);">Checking pairing status...</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button type="button" id="btn-copy-web-sync-key" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; align-items: center; gap: 4px;" title="Copy current sync key">
+                    <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-copy"></use></svg>
+                    <span>Copy Key</span>
+                  </button>
+                  <button type="button" id="btn-disconnect-device" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px;">Disconnect</button>
+                </div>
               </div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <button type="button" id="btn-copy-web-sync-key" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px; align-items: center; gap: 4px;" title="Copy current sync key">
-                  <svg class="ui-icon" style="width: 12px; height: 12px;"><use href="#icon-copy"></use></svg>
-                  <span>Copy Key</span>
+              <p id="web-sync-instruction-text" style="font-size: 11.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+                Keys are generated inside your Chrome extension (under Settings &gt; Personal Sync Key). Enter your code below to link your private cloud bucket, or open via your phone pairing link.
+              </p>
+            </div>
+
+            <!-- Manual Key Input Row -->
+            <div>
+              <label class="form-label" for="web-sync-key-input" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Personal Sync Key or pairing link</label>
+              <div style="display: flex; gap: 8px; align-items: stretch;">
+                <input type="text" id="web-sync-key-input" class="mobile-input form-input" placeholder="BBS-... or pairing link" maxlength="400" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="font-family: monospace; font-weight: 700; letter-spacing: 0.05em; flex: 1 1 auto; min-width: 0; width: auto;">
+                <button type="button" id="btn-save-web-sync-key" class="btn-primary-action" style="flex: 0 0 auto; width: auto; padding: 8px 14px; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
+                  <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-check"></use></svg>
+                  <span>Pair Key</span>
                 </button>
-                <button type="button" id="btn-disconnect-device" class="btn-secondary" style="display: none; padding: 4px 10px; font-size: 11px;">Disconnect</button>
               </div>
             </div>
-            <p id="web-sync-instruction-text" style="font-size: 11.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
-              Keys are generated inside your Chrome extension (under Settings &gt; Personal Sync Key). Enter your code below to link your private cloud bucket, or open via your phone pairing link.
+
+            <p id="web-ai-model-note" style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; margin: 0;">
+              AI model: pasted announcements use the model and key set in the extension (Settings &gt; Scanning), so change them there. The key stays encrypted on your server and never reaches this device. No key? The built-in parser is used automatically.
+              <span id="web-ai-pass-status" style="display: block; margin-top: 4px;"></span>
             </p>
           </div>
+        </div>
 
-          <!-- Manual Key Input Row -->
-          <div>
-            <label class="form-label" for="web-sync-key-input" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Personal Sync Key or pairing link</label>
-            <div style="display: flex; gap: 8px; align-items: stretch;">
-              <input type="text" id="web-sync-key-input" class="mobile-input form-input" placeholder="BBS-... or pairing link" maxlength="400" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="font-family: monospace; font-weight: 700; letter-spacing: 0.05em; flex: 1 1 auto; min-width: 0; width: auto;">
-              <button type="button" id="btn-save-web-sync-key" class="btn-primary-action" style="flex: 0 0 auto; width: auto; padding: 8px 14px; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 5px;">
-                <svg class="ui-icon" style="width: 13px; height: 13px;"><use href="#icon-check"></use></svg>
-                <span>Pair Key</span>
-              </button>
+        <!-- Wi-Fi & Automated Laptop Sync Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Automated Wi-Fi Sync</h3>
+                <p class="settings-card-subtitle">Keeps your phone updated with your laptop extension</p>
+              </div>
             </div>
           </div>
 
-          <p id="web-ai-model-note" style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; margin: 0;">
-            AI model: pasted announcements use the model and key set in the extension (Settings &gt; Scanning), so change them there. The key stays encrypted on your server and never reaches this device. No key? The built-in parser is used automatically.
-            <span id="web-ai-pass-status" style="display: block; margin-top: 4px;"></span>
+          <div class="sync-metrics">
+            <div class="metric-row">
+              <span class="metric-label">Cloud Database:</span>
+              <span class="metric-val" id="metric-firebase-status" style="color: var(--text-main); font-weight: 600;"><svg class="ui-icon" style="margin-right: 4px; color: var(--text-main);"><use href="#icon-check"></use></svg>Firebase (24/7 Active)</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Laptop Extension Sync:</span>
+              <span class="metric-val" id="metric-laptop-sync">Every day at 12:00 AM + on scan</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Last Database Update:</span>
+              <span class="metric-val" id="metric-last-sync">Never</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Network Status:</span>
+              <span class="metric-val" id="metric-network-status">Connected (Wi-Fi)</span>
+            </div>
+          </div>
+
+          <div class="card-action-bar">
+            <button id="btn-force-refresh" class="btn-outline-action" type="button">
+              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-refresh"></use></svg>
+              <span>Force Check for Updates</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group" id="settings-group-calendar" data-settings-group="calendar" role="tabpanel" aria-labelledby="settings-group-tab-calendar" hidden>
+        <!-- Live WebCal Calendar Feed Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-calendar"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Live Calendar Feed (WebCal)</h3>
+                <p class="settings-card-subtitle">Sync to Apple Calendar (iOS) or Google Calendar</p>
+              </div>
+            </div>
+            <span class="info-badge blue">RFC 5545</span>
+          </div>
+
+          <p class="settings-card-desc">
+            Subscribe once on your phone. Apple Calendar and Google Calendar will automatically refresh in the background, displaying lock-screen widgets and native alerts.
           </p>
-        </div>
-      </div>
 
-      <!-- Appearance & Help Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Appearance &amp; Help</h3>
-              <p class="settings-card-subtitle">Theme styling and instructions</p>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" id="btn-settings-theme-toggle" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
-              <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-moon"></use></svg>
-              <span>Toggle Dark / Light Theme</span>
-            </button>
-            <button type="button" id="btn-settings-onboarding" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
-              <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-bolt"></use></svg>
-              <span>View Setup Guide</span>
+          <div class="calendar-action-buttons">
+            <a id="btn-webcal-subscribe" href="#" class="btn-primary-action">
+              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>
+              <span>Subscribe in Apple Calendar</span>
+            </a>
+            <button id="btn-copy-webcal" class="btn-outline-action" type="button">
+              <svg class="ui-icon" id="copy-btn-icon" style="margin-right: 6px;"><use href="#icon-copy"></use></svg>
+              <span id="copy-btn-text">Copy Calendar Feed URL</span>
             </button>
           </div>
 
-          <div>
-            <label class="form-label" for="web-setting-theme" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Theme Preference</label>
-            <select id="web-setting-theme" class="mobile-select" style="width: 100%;">
-              <option value="system">Match System Theme (Default)</option>
-              <option value="light">Light Mode (Classic Academic)</option>
-              <option value="dark">Dark Mode (Focused Night)</option>
-            </select>
+          <div class="feed-url-display">
+            <span class="feed-url-label">Subscription URL:</span>
+            <div class="feed-url-code" id="feed-url-text">Loading feed link...</div>
           </div>
+
+          <!-- Instructions Accordion / Help -->
+          <details class="instructions-details">
+            <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>How to subscribe on iPhone (Apple Calendar)</summary>
+            <div class="instructions-content">
+              <ol class="steps-list">
+                <li>Tap <strong>Subscribe in Apple Calendar</strong> above (or copy the feed URL).</li>
+                <li>iOS will prompt: <em>"Subscribe to calendar?"</em>. Tap <strong>Subscribe</strong>.</li>
+                <li>Set <strong>Auto-Refresh</strong> to <strong>Every Hour</strong> and tap <strong>Add</strong>.</li>
+                <li>All due dates and class times will appear natively on your iOS Calendar and Lock Screen widgets.</li>
+              </ol>
+            </div>
+          </details>
+
+          <details class="instructions-details">
+            <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>How to subscribe on Android / Google Calendar</summary>
+            <div class="instructions-content">
+              <ol class="steps-list">
+                <li>Copy the Calendar Feed URL using the button above.</li>
+                <li>Open <strong>calendar.google.com</strong> in your browser (or desktop).</li>
+                <li>Beside <em>"Other calendars"</em> on the left, click the <strong>+</strong> button and choose <strong>"From URL"</strong>.</li>
+                <li>Paste the copied URL and click <strong>Add calendar</strong>.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <!-- iOS Home & Lock Screen Widgets (Scriptable) Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-schedule"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">iOS Home &amp; Lock Screen Widgets</h3>
+                <p class="settings-card-subtitle">Offline-ready widgets with automatic disk caching</p>
+              </div>
+            </div>
+            <span class="info-badge green">Offline Ready</span>
+          </div>
+
+          <p class="settings-card-desc">
+            Add live interactive widgets to your iPhone Lock Screen and Home Screen (Small &amp; Medium) using the free <strong>Scriptable</strong> iOS app. Works offline by automatically caching your deadlines to local storage whenever connected!
+          </p>
+
+          <div class="calendar-action-buttons">
+            <button id="btn-copy-widget-code" class="btn-primary-action" type="button">
+              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-clipboard"></use></svg>
+              <span id="btn-copy-widget-text">Copy Widget Script</span>
+            </button>
+          </div>
+
+          <!-- Instructions Accordion / Help -->
+          <details class="instructions-details">
+            <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-settings"></use></svg>How to setup on iPhone (Scriptable)</summary>
+            <div class="instructions-content">
+              <ol class="steps-list">
+                <li>Download <strong>Scriptable</strong> from the App Store (free).</li>
+                <li>Tap <strong>Copy Widget Script</strong> above (your Sync Key is automatically included).</li>
+                <li>Open Scriptable, tap <strong>+</strong> to create a new script.</li>
+                <li>Paste the code, rename the script to <strong>Blackboarder</strong>, and tap <strong>Done</strong>.</li>
+                <li>On your iPhone Home Screen or Lock Screen, long-press to enter edit mode, tap <strong>+</strong>, search for <strong>Scriptable</strong>, and add a widget.</li>
+                <li>Tap the widget to edit: select <strong>Blackboarder</strong> as the script. All deadlines, courses, rooms, and pending counters will display seamlessly even when offline without Wi-Fi!</li>
+              </ol>
+            </div>
+          </details>
         </div>
       </div>
 
-      <!-- Push Notifications Toggle Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-bell"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Mobile Push Notifications</h3>
-              <p class="settings-card-subtitle">Receive deadline reminders directly on your phone</p>
+      <div class="settings-group" id="settings-group-alerts" data-settings-group="alerts" role="tabpanel" aria-labelledby="settings-group-tab-alerts" hidden>
+        <!-- Push Notifications Toggle Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-bell"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Mobile Push Notifications</h3>
+                <p class="settings-card-subtitle">Receive deadline reminders directly on your phone</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div class="toggle-control-row">
-          <div class="toggle-text-block">
-            <span class="toggle-main-label" id="notif-toggle-label">Push Alerts</span>
-            <span class="toggle-status-desc" id="notif-permission-status">Checking permission status...</span>
-          </div>
-          <label class="switch" for="toggle-push-notif">
-            <input type="checkbox" id="toggle-push-notif" aria-labelledby="notif-toggle-label">
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <!-- Configurable Notification Timings -->
-        <div class="notification-timings-panel" style="margin-top: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;">
-          <div>
-            <label class="form-label" for="select-notif-advance" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
-              <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
-              <span>Advance Reminder Window</span>
-            </label>
-            <select id="select-notif-advance" class="mobile-select" style="width: 100%;">
-              <option value="48">48 hours before (2 days)</option>
-              <option value="24" selected>24 hours before (1 day - Default)</option>
-              <option value="12">12 hours before</option>
-              <option value="6">6 hours before</option>
-              <option value="0">Disabled (No advance alert)</option>
-            </select>
-            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">First advance warning before submission cutoffs.</span>
-          </div>
-
-          <div>
-            <label class="form-label" for="select-notif-urgent" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
-              <svg class="ui-icon" style="color: var(--accent);"><use href="#icon-urgent"></use></svg>
-              <span>Urgent Countdown Alert</span>
-            </label>
-            <select id="select-notif-urgent" class="mobile-select" style="width: 100%;">
-              <option value="4">4 hours before</option>
-              <option value="2" selected>2 hours before (Default)</option>
-              <option value="1">1 hour before</option>
-              <option value="0.5">30 minutes before</option>
-              <option value="0">Disabled (No countdown alert)</option>
-            </select>
-            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">High-priority alert with vibration as deadline approaches.</span>
-          </div>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm); margin-top: 2px;">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <span style="font-size: 12px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                <svg class="ui-icon" style="color: var(--text-main);"><use href="#icon-clock"></use></svg>
-                <span>Due Time Alert</span>
-              </span>
-              <span style="font-size: 10.5px; color: var(--text-muted);">Notify when due time arrives (0m)</span>
+          
+          <div class="toggle-control-row">
+            <div class="toggle-text-block">
+              <span class="toggle-main-label" id="notif-toggle-label">Push Alerts</span>
+              <span class="toggle-status-desc" id="notif-permission-status">Checking permission status...</span>
             </div>
-            <label class="switch" for="toggle-notif-due">
-              <input type="checkbox" id="toggle-notif-due" checked>
+            <label class="switch" for="toggle-push-notif">
+              <input type="checkbox" id="toggle-push-notif" aria-labelledby="notif-toggle-label">
               <span class="slider round"></span>
             </label>
           </div>
-        </div>
 
-        <div class="notification-timing-notes" id="notification-timing-summary">
-          <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
-            <span id="timing-summary-advance"><strong>24 Hours Before:</strong> Advance reminder for pending submissions.</span>
-          </div>
-          <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon" style="color: var(--accent);"><use href="#icon-urgent"></use></svg></span>
-            <span id="timing-summary-urgent"><strong>2 Hours Before:</strong> Final countdown alert for imminent deadlines.</span>
-          </div>
-          <div class="timing-item">
-            <span class="timing-bullet"><svg class="ui-icon" style="color: var(--text-main);"><use href="#icon-clock"></use></svg></span>
-            <span id="timing-summary-due"><strong>At Due Time:</strong> Immediate alert when due window arrives.</span>
-          </div>
-        </div>
-
-        <p class="settings-card-desc" style="font-size: 11px; margin-top: 10px; margin-bottom: 6px; line-height: 1.4;">
-          <strong>iOS Tip:</strong> On iPhone/iPad, add Blackboarder to your Home Screen (Share &gt; Add to Home Screen) to enable iOS lock-screen push alerts, or subscribe to the Calendar feed below.
-        </p>
-
-        <div class="card-action-bar">
-          <button id="btn-test-notification" class="btn-outline-action" type="button">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-bell"></use></svg>
-            <span>Send Test Notification</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- App Updates Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+          <!-- Configurable Notification Timings -->
+          <div class="notification-timings-panel" style="margin-top: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;">
             <div>
-              <h3 class="settings-card-title">App Updates <span id="app-version-label" style="font-weight: 400; opacity: 0.6; font-size: 12px;"></span></h3>
-              <p class="settings-card-desc" id="app-update-status">Check for the latest version. Your tasks, courses and settings are kept.</p>
+              <label class="form-label" for="select-notif-advance" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                <svg class="ui-icon"><use href="#icon-bolt"></use></svg>
+                <span>Advance Reminder Window</span>
+              </label>
+              <select id="select-notif-advance" class="mobile-select" style="width: 100%;">
+                <option value="48">48 hours before (2 days)</option>
+                <option value="24" selected>24 hours before (1 day - Default)</option>
+                <option value="12">12 hours before</option>
+                <option value="6">6 hours before</option>
+                <option value="0">Disabled (No advance alert)</option>
+              </select>
+              <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">First advance warning before submission cutoffs.</span>
+            </div>
+
+            <div>
+              <label class="form-label" for="select-notif-urgent" style="font-size: 12px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                <svg class="ui-icon" style="color: var(--accent);"><use href="#icon-urgent"></use></svg>
+                <span>Urgent Countdown Alert</span>
+              </label>
+              <select id="select-notif-urgent" class="mobile-select" style="width: 100%;">
+                <option value="4">4 hours before</option>
+                <option value="2" selected>2 hours before (Default)</option>
+                <option value="1">1 hour before</option>
+                <option value="0.5">30 minutes before</option>
+                <option value="0">Disabled (No countdown alert)</option>
+              </select>
+              <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">High-priority alert with vibration as deadline approaches.</span>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--surface-hover); border: 1px solid var(--surface-border); border-radius: var(--radius-sm); margin-top: 2px;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 12px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                  <svg class="ui-icon" style="color: var(--text-main);"><use href="#icon-clock"></use></svg>
+                  <span>Due Time Alert</span>
+                </span>
+                <span style="font-size: 10.5px; color: var(--text-muted);">Notify when due time arrives (0m)</span>
+              </div>
+              <label class="switch" for="toggle-notif-due">
+                <input type="checkbox" id="toggle-notif-due" checked>
+                <span class="slider round"></span>
+              </label>
             </div>
           </div>
-        </div>
-        <div class="card-action-bar">
-          <button id="btn-check-update" class="btn-outline-action" type="button"><span>Check for Updates</span></button>
-          <button id="btn-apply-update" class="btn-outline-action" type="button" hidden><span>Update Now</span></button>
-        </div>
-        <p class="settings-card-desc" style="margin-top: 10px; font-size: 11px;">
-          Built by <a href="https://yassinr.me" target="_blank" rel="noopener noreferrer" style="color: var(--text-main); text-decoration: underline;">Yassin Ragab</a>, a freshman at UOS.
-        </p>
-      </div>
 
-      <!-- Live WebCal Calendar Feed Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-calendar"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Live Calendar Feed (WebCal)</h3>
-              <p class="settings-card-subtitle">Sync to Apple Calendar (iOS) or Google Calendar</p>
+          <div class="notification-timing-notes" id="notification-timing-summary">
+            <div class="timing-item">
+              <span class="timing-bullet"><svg class="ui-icon"><use href="#icon-bolt"></use></svg></span>
+              <span id="timing-summary-advance"><strong>24 Hours Before:</strong> Advance reminder for pending submissions.</span>
+            </div>
+            <div class="timing-item">
+              <span class="timing-bullet"><svg class="ui-icon" style="color: var(--accent);"><use href="#icon-urgent"></use></svg></span>
+              <span id="timing-summary-urgent"><strong>2 Hours Before:</strong> Final countdown alert for imminent deadlines.</span>
+            </div>
+            <div class="timing-item">
+              <span class="timing-bullet"><svg class="ui-icon" style="color: var(--text-main);"><use href="#icon-clock"></use></svg></span>
+              <span id="timing-summary-due"><strong>At Due Time:</strong> Immediate alert when due window arrives.</span>
             </div>
           </div>
-          <span class="info-badge blue">RFC 5545</span>
-        </div>
 
-        <p class="settings-card-desc">
-          Subscribe once on your phone. Apple Calendar and Google Calendar will automatically refresh in the background, displaying lock-screen widgets and native alerts.
-        </p>
+          <p class="settings-card-desc" style="font-size: 11px; margin-top: 10px; margin-bottom: 6px; line-height: 1.4;">
+            <strong>iOS Tip:</strong> On iPhone/iPad, add Blackboarder to your Home Screen (Share &gt; Add to Home Screen) to enable iOS lock-screen push alerts, or subscribe to the calendar feed in Settings &gt; Calendar.
+          </p>
 
-        <div class="calendar-action-buttons">
-          <a id="btn-webcal-subscribe" href="#" class="btn-primary-action">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>
-            <span>Subscribe in Apple Calendar</span>
-          </a>
-          <button id="btn-copy-webcal" class="btn-outline-action" type="button">
-            <svg class="ui-icon" id="copy-btn-icon" style="margin-right: 6px;"><use href="#icon-copy"></use></svg>
-            <span id="copy-btn-text">Copy Calendar Feed URL</span>
-          </button>
-        </div>
-
-        <div class="feed-url-display">
-          <span class="feed-url-label">Subscription URL:</span>
-          <div class="feed-url-code" id="feed-url-text">Loading feed link...</div>
-        </div>
-
-        <!-- Instructions Accordion / Help -->
-        <details class="instructions-details">
-          <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>How to subscribe on iPhone (Apple Calendar)</summary>
-          <div class="instructions-content">
-            <ol class="steps-list">
-              <li>Tap <strong>Subscribe in Apple Calendar</strong> above (or copy the feed URL).</li>
-              <li>iOS will prompt: <em>"Subscribe to calendar?"</em>. Tap <strong>Subscribe</strong>.</li>
-              <li>Set <strong>Auto-Refresh</strong> to <strong>Every Hour</strong> and tap <strong>Add</strong>.</li>
-              <li>All due dates and class times will appear natively on your iOS Calendar and Lock Screen widgets.</li>
-            </ol>
-          </div>
-        </details>
-
-        <details class="instructions-details">
-          <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>How to subscribe on Android / Google Calendar</summary>
-          <div class="instructions-content">
-            <ol class="steps-list">
-              <li>Copy the Calendar Feed URL using the button above.</li>
-              <li>Open <strong>calendar.google.com</strong> in your browser (or desktop).</li>
-              <li>Beside <em>"Other calendars"</em> on the left, click the <strong>+</strong> button and choose <strong>"From URL"</strong>.</li>
-              <li>Paste the copied URL and click <strong>Add calendar</strong>.</li>
-            </ol>
-          </div>
-        </details>
-      </div>
-
-      <!-- iOS Home & Lock Screen Widgets (Scriptable) Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-schedule"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">iOS Home &amp; Lock Screen Widgets</h3>
-              <p class="settings-card-subtitle">Offline-ready widgets with automatic disk caching</p>
-            </div>
-          </div>
-          <span class="info-badge green">Offline Ready</span>
-        </div>
-
-        <p class="settings-card-desc">
-          Add live interactive widgets to your iPhone Lock Screen and Home Screen (Small &amp; Medium) using the free <strong>Scriptable</strong> iOS app. Works offline by automatically caching your deadlines to local storage whenever connected!
-        </p>
-
-        <div class="calendar-action-buttons">
-          <button id="btn-copy-widget-code" class="btn-primary-action" type="button">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-clipboard"></use></svg>
-            <span id="btn-copy-widget-text">Copy Widget Script</span>
-          </button>
-        </div>
-
-        <!-- Instructions Accordion / Help -->
-        <details class="instructions-details">
-          <summary class="instructions-summary"><svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-settings"></use></svg>How to setup on iPhone (Scriptable)</summary>
-          <div class="instructions-content">
-            <ol class="steps-list">
-              <li>Download <strong>Scriptable</strong> from the App Store (free).</li>
-              <li>Tap <strong>Copy Widget Script</strong> above (your Sync Key is automatically included).</li>
-              <li>Open Scriptable, tap <strong>+</strong> to create a new script.</li>
-              <li>Paste the code, rename the script to <strong>Blackboarder</strong>, and tap <strong>Done</strong>.</li>
-              <li>On your iPhone Home Screen or Lock Screen, long-press to enter edit mode, tap <strong>+</strong>, search for <strong>Scriptable</strong>, and add a widget.</li>
-              <li>Tap the widget to edit: select <strong>Blackboarder</strong> as the script. All deadlines, courses, rooms, and pending counters will display seamlessly even when offline without Wi-Fi!</li>
-            </ol>
-          </div>
-        </details>
-      </div>
-
-      <!-- Wi-Fi & Automated Laptop Sync Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Automated Wi-Fi Sync</h3>
-              <p class="settings-card-subtitle">Keeps your phone updated with your laptop extension</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="sync-metrics">
-          <div class="metric-row">
-            <span class="metric-label">Cloud Database:</span>
-            <span class="metric-val" id="metric-firebase-status" style="color: var(--text-main); font-weight: 600;"><svg class="ui-icon" style="margin-right: 4px; color: var(--text-main);"><use href="#icon-check"></use></svg>Firebase (24/7 Active)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Laptop Extension Sync:</span>
-            <span class="metric-val" id="metric-laptop-sync">Every day at 12:00 AM + on scan</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Last Database Update:</span>
-            <span class="metric-val" id="metric-last-sync">Never</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Network Status:</span>
-            <span class="metric-val" id="metric-network-status">Connected (Wi-Fi)</span>
-          </div>
-        </div>
-
-        <div class="card-action-bar">
-          <button id="btn-force-refresh" class="btn-outline-action" type="button">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-refresh"></use></svg>
-            <span>Force Check for Updates</span>
-          </button>
-        </div>
-      </div>
-
-
-
-      <!-- Backup & Data Management Card -->
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <div class="settings-icon-title">
-            <span class="card-icon"><svg class="ui-icon"><use href="#icon-download"></use></svg></span>
-            <div>
-              <h3 class="settings-card-title">Backup &amp; Data Management</h3>
-              <p class="settings-card-subtitle">Export or restore your deadlines and calendar files</p>
-            </div>
-          </div>
-        </div>
-
-        <p class="settings-card-desc">
-          Save an offline JSON snapshot of all your scheduled deadlines or download an RFC 5545 (.ics) file for manual calendar import.
-        </p>
-
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button id="btn-web-backup-json" class="btn-outline-action" type="button" style="justify-content: center;">
-              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-download"></use></svg>
-              <span>Export JSON</span>
-            </button>
-            <button id="btn-web-restore-trigger" class="btn-outline-action" type="button" style="justify-content: center;">
-              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-upload"></use></svg>
-              <span>Restore JSON</span>
+          <div class="card-action-bar">
+            <button id="btn-test-notification" class="btn-outline-action" type="button">
+              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-bell"></use></svg>
+              <span>Send Test Notification</span>
             </button>
           </div>
-          <input type="file" id="input-web-restore-json" accept=".json" style="display: none;">
-          <button id="btn-web-export-ics" class="btn-outline-action" type="button" style="justify-content: center;">
-            <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>
-            <span>Download All (.ics File)</span>
-          </button>
+        </div>
+      </div>
+
+      <div class="settings-group" id="settings-group-general" data-settings-group="general" role="tabpanel" aria-labelledby="settings-group-tab-general" hidden>
+        <!-- Appearance & Help Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-moon"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Appearance &amp; Help</h3>
+                <p class="settings-card-subtitle">Theme styling and instructions</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btn-settings-theme-toggle" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
+                <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-moon"></use></svg>
+                <span>Toggle Dark / Light Theme</span>
+              </button>
+              <button type="button" id="btn-settings-onboarding" class="btn-secondary-action" style="flex: 1; min-width: 140px; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;">
+                <svg class="ui-icon" style="width: 15px; height: 15px;"><use href="#icon-bolt"></use></svg>
+                <span>View Setup Guide</span>
+              </button>
+            </div>
+
+            <div>
+              <label class="form-label" for="web-setting-theme" style="font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block;">Theme Preference</label>
+              <select id="web-setting-theme" class="mobile-select" style="width: 100%;">
+                <option value="system">Match System Theme (Default)</option>
+                <option value="light">Light Mode (Classic Academic)</option>
+                <option value="dark">Dark Mode (Focused Night)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- App Updates Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-refresh"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">App Updates <span id="app-version-label" style="font-weight: 400; opacity: 0.6; font-size: 12px;"></span></h3>
+                <p class="settings-card-desc" id="app-update-status">Check for the latest version. Your tasks, courses and settings are kept.</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-action-bar">
+            <button id="btn-check-update" class="btn-outline-action" type="button"><span>Check for Updates</span></button>
+            <button id="btn-apply-update" class="btn-outline-action" type="button" hidden><span>Update Now</span></button>
+          </div>
+          <p class="settings-card-desc" style="margin-top: 10px; font-size: 11px;">
+            Built by <a href="https://yassinr.me" target="_blank" rel="noopener noreferrer" style="color: var(--text-main); text-decoration: underline;">Yassin Ragab</a>, a freshman at UOS.
+          </p>
+        </div>
+
+        <!-- Backup & Data Management Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-icon-title">
+              <span class="card-icon"><svg class="ui-icon"><use href="#icon-download"></use></svg></span>
+              <div>
+                <h3 class="settings-card-title">Backup &amp; Data Management</h3>
+                <p class="settings-card-subtitle">Export or restore your deadlines and calendar files</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="settings-card-desc">
+            Save an offline JSON snapshot of all your scheduled deadlines or download an RFC 5545 (.ics) file for manual calendar import.
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button id="btn-web-backup-json" class="btn-outline-action" type="button" style="justify-content: center;">
+                <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-download"></use></svg>
+                <span>Export JSON</span>
+              </button>
+              <button id="btn-web-restore-trigger" class="btn-outline-action" type="button" style="justify-content: center;">
+                <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-upload"></use></svg>
+                <span>Restore JSON</span>
+              </button>
+            </div>
+            <input type="file" id="input-web-restore-json" accept=".json" style="display: none;">
+            <button id="btn-web-export-ics" class="btn-outline-action" type="button" style="justify-content: center;">
+              <svg class="ui-icon" style="margin-right: 6px;"><use href="#icon-calendar"></use></svg>
+              <span>Download All (.ics File)</span>
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -1411,7 +1425,7 @@
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">4</span>
-                <span><strong>Home screen app on iPhone?</strong> It cannot open links, so paste the whole link into <strong>Settings &gt; Personal Sync Key or pairing link</strong> here and tap <strong>Pair Key</strong>.</span>
+                <span><strong>Home screen app on iPhone?</strong> It cannot open links, so paste the whole link into the box in <strong>Settings &gt; Sync</strong> here and tap <strong>Pair Key</strong>.</span>
               </div>
             </div>
             <div id="onboarding-pairing-status" class="onboarding-pairing-status" style="margin-top: 12px; padding: 10px; background: var(--surface-hover); border-radius: 8px;"></div>
@@ -1456,7 +1470,7 @@
                 <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
                 <strong>Live Calendar Feed</strong>
               </div>
-              <p>Subscribe to the calendar feed (Settings here, or the extension's Settings &gt; Sync) in Apple or Google Calendar to see deadlines next to your classes.</p>
+              <p>Subscribe to the calendar feed (Settings &gt; Calendar here, or the extension's Settings &gt; Sync) in Apple or Google Calendar to see deadlines next to your classes.</p>
             </div>
 
             <div class="onboarding-feature-item">
@@ -1464,7 +1478,7 @@
                 <svg class="ui-icon"><use href="#icon-timer"></use></svg>
                 <strong>iPhone Widgets</strong>
               </div>
-              <p>Use the free Scriptable app to show your next deadline and its room on the Home or Lock Screen. Steps are in Settings &gt; iOS Home &amp; Lock Screen Widgets.</p>
+              <p>Use the free Scriptable app to show your next deadline and its room on the Home or Lock Screen. Steps are in Settings &gt; Calendar.</p>
             </div>
           </div>
         </div>
@@ -1483,7 +1497,7 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=0e8eebaea5c1"></script>
-  <script src="./app.js?v=0e8eebaea5c1"></script>
+  <script src="./core.js?v=d6a03caa6b4f"></script>
+  <script src="./app.js?v=d6a03caa6b4f"></script>
 </body>
 </html>

@@ -967,6 +967,7 @@ function initApp() {
   updateCourseDatalist();
   initDeadlinesControls();
   initSettings();
+  initSettingsGroups();
   initDaySheet();
   initSelectedDayContainer();
   initOnlineListeners();
@@ -1007,7 +1008,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"0e8eebaea5c1","version":"1.1.0","shortCommit":"12b4d7d","timestamp":"2026-10-23T12:13:12.565Z"};
+const APP_BUILD = {"build":"d6a03caa6b4f","version":"1.1.0","shortCommit":"e95a974","timestamp":"2026-10-23T12:21:29.159Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -4944,6 +4945,48 @@ function closeReadingSheet() {
     modal.style.display = 'none';
     modal.classList.add('hidden');
   }
+}
+
+// ==========================================================================
+// Settings groups (Sync, Calendar, Alerts, General), like the extension's settings pages
+// ==========================================================================
+const SETTINGS_GROUP_KEY = 'bbs_settings_group';
+
+function openSettingsGroup(name, focusTab = false) {
+  const tabs = Array.from(document.querySelectorAll('.settings-group-tab'));
+  if (!tabs.some(t => t.dataset.settingsGroup === name)) name = 'sync';
+  tabs.forEach(t => {
+    const on = t.dataset.settingsGroup === name;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    if (on && focusTab) t.focus();
+  });
+  document.querySelectorAll('.settings-group').forEach(g => {
+    g.hidden = g.dataset.settingsGroup !== name;
+  });
+  try { localStorage.setItem(SETTINGS_GROUP_KEY, name); } catch (e) {}
+}
+
+function initSettingsGroups() {
+  const tabs = Array.from(document.querySelectorAll('.settings-group-tab'));
+  if (tabs.length === 0) return;
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => {
+      openSettingsGroup(tab.dataset.settingsGroup);
+      document.getElementById('view-settings')?.scrollIntoView({ block: 'start' });
+    });
+    tab.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      openSettingsGroup(next.dataset.settingsGroup, true);
+    });
+  });
+  let saved = 'sync';
+  try { saved = localStorage.getItem(SETTINGS_GROUP_KEY) || 'sync'; } catch (e) {}
+  // An unpaired phone always opens on Sync, where pairing happens
+  openSettingsGroup(getSyncKey() ? saved : 'sync');
 }
 
 // ==========================================================================

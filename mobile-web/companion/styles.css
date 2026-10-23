@@ -2928,6 +2928,36 @@ body {
 /* ==========================================================================
    VIEW 4: Cloud Settings, Push Alerts & WebCal
    ========================================================================== */
+/* Settings groups: Sync, Calendar, Alerts, General (one shown at a time) */
+.settings-group-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 0;
+  margin-bottom: 4px;
+  background: var(--bg);
+}
+
+.settings-group-nav .filter-chip {
+  padding: 6px 4px;
+  min-height: 40px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .settings-group-nav {
+    max-width: 520px;
+  }
+}
+
+.settings-group[hidden] {
+  display: none !important;
+}
+
 .settings-card {
   background: var(--surface);
   border: 1px solid var(--surface-border);
