@@ -8,6 +8,7 @@ import { getTasks, saveTasks, addTask, getSettings, saveSettings, saveLastScanCh
 import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTime, compareTasksByTime } from '../utils/calendar';
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { resolveAiEndpoint, normalizeAiBaseUrl, testAiEndpoint, IFM_MODEL } from '../engine/aiProviders';
+import { qrSvg } from '../utils/qrCode';
 import { syncAiKeyLock, getAiLockState, describeAiLock, ensureAiPass, newAiPass, pairingLink } from '../utils/aiKeyLock';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
@@ -3531,6 +3532,32 @@ function setupEvents() {
     } catch {
       prompt('Mobile Pairing Link:', pairUrl);
     }
+  });
+
+  // Pairing QR code: the same link as above, for the phone app's scanner
+  const btnShowPairingQr = document.getElementById('btn-show-pairing-qr');
+  const pairingQrPanel = document.getElementById('pairing-qr-panel');
+  btnShowPairingQr?.addEventListener('click', async () => {
+    if (!pairingQrPanel) return;
+    const label = btnShowPairingQr.querySelector('span');
+    if (!pairingQrPanel.hidden) {
+      pairingQrPanel.hidden = true;
+      btnShowPairingQr.setAttribute('aria-expanded', 'false');
+      if (label) label.textContent = 'Show Pairing QR Code';
+      return;
+    }
+    const aiPass = await ensureAiPass();
+    const settings = await getSettings();
+    if (!settings.syncKey) {
+      showToast('No sync key yet. Open the Sync page again in a moment.');
+      return;
+    }
+    const pairUrl = pairingLink(companionUrl(settings.hostedWebUrl), settings.syncKey, aiPass);
+    const holder = document.getElementById('pairing-qr-code');
+    if (holder) holder.innerHTML = qrSvg(pairUrl, { label: 'Phone pairing QR code' });
+    pairingQrPanel.hidden = false;
+    btnShowPairingQr.setAttribute('aria-expanded', 'true');
+    if (label) label.textContent = 'Hide Pairing QR Code';
   });
 
   async function handleManualSyncToMobile() {

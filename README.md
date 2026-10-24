@@ -13,7 +13,7 @@
   <a href="https://github.com/yvs1n/blackboarder/releases/latest"><img src="https://img.shields.io/badge/Release-Download_ZIP-black?logo=github&logoColor=white" alt="Download Release" /></a>
   <a href="#-quick-start--installation"><img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/PWA-Mobile_Ready-brightgreen?logo=pwa&logoColor=white" alt="PWA" /></a>
-  <a href="#-development"><img src="https://img.shields.io/badge/Tests-504_Passing-success?logo=vitest&logoColor=white" alt="Vitest 504 Passing" /></a>
+  <a href="#-development"><img src="https://img.shields.io/badge/Tests-507_Passing-success?logo=vitest&logoColor=white" alt="Vitest 507 Passing" /></a>
   <a href="#-phone-app-and-calendar"><img src="https://img.shields.io/badge/Calendar-RFC_5545_iCalendar-orange?logo=googlecalendar&logoColor=white" alt="RFC 5545" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-purple" alt="License" /></a>
 </p>
@@ -91,9 +91,9 @@ This registers a small helper that lets the extension update itself whenever a n
 
 The phone app is at **`https://blackboarder.pages.dev/companion/`**. The site root, `blackboarder.pages.dev`, is the project's landing page.
 
-1. In the extension, open **Settings** and click **Copy Phone Pairing Link**.
-2. Open that link on your phone. The app pairs with your sync key and loads your deadlines.
-3. Add it to your home screen: **Share > Add to Home Screen** on iPhone, or **Install app** in Chrome on Android.
+1. Open the phone app and add it to your home screen: **Share > Add to Home Screen** on iPhone, or **Install app** in Chrome on Android.
+2. In the extension, open **Settings > Sync** and click **Show Pairing QR Code**.
+3. In the phone app, tap **Scan QR** (in the Setup Guide or **Settings > Sync**) and point the camera at the code. It pairs with your sync key, AI included, and loads your deadlines. No camera? Click **Copy Phone Pairing Link** instead and open it on the phone, or paste it into the sync key box.
 4. To get deadlines in your calendar, click **Copy WebCal Feed Link** in Settings (or **Subscribe** in the phone app):
    - **Apple Calendar:** opening the `webcal://` link asks to subscribe.
    - **Google Calendar:** on a computer, go to **Other calendars > + > From URL** and paste the `https://.../feed.ics?key=...` link.

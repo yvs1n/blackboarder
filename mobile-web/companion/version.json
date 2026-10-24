@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "45cfe4ded0e0",
-  "commit": "e077d1169eafd097f1174c6d1f213c25435904d8",
-  "shortCommit": "e077d11",
-  "timestamp": "2026-10-23T21:15:26.040Z",
-  "message": "Docs and guides: reminders in README, Setup Guide and landing page",
+  "build": "788c6d5c3713",
+  "commit": "071aded6350f37f77dec471051b4a4962265b51f",
+  "shortCommit": "071aded",
+  "timestamp": "2026-10-24T15:49:38.776Z",
+  "message": "IFM: remove the browser Origin header IFM refuses",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

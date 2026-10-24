@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blackboarder</title>
-  <script type="module" crossorigin src="../../assets/popup-CZ6tWMel.js"></script>
-  <link rel="stylesheet" crossorigin href="../../assets/popup-B-ZNk7dJ.css">
+  <script type="module" crossorigin src="../../assets/popup-Dt3Sr_FM.js"></script>
+  <link rel="stylesheet" crossorigin href="../../assets/popup-DQK1Xl8R.css">
 </head>
 <body>
   <!-- Universal SVG Symbol Sprite (Zero external network dependencies, offline-first) -->
@@ -148,6 +148,12 @@
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
+      </symbol>
+      <symbol id="icon-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+        <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"></path>
       </symbol>
       <symbol id="icon-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -879,6 +885,14 @@
               <svg class="ui-icon mr-1"><use href="#icon-share"></use></svg>
               <span>Copy Phone Pairing Link (?key=...)</span>
             </button>
+            <button type="button" class="btn-outline-action" id="btn-show-pairing-qr" aria-expanded="false" aria-controls="pairing-qr-panel">
+              <svg class="ui-icon mr-1"><use href="#icon-qr"></use></svg>
+              <span>Show Pairing QR Code</span>
+            </button>
+            <div id="pairing-qr-panel" class="pairing-qr-panel" hidden>
+              <div id="pairing-qr-code" class="pairing-qr-code"></div>
+              <p class="pairing-qr-help">On your phone, open the Blackboarder app, go to <strong>Settings &gt; Sync</strong> and tap <strong>Scan QR</strong>. It pairs right away, AI included. The code carries your AI pass, so only show it to your own phone.</p>
+            </div>
             <button type="button" class="btn-outline-action" id="btn-copy-webcal-link">
               <svg class="ui-icon mr-1"><use href="#icon-calendar"></use></svg>
               <span>Copy WebCal Feed Link (Apple/Google Cal)</span>
@@ -1585,6 +1599,10 @@
           </div>
 
           <div class="walkthrough-feature-list">
+            <div class="walkthrough-feature-item">
+              <span class="walkthrough-feature-bullet">✓</span>
+              <span><strong>Scan to pair:</strong> In Settings &gt; Sync, click <strong>Show Pairing QR Code</strong>, then tap <strong>Scan QR</strong> in the phone app. Nothing to copy or type.</span>
+            </div>
             <div class="walkthrough-feature-item">
               <span class="walkthrough-feature-bullet">✓</span>
               <span><strong>Phone app:</strong> Open the pairing link on your phone (also in Settings &gt; Sync), then add it to your Home Screen. It works offline.</span>

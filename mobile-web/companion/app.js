@@ -52,6 +52,121 @@ const AI_PASS_STORE = 'bbs_ai_pass';
 
 // The sync key box also takes the whole pairing link, for home screen apps
 // (iPhone) that cannot open links themselves. The pass stays on this device.
+// ==========================================================================
+// Pairing QR scanner: reads the extension's pairing QR code with the camera
+// ==========================================================================
+const qrScanner = { stream: null, timer: 0, detector: null, canvas: null, busy: false };
+
+function loadQrDecoder() {
+  if (window.BBQrScan) return Promise.resolve(window.BBQrScan);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = './qr-scan.js';
+    s.onload = () => (window.BBQrScan ? resolve(window.BBQrScan) : reject(new Error('QR decoder missing')));
+    s.onerror = () => reject(new Error('QR decoder could not load'));
+    document.head.appendChild(s);
+  });
+}
+
+function setQrStatus(text) {
+  const el = document.getElementById('qr-scan-status');
+  if (el) el.textContent = text;
+}
+
+function stopQrScanner() {
+  clearTimeout(qrScanner.timer);
+  qrScanner.timer = 0;
+  if (qrScanner.stream) qrScanner.stream.getTracks().forEach(t => t.stop());
+  qrScanner.stream = null;
+  const video = document.getElementById('qr-scan-video');
+  if (video) video.srcObject = null;
+  const overlay = document.getElementById('qr-scan-overlay');
+  if (overlay) overlay.hidden = true;
+}
+
+/** Uses the browser's own QR reader when it has one (Android Chrome), otherwise the bundled jsQR. */
+async function readQrFrame(video) {
+  if (!video.videoWidth) return null;
+  if (qrScanner.detector) {
+    const codes = await qrScanner.detector.detect(video);
+    return codes && codes[0] ? codes[0].rawValue : null;
+  }
+  const decoder = await loadQrDecoder();
+  const canvas = qrScanner.canvas || (qrScanner.canvas = document.createElement('canvas'));
+  const scale = Math.min(1, 720 / Math.max(video.videoWidth, video.videoHeight));
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return decoder.decode(img.data, img.width, img.height);
+}
+
+async function openQrScanner() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('This browser cannot use the camera. Paste the pairing link instead.');
+    return;
+  }
+  const overlay = document.getElementById('qr-scan-overlay');
+  const video = document.getElementById('qr-scan-video');
+  if (!overlay || !video) return;
+  overlay.hidden = false;
+  setQrStatus('Starting the camera...');
+  try {
+    qrScanner.detector = null;
+    if (typeof window.BarcodeDetector === 'function' && typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+      const formats = await window.BarcodeDetector.getSupportedFormats().catch(() => []);
+      if (formats.includes('qr_code')) qrScanner.detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    }
+    if (!qrScanner.detector) loadQrDecoder().catch(() => {});
+    qrScanner.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    video.srcObject = qrScanner.stream;
+    await video.play().catch(() => {});
+  } catch (err) {
+    stopQrScanner();
+    const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+    showToast(denied ? 'Camera access was blocked. Allow it in your browser settings, or paste the pairing link.' : 'Could not start the camera. Paste the pairing link instead.');
+    return;
+  }
+  setQrStatus("Point the camera at the code in the extension's Settings > Sync.");
+
+  const tick = async () => {
+    if (!qrScanner.stream) return;
+    let text = null;
+    try {
+      text = await readQrFrame(video);
+    } catch (err) {
+      setQrStatus('Could not read the camera. Paste the pairing link instead.');
+      console.error('[QR] Scan failed:', err);
+    }
+    if (text) {
+      const scanned = readPairingInput(text);
+      if (scanned.key) {
+        stopQrScanner();
+        const input = document.getElementById('web-sync-key-input');
+        if (input) input.value = text.trim();
+        document.getElementById('btn-save-web-sync-key')?.click();
+        return;
+      }
+      setQrStatus("That QR code is not a Blackboarder pairing code. Use the one in the extension's Settings > Sync.");
+    }
+    qrScanner.timer = setTimeout(tick, 200);
+  };
+  tick();
+}
+
+function initQrScanner() {
+  document.getElementById('btn-scan-pairing-qr')?.addEventListener('click', openQrScanner);
+  document.getElementById('btn-onboarding-scan-qr')?.addEventListener('click', openQrScanner);
+  document.getElementById('btn-qr-scan-cancel')?.addEventListener('click', stopQrScanner);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && qrScanner.stream) stopQrScanner();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && qrScanner.stream) stopQrScanner();
+  });
+}
+
 function readPairingInput(raw) {
   const text = String(raw || '').trim();
   let key = text;
@@ -968,6 +1083,7 @@ function initApp() {
   initDeadlinesControls();
   initSettings();
   initSettingsGroups();
+  initQrScanner();
   initDaySheet();
   initSelectedDayContainer();
   initOnlineListeners();
@@ -1008,7 +1124,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"45cfe4ded0e0","version":"1.1.0","shortCommit":"e077d11","timestamp":"2026-10-23T21:15:26.040Z"};
+const APP_BUILD = {"build":"788c6d5c3713","version":"1.1.0","shortCommit":"071aded","timestamp":"2026-10-24T15:49:38.776Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 

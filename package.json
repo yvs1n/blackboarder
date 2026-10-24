@@ -31,6 +31,8 @@
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.5",
     "jsdom": "^29.1.1",
+    "jsqr": "^1.4.0",
+    "qrcode-generator": "^2.0.4",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"

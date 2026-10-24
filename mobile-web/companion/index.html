@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="Blackboarder">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=45cfe4ded0e0">
+  <link rel="stylesheet" href="./styles.css?v=788c6d5c3713">
   <style>
     .hidden, [hidden] { display: none !important; }
     .modal-backdrop.hidden, .modal-backdrop[style*="display: none"] { display: none !important; }
@@ -183,6 +183,12 @@
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
+      </symbol>
+      <symbol id="icon-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+        <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"></path>
       </symbol>
       <symbol id="icon-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -627,6 +633,10 @@
                   <span>Pair Key</span>
                 </button>
               </div>
+              <button type="button" id="btn-scan-pairing-qr" class="btn-secondary qr-scan-trigger">
+                <svg class="ui-icon"><use href="#icon-qr"></use></svg>
+                <span>Scan QR</span>
+              </button>
             </div>
 
             <p id="web-ai-model-note" style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; margin: 0;">
@@ -1446,17 +1456,21 @@
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">2</span>
-                <span>Go to <strong>Settings &gt; Sync</strong> and click <strong>Copy Phone Pairing Link</strong>.</span>
+                <span>Go to <strong>Settings &gt; Sync</strong> and click <strong>Show Pairing QR Code</strong>.</span>
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">3</span>
-                <span>Send it to yourself and open it on your phone. It pairs right away.</span>
+                <span>Tap <strong>Scan QR</strong> below (or in <strong>Settings &gt; Sync</strong> here) and point the camera at the code. It pairs right away.</span>
               </div>
               <div class="instruction-row">
                 <span class="instruction-step-num">4</span>
-                <span><strong>Home screen app on iPhone?</strong> It cannot open links, so paste the whole link into the box in <strong>Settings &gt; Sync</strong> here and tap <strong>Pair Key</strong>.</span>
+                <span><strong>No camera?</strong> Click <strong>Copy Phone Pairing Link</strong> instead and open it on this phone, or paste the whole link into the box in <strong>Settings &gt; Sync</strong> and tap <strong>Pair Key</strong>.</span>
               </div>
             </div>
+            <button type="button" id="btn-onboarding-scan-qr" class="btn-primary-action qr-scan-trigger" style="margin-top: 12px; width: 100%;">
+              <svg class="ui-icon"><use href="#icon-qr"></use></svg>
+              <span>Scan QR</span>
+            </button>
             <div id="onboarding-pairing-status" class="onboarding-pairing-status" style="margin-top: 12px; padding: 10px; background: var(--surface-hover); border-radius: 8px;"></div>
           </div>
 
@@ -1534,7 +1548,17 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="./core.js?v=45cfe4ded0e0"></script>
-  <script src="./app.js?v=45cfe4ded0e0"></script>
+  <!-- Pairing QR scanner -->
+  <div id="qr-scan-overlay" class="qr-scan-overlay" role="dialog" aria-modal="true" aria-labelledby="qr-scan-title" hidden>
+    <div class="qr-scan-box">
+      <h3 id="qr-scan-title" class="qr-scan-title">Scan Pairing QR Code</h3>
+      <div class="qr-scan-frame"><video id="qr-scan-video" playsinline muted autoplay></video></div>
+      <p id="qr-scan-status" class="qr-scan-status" role="status">Point the camera at the code in the extension's Settings &gt; Sync.</p>
+      <button type="button" id="btn-qr-scan-cancel" class="btn-secondary" style="width: 100%;">Cancel</button>
+    </div>
+  </div>
+
+  <script src="./core.js?v=788c6d5c3713"></script>
+  <script src="./app.js?v=788c6d5c3713"></script>
 </body>
 </html>

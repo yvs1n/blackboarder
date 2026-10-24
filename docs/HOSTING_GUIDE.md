@@ -113,9 +113,8 @@ To run the dashboard locally and connect your phone over your home or dorm Wi-Fi
 1. In the Chrome Extension popup, go to **Settings**.
 2. Under **Hosted Web Dashboard URL**, enter your site address (e.g. `https://my-deadlines.pages.dev`). The extension adds `/companion/` for the phone app itself.
 3. Click **"Save Settings"**.
-4. Click **"Copy Phone Pairing Link"**.
-5. Send that link to your phone (via WhatsApp, Telegram, or Email) and tap it.
-6. Your phone opens the web dashboard, automatically pairs with your unique Sync Key, and loads all your current deadlines!
+4. Click **"Show Pairing QR Code"**, open your site's phone app (`/companion/`) on your phone and tap **Scan QR**. Or click **"Copy Phone Pairing Link"**, send it to your phone and tap it.
+5. Your phone pairs with your unique Sync Key and loads all your current deadlines.
 
 ---
 
