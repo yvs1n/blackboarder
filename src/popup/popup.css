@@ -3197,11 +3197,11 @@ body.is-standalone .header {
 }
 
 /* Category colors */
-.ql-cat-attendance { --cat-color: #18181b; --cat-bg: #f4f4f5; }
+.ql-cat-attendance { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
 .ql-cat-study_plan { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
-.ql-cat-marks { --cat-color: #18181b; --cat-bg: #f4f4f5; }
-.ql-cat-portal { --cat-color: #71717a; --cat-bg: #f4f4f5; }
-.ql-cat-other { --cat-color: #475569; --cat-bg: #f1f5f9; }
+.ql-cat-marks { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
+.ql-cat-portal { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
+.ql-cat-other { --cat-color: var(--text-main); --cat-bg: var(--surface-hover); }
 
 .quick-links-modal-card {
   max-width: 440px;
@@ -4534,3 +4534,9 @@ h1, h2, h3 {
 .pairing-qr-code { width: 200px; max-width: 100%; aspect-ratio: 1; line-height: 0; }
 .pairing-qr-code svg { width: 100%; height: 100%; display: block; }
 .pairing-qr-help { margin: 0; font-size: 11px; line-height: 1.4; color: var(--text-muted); text-align: center; }
+
+/* Quick Link icons: line icons in the text colour, no category colours */
+.ql-chip-icon { width: 13px; height: 13px; flex-shrink: 0; color: var(--text-main); }
+.ql-item-icon-box { background: var(--surface-hover); color: var(--text-main); border: 1px solid var(--surface-border); }
+.ql-item-icon-box .ql-icon { width: 16px; height: 16px; }
+.ql-category-badge { background: var(--surface-hover); color: var(--text-muted); }

@@ -82,7 +82,7 @@ This registers a small helper that lets the extension update itself whenever a n
 ### 4. Use it
 
 1. Open Blackboard (for UOS: `https://elearning.sharjah.ac.ae/ultra/stream`).
-2. Click the floating **Scan Blackboard** button, or press **Alt+B** (**Option+Shift+B** on Mac) to open the popup.
+2. Click the floating **Scan Blackboard** button (the lightning bolt at the bottom right), or press **Alt+B** (**Option+Shift+B** on Mac) to open the popup.
 3. To keep Blackboarder open next to the page, open it in the browser's **side panel**.
 
 ---

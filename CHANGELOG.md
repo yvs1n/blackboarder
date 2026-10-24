@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Quick Links use line icons.** Each Quick Link category (Attendance, Study Plan, Marks, Portal, other links) now has its own line icon in the extension and the phone app, instead of an emoji or a coloured dot. Category badges are plain grey, in line with the two-colour design.
+- **The floating Scan Blackboard button is just a lightning bolt.** On Blackboard pages the bottom-right button is now a small square bolt icon with no text (hover for "Scan Blackboard"; it also works with the keyboard). Scan results show the bolt icon instead of an emoji.
+
 ### Added
 
 - **Pair by scanning a QR code.** The extension's Settings > Sync has **Show Pairing QR Code**, and the phone app has **Scan QR** (Settings > Sync and the Setup Guide). Scanning pairs the phone with your sync key and AI pass, with nothing to copy or type, and works in iPhone home screen apps too. The phone uses the browser's own QR reader where there is one (Android) and a bundled reader (jsQR) on iPhone, loaded only when the scanner opens. The QR code carries the AI pass, so only show it to your own phone.

@@ -24,6 +24,7 @@ import { resolveTaskWeight, extractExplicitPoints, extractAssessmentNumber } fro
 import { buildMarksSummary, marksSummaryHtml, marksBadgeText, formatScore } from '../utils/marks';
 import { buildSyllabusProgress, syllabusProgressHtml } from '../utils/syllabusProgress';
 import { buildGpaSummary, gpaSummaryHtml, gpaBadgeText } from '../utils/gpa';
+import { quickLinkMeta, quickLinkIconHtml } from '../utils/quickLinkMeta';
 import {
   sanitizeDoctorAnnouncementText,
   resolveCourseInfo,
@@ -125,6 +126,8 @@ const BBCore = {
   buildGpaSummary,
   gpaSummaryHtml,
   gpaBadgeText,
+  quickLinkMeta,
+  quickLinkIconHtml,
   extractExplicitPoints,
   extractAssessmentNumber,
   sanitizeDoctorAnnouncementText,

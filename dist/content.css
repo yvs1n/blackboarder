@@ -17,10 +17,13 @@
 .bbs-pill-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
+  min-width: 40px;
+  height: 40px;
   background: rgba(24, 24, 28, 0.95);
   color: #f4f4f6;
-  padding: 6px 12px;
+  padding: 0 10px;
   border-radius: 0px;
   cursor: pointer;
   font-weight: 600;
@@ -43,15 +46,40 @@
   transform: translateY(0);
 }
 
+.bbs-pill-btn:focus-visible {
+  outline: 2px solid #f4f4f6;
+  outline-offset: 2px;
+  opacity: 1;
+}
+
 .bbs-pill-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 0px;
-  font-size: 10px;
+}
+
+.bbs-pill-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.bbs-pill-label[hidden] {
+  display: none;
+}
+
+.bbs-toast-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bbs-toast-title svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .bbs-pill-badge {

@@ -645,21 +645,7 @@ function initTheme() {
 // ==========================================================================
 // Academic Quick Links Helpers & Controllers
 // ==========================================================================
-function getQuickLinkCategoryMeta(category) {
-  switch (category) {
-    case 'attendance':
-      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'study_plan':
-      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'marks':
-      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'portal':
-      return { label: 'Portal', icon: '🌐', badgeClass: 'ql-cat-portal', color: '#d97706', bg: '#fef3c7' };
-    case 'other':
-    default:
-      return { label: 'Link', icon: '🔗', badgeClass: 'ql-cat-other', color: '#475569', bg: '#f1f5f9' };
-  }
-}
+const getQuickLinkCategoryMeta = category => BB.quickLinkMeta(category);
 
 function openQuickLinkUrl(rawUrl) {
   let url = (rawUrl || '').trim();
@@ -714,7 +700,7 @@ function renderQuickLinksBar() {
     const meta = getQuickLinkCategoryMeta(link.category);
     return `
       <a class="ql-chip ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
-        <span class="ql-chip-dot" style="background: ${meta.color};"></span>
+        ${BB.quickLinkIconHtml(link.category, 'ql-chip-icon')}
         <span class="ql-chip-label">${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
       </a>
@@ -758,13 +744,13 @@ function renderQuickLinksSchedule() {
     return `
       <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" style="cursor: pointer;">
         <div class="ql-item-left">
-          <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
-            ${meta.icon}
+          <div class="ql-item-icon-box">
+            ${BB.quickLinkIconHtml(link.category)}
           </div>
           <div class="ql-item-info">
             <div class="ql-item-title-row">
               <span class="ql-item-title" title="${escapeHtml(link.title)}">${escapeHtml(link.title)}</span>
-              <span class="ql-category-badge" style="background: ${meta.bg}; color: ${meta.color};">${meta.label}</span>
+              <span class="ql-category-badge">${meta.label}</span>
             </div>
             <span class="ql-item-url" title="${escapeHtml(link.url)}">${escapeHtml(hostname)}</span>
           </div>
@@ -826,13 +812,13 @@ function renderQuickLinksManager() {
     return `
       <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}">
         <div class="ql-item-left">
-          <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
-            ${meta.icon}
+          <div class="ql-item-icon-box">
+            ${BB.quickLinkIconHtml(link.category)}
           </div>
           <div class="ql-item-info">
             <div class="ql-item-title-row">
               <span class="ql-item-title" title="${escapeHtml(link.title)}">${escapeHtml(link.title)}</span>
-              <span class="ql-category-badge" style="background: ${meta.bg}; color: ${meta.color};">${meta.label}</span>
+              <span class="ql-category-badge">${meta.label}</span>
             </div>
             <span class="ql-item-url" title="${escapeHtml(link.url)}">${escapeHtml(hostname)}</span>
           </div>
@@ -1124,7 +1110,7 @@ async function refreshDataInBackground() {
 }
 
 // Filled in by scripts/build.js. The server's version.json describes the deployed build the same way.
-const APP_BUILD = {"build":"788c6d5c3713","version":"1.1.0","shortCommit":"071aded","timestamp":"2026-10-24T15:49:38.776Z"};
+const APP_BUILD = {"build":"cd7bf5e1a43d","version":"1.1.0","shortCommit":"9806ed2","timestamp":"2026-10-24T16:02:17.809Z"};
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 

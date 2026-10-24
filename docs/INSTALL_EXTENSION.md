@@ -47,7 +47,7 @@ Look in the top-right (or left sidebar in Edge) for the **Developer mode** toggl
 2. Find **Blackboarder** and click the **Pin** icon.
 3. Open your university Blackboard stream:
    - For UOS: [https://elearning.sharjah.ac.ae/ultra/stream](https://elearning.sharjah.ac.ae/ultra/stream)
-4. A floating **"Scan Blackboard"** button will appear on the bottom-right. Click it to automatically triage, parse, and categorize all your upcoming assignments, quizzes, and exams.
+4. A floating **Scan Blackboard** button (a lightning bolt) will appear on the bottom-right. Click it to automatically triage, parse, and categorize all your upcoming assignments, quizzes, and exams.
 
 ---
 

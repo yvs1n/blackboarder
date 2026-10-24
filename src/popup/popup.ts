@@ -9,6 +9,7 @@ import { createGoogleCalendarUrl, downloadIcsFile, formatCountdown, formatTaskTi
 import { extractDeadlinesLocally } from '../engine/localExtractor';
 import { resolveAiEndpoint, normalizeAiBaseUrl, testAiEndpoint, IFM_MODEL } from '../engine/aiProviders';
 import { qrSvg } from '../utils/qrCode';
+import { quickLinkMeta, quickLinkIconHtml } from '../utils/quickLinkMeta';
 import { syncAiKeyLock, getAiLockState, describeAiLock, ensureAiPass, newAiPass, pairingLink } from '../utils/aiKeyLock';
 import { parseCourseDetails, sanitizeDoctorAnnouncementText, resolveCourseInfo, isValidTask, findLegacyNamelessTaskIds, matchesSelectedCourseFilter, isBlackboardSystemNoise } from '../core/courseHelper';
 import { getCourseHex, getCourseColorTheme } from '../core/courseColors';
@@ -3732,21 +3733,6 @@ function setupEvents() {
 // ============================================================================
 // Academic Quick Links Logic
 // ============================================================================
-function getQuickLinkCategoryMeta(category: QuickLinkCategory): { label: string; icon: string; badgeClass: string; color: string; bg: string } {
-  switch (category) {
-    case 'attendance':
-      return { label: 'Attendance', icon: '📌', badgeClass: 'ql-cat-attendance', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'study_plan':
-      return { label: 'Study Plan', icon: '📋', badgeClass: 'ql-cat-study_plan', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'marks':
-      return { label: 'Marks', icon: '🏆', badgeClass: 'ql-cat-marks', color: 'var(--text-main)', bg: 'var(--surface-hover)' };
-    case 'portal':
-      return { label: 'Portal', icon: '🌐', badgeClass: 'ql-cat-portal', color: '#d97706', bg: '#fef3c7' };
-    case 'other':
-    default:
-      return { label: 'Link', icon: '🔗', badgeClass: 'ql-cat-other', color: '#475569', bg: '#f1f5f9' };
-  }
-}
 
 function openQuickLinkUrl(rawUrl: string) {
   let url = (rawUrl || '').trim();
@@ -3771,10 +3757,10 @@ function renderQuickLinksBar() {
   }
 
   container.innerHTML = currentQuickLinks.map(link => {
-    const meta = getQuickLinkCategoryMeta(link.category);
+    const meta = quickLinkMeta(link.category);
     return `
       <a class="ql-chip ${meta.badgeClass}" data-id="${escapeHtml(link.id)}" data-url="${escapeHtml(link.url)}" title="${escapeHtml(link.title)} (${escapeHtml(link.url)})">
-        <span class="ql-chip-dot" style="background: ${meta.color};"></span>
+        ${quickLinkIconHtml(link.category, 'ql-chip-icon')}
         <span>${escapeHtml(link.title)}</span>
         <svg class="ql-chip-external-icon"><use href="#icon-external-link"></use></svg>
       </a>
@@ -3804,7 +3790,7 @@ function renderQuickLinksManager() {
   }
 
   listContainer.innerHTML = currentQuickLinks.map(link => {
-    const meta = getQuickLinkCategoryMeta(link.category);
+    const meta = quickLinkMeta(link.category);
     let hostname = '';
     try {
       const parsed = new URL(link.url.startsWith('http') ? link.url : `https://${link.url}`);
@@ -3816,13 +3802,13 @@ function renderQuickLinksManager() {
     return `
       <div class="ql-item-card ${meta.badgeClass}" data-id="${escapeHtml(link.id)}">
         <div class="ql-item-left">
-          <div class="ql-item-icon-box" style="background: ${meta.bg}; color: ${meta.color};">
-            ${meta.icon}
+          <div class="ql-item-icon-box">
+            ${quickLinkIconHtml(link.category)}
           </div>
           <div class="ql-item-info">
             <div class="ql-item-title-row">
               <span class="ql-item-title" title="${escapeHtml(link.title)}">${escapeHtml(link.title)}</span>
-              <span class="ql-category-badge" style="background: ${meta.bg}; color: ${meta.color};">${meta.label}</span>
+              <span class="ql-category-badge">${meta.label}</span>
             </div>
             <span class="ql-item-url" title="${escapeHtml(link.url)}">${escapeHtml(hostname)}</span>
           </div>

@@ -1,10 +1,10 @@
 {
   "version": "1.1.0",
-  "build": "788c6d5c3713",
-  "commit": "071aded6350f37f77dec471051b4a4962265b51f",
-  "shortCommit": "071aded",
-  "timestamp": "2026-10-24T15:49:38.776Z",
-  "message": "IFM: remove the browser Origin header IFM refuses",
+  "build": "cd7bf5e1a43d",
+  "commit": "9806ed27488b8103d4b8d5111cc3ab36f77898e1",
+  "shortCommit": "9806ed2",
+  "timestamp": "2026-10-24T16:02:17.809Z",
+  "message": "Pair the phone by scanning a QR code",
   "repo": "yvs1n/blackboarder",
   "branch": "main"
 }

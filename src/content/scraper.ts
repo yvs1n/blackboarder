@@ -1059,9 +1059,11 @@ function teardownOrphanedContentScript() {
   if (floatingRoot && floatingRoot.dataset.instance === CONTENT_INSTANCE_ID) {
     floatingRoot.style.opacity = '0.7';
     floatingRoot.style.cursor = 'pointer';
-    const span = floatingRoot.querySelector('.bbs-pill-btn span');
-    if (span) {
-      span.textContent = 'Extension updated - reload tab (F5)';
+    // The button is only an icon; this is the one time it needs words
+    const label = floatingRoot.querySelector('.bbs-pill-label') as HTMLElement | null;
+    if (label) {
+      label.textContent = 'Extension updated - reload tab (F5)';
+      label.hidden = false;
     }
 
     floatingRoot.title = 'Extension reloaded. Please refresh the page (F5) to reconnect.';
@@ -1082,7 +1084,7 @@ function showSidekickToast(title: string, message: string, taskCount: number = 0
 
   toast.innerHTML = `
     <div class="bbs-toast-header">
-      <span>⚡ ${title}</span>
+      <span class="bbs-toast-title">${BOLT_SVG}${title}</span>
       <span style="cursor:pointer;opacity:0.6;" id="bbs-toast-close">✕</span>
     </div>
     <div class="bbs-toast-body">${message}</div>
@@ -1123,8 +1125,11 @@ function showSidekickToast(title: string, message: string, taskCount: number = 0
   }, 6000);
 }
 
+// Lightning bolt line icon (the same shape as the extension's icon-bolt)
+const BOLT_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"></path></svg>';
+
 /**
- * Injects the floating quick-scan pill onto Blackboard pages.
+ * Injects the floating quick-scan button (a bolt icon) onto Blackboard pages.
  */
 function injectFloatingButton(onScanClick: () => void) {
   const existing = document.getElementById('bbs-floating-root');
@@ -1138,11 +1143,21 @@ function injectFloatingButton(onScanClick: () => void) {
 
   const btn = document.createElement('div');
   btn.className = 'bbs-pill-btn';
+  btn.setAttribute('role', 'button');
+  btn.setAttribute('tabindex', '0');
+  btn.setAttribute('aria-label', 'Scan Blackboard');
+  btn.title = 'Scan Blackboard';
   btn.innerHTML = `
-    <div class="bbs-pill-icon">⚡</div>
-    <span>Scan Blackboard</span>
+    <span class="bbs-pill-icon">${BOLT_SVG}</span>
+    <span class="bbs-pill-label" hidden></span>
     <span class="bbs-pill-badge" id="bbs-floating-badge" style="display:none">0</span>
   `;
+  btn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      btn.click();
+    }
+  });
 
   btn.addEventListener('click', () => {
     if (!isExtensionContextValid()) {
